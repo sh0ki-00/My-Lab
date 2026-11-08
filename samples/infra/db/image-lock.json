@@ -1,0 +1,72 @@
+{
+  "_comment": "DB の像の正本（第 15 回）。守りの口座の関数 event_watch.py が、押し込まれた像の層を開いて、この値と今の main の file に照らす。土台の層の値は架空（未確定 10）。持ち主はセキュリティ（/infra/）。 第 16 回: config は像の全部の欄を照らす（Env、ExposedPorts、Volumes、StopSignal を含む。lock に無い欄が像にあれば ng）。Env の値も土台の版に合わせた架空の値（未確定 10）。",
+  "db-bootstrap": {
+    "base": "postgres@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "base_layers": [
+      "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    ],
+    "files": {
+      "app/roles.sql": "infra/db/roles.sql"
+    },
+    "config": {
+      "Entrypoint": [
+        "/bin/sh",
+        "-c",
+        "PGPASSWORD=\"$DB_ADMIN_CREDENTIAL\" exec psql -X -q -v ON_ERROR_STOP=1 -h \"$DB_HOST\" -U \"$DB_ADMIN_USER\" -d \"$DB_NAME\" -f /app/roles.sql"
+      ],
+      "Cmd": null,
+      "User": "10001",
+      "WorkingDir": "/app",
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "GOSU_VERSION=1.17",
+        "LANG=en_US.utf8",
+        "PG_MAJOR=17",
+        "PG_VERSION=17.0",
+        "PGDATA=/var/lib/postgresql/data"
+      ],
+      "ExposedPorts": {
+        "5432/tcp": {}
+      },
+      "Volumes": {
+        "/var/lib/postgresql/data": {}
+      },
+      "StopSignal": "SIGINT"
+    }
+  },
+  "db-migrate": {
+    "base": "postgres@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "base_layers": [
+      "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    ],
+    "files": {
+      "app/migrate-run.sh": "infra/db/migrate-run.sh"
+    },
+    "dirs": {
+      "migrations/": "infra/db/migrations/"
+    },
+    "config": {
+      "Entrypoint": [
+        "/app/migrate-run.sh"
+      ],
+      "Cmd": null,
+      "User": "10001",
+      "WorkingDir": "/app",
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "GOSU_VERSION=1.17",
+        "LANG=en_US.utf8",
+        "PG_MAJOR=17",
+        "PG_VERSION=17.0",
+        "PGDATA=/var/lib/postgresql/data"
+      ],
+      "ExposedPorts": {
+        "5432/tcp": {}
+      },
+      "Volumes": {
+        "/var/lib/postgresql/data": {}
+      },
+      "StopSignal": "SIGINT"
+    }
+  }
+}

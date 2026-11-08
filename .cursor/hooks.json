@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "bash hooks/cursor-before-shell.sh",
+        "failClosed": true,
+        "timeout": 20
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "bash hooks/cursor-after-edit.sh",
+        "timeout": 120
+      }
+    ],
+    "stop": [
+      {
+        "command": "bash hooks/cursor-stop.sh",
+        "timeout": 600,
+        "loop_limit": 3
+      }
+    ]
+  }
+}

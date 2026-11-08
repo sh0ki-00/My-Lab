@@ -1,0 +1,90 @@
+# 画面の束を作り、束の中の file ごとの指紋に作りの来歴の署名を付ける手順。AWS の資格は持たない（どの役割の信頼もこの workflow を名指ししない）。
+#   作る job と署名する job を分ける。npm ci と npm run build（部品のコードが動く）は作る job だけで動き、その job は札（id-token）を持たない。
+#   作る job は網の無い使い捨ての容器で npm run build を動かす（第 16 回）。部品と scripts が作る間に外から取る物は全部落ちる。
+#     容器にはダイジェストの node の像と web/ の写しだけを渡し、外へ出すのは dist だけにする。部品のコードは機械の file（後の step の
+#     upload-artifact の本体、$RUNNER_TEMP の命令）に届かないので、網のある後の step を書き換えて外の物を束に足す道を閉じる。
+#     前の作り（同じ機械で同じ利用者の unshare --net）は、網は閉じたが、後の step の file を書き換えられた（第 16 回の審査）。
+#   署名する job は部品を動かさず、作る job の束を受け取って指紋を数え、来歴を 1 つだけ付ける。悪い部品が作る job の中で
+#   static-build.yml@main の署名を任意の指紋に付ける道を閉じる（部品は札に届かない）。
+#   署名する job は外の部品で束を落とさない。札（id-token）を持つ job で動く外の部品は attest-build-provenance の 1 つだけで、束は
+#   機械に入っている gh（GitHub の機械の一部。信頼の根の前提）で落とす。download-artifact の悪い版が、署名の前に束を差し替える道を閉じる。
+#   attest-build-provenance は組み立ての型（composite）で、中で別の部品を呼ぶ。中の uses も 40 桁の SHA であることを deps-diff が
+#   固定した SHA の action.yml を取って確かめる（--uses-remote）。中の部品が束を上げ直すか任意の指紋に署名を足しても、配る job が
+#   「作る job の終わる前に作られた 1 つの束」と「この実行の 1 つの署名の主語 = 束の全部の file」を確かめて止める（static-deploy.yml）。
+#   配る job（static-deploy.yml）も同じ gh で落とし、署名する job と同じ外の部品を使わない（1 つの悪い版が 2 つの job で動く道を閉じる）。
+#   来歴の主語は file ごと（名前はバケットのキーと同じ相対パス、指紋は SHA-256）。来歴には実行の番号（runDetails）が入る。
+#   照らしの正は CI の外にある。守りの口座の画面の照らし（security/functions/static_watch.py）が、バケットへの書き込みのたびに、
+#   署名した workflow がこの file で、今の版が main の最後に成功した実行の来歴であることを確かめる。
+#   配る workflow（static-deploy.yml）は別の file にした。来歴の署名は workflow の file で決まるので、配る job の資格や部品ではこの署名を作れない。
+#   作る機械は GitHub の機械（ubuntu-24.04）だけで、信頼の根の前提に置く（設計書の信頼の根）。
+#   使う Actions の部品は 40 桁の SHA で固定した物だけ（架空の SHA。本物への置き換えは未確定 7）。
+name: static-build
+on:
+  push:
+    branches: [main]
+    paths: ["web/**"]
+permissions:
+  contents: read
+concurrency:
+  group: static-build-main
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001
+        with:
+          persist-credentials: false
+      - name: Fetch the locked packages without install scripts
+        working-directory: web
+        run: |
+          set -eu
+          npm ci --ignore-scripts
+      - name: Take the build image by digest before the build
+        run: |
+          set -eu
+          docker pull node@sha256:2222222222222222222222222222222222222222222222222222222222222222
+      - name: Build in a throwaway container with no network
+        run: |
+          set -eu
+          # 作る間は網に出ない。入る物は lock の指紋で固めた node_modules と、ダイジェストの node の像だけ。
+          # 容器に渡すのは web/ の写しだけで、機械の _actions と $RUNNER_TEMP の file は容器の外にある。
+          rm -rf "${RUNNER_TEMP}/build-src"
+          cp -a web "${RUNNER_TEMP}/build-src"
+          docker run --rm --network=none --user "$(id -u):$(id -g)" -v "${RUNNER_TEMP}/build-src:/w" -w /w node@sha256:2222222222222222222222222222222222222222222222222222222222222222 npm run build
+          # 外へ出すのは dist の普通の file とディレクトリだけ。リンクと特別な file があれば落とす（機械の file を束へ引き込ませない）。
+          test -z "$(find "${RUNNER_TEMP}/build-src/dist" ! -type f ! -type d -print -quit)"
+          rm -rf web/dist
+          cp -R "${RUNNER_TEMP}/build-src/dist" web/dist
+      - name: Report a build that tried to reach the network
+        if: failure()
+        run: echo "::error title=作る job の失敗::網の無い作りが落ちた。外から取る物が入っていないかを、セキュリティが差分で確かめる"
+      - uses: actions/upload-artifact@0000000000000000000000000000000000000005
+        with:
+          name: site
+          path: web/dist
+  attest:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      # 資格を借りる job の run は、tools/ci/cred-steps.sh を取る 1 行と呼ぶ 1 行だけ（第 16 回）。束は機械の gh で落とし、中の file は動かさない。
+      - name: Take the credential steps from main with the runner's gh, not with checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY}/contents/tools/ci/cred-steps.sh?ref=${GITHUB_SHA}" > "${RUNNER_TEMP}/cred-steps.sh"
+      - name: Download the bundle and list every file and its SHA-256 as the attestation subjects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" site-subjects
+      - uses: actions/attest-build-provenance@0000000000000000000000000000000000000004
+        with:
+          subject-checksums: ${{ runner.temp }}/subjects.txt

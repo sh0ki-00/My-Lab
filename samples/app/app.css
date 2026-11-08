@@ -1,0 +1,205 @@
+/* samples/app/app.css — デザイン計画書「管理画面の注文一覧」の見本。
+   店の名前とメニューは上の細い帯、保存ビューは紙面の上の縁の付箋のタブ、表は縦横の罫線と等幅の数字の帳簿にする。
+   群の見出しは地の帯と下の墨の線 1 本の節の見出し、開いた注文は紙面の右に並べた伝票にする。検索とチップは下線の記入欄、ボタンだけが箱。
+   色・大きさ・余白・書体・時間は tokens.css の変数だけで描く。生の値は 0 と 1px の罫線、強制カラーの Highlight だけ。省略するのは氏名だけ。 */
+* { box-sizing: border-box; }
+html { font-family: var(--font-text); font-size: var(--size-body); line-height: var(--leading); color: var(--text); background: var(--paper); scroll-padding-top: calc(var(--bar-height) + var(--row-height) * 2); scroll-padding-bottom: var(--bar-height); }
+body { margin: 0; }
+a { color: var(--indigo); }
+:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip { position: absolute; left: var(--space-2); top: var(--space-2); z-index: 9; display: inline-flex; align-items: center; height: var(--control-height); padding: 0 var(--space-3); background: var(--sheet); transform: translateY(-200%); }
+.skip:focus { transform: none; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+button { font: inherit; color: var(--text); cursor: pointer; }
+.btn { display: inline-flex; align-items: center; gap: var(--space-2); height: var(--control-height); padding: 0 var(--space-3); background: var(--surface-control); border: 1px solid var(--input-border); border-radius: var(--radius-control); }
+.btn.primary { color: var(--on-fill-primary); background: var(--fill-primary); border-color: var(--fill-primary); font-weight: var(--weight-bold); }
+
+/* 上の細い帯。店の名前、メニュー、利用者を 1 段に並べ、浮いた幅を帳簿に回す。今いる項目は下の端の墨の線 */
+.topbar { background: var(--paper); border-bottom: 1px solid var(--table-line); }
+.nav-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-4); max-width: var(--desk-max); margin: 0 auto; padding: 0 var(--space-4); }
+.nav .menu-open { display: none; }
+.shop { display: flex; align-items: center; min-height: var(--control-height); color: var(--text); text-decoration: none; }
+.shop-name { display: flex; align-items: baseline; gap: var(--space-2); }
+.shop b { font-size: var(--size-h2); }
+.shop-name span { font-size: var(--size-sub); font-weight: var(--weight-bold); color: var(--text); }
+.menu { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+.menu a { display: flex; align-items: center; gap: var(--space-1); height: var(--control-height); padding: 0 var(--space-4); color: var(--text); text-decoration: none; }
+.menu a[aria-current="page"] { font-weight: var(--weight-bold); box-shadow: inset 0 calc(var(--current-line) * -1) 0 var(--text); }
+.menu .n { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: var(--weight-bold); color: var(--text); }
+.me { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+.me b { font-weight: var(--weight-regular); }
+.me span { font-size: var(--size-sub); font-weight: var(--weight-bold); color: var(--text); }
+.me a { display: flex; align-items: center; height: var(--control-height); padding: 0 var(--space-2); color: var(--text); }
+@media (forced-colors: active) { .menu a[aria-current="page"] { border-bottom: var(--current-line) solid Highlight; } }
+
+/* 机の上。帳簿の紙面と、右に並べた伝票。紙面と伝票のあいだは台紙が 16px のぞく */
+.app { display: grid; grid-template-columns: minmax(0, 1fr) var(--pane-width-narrow); max-width: var(--desk-max); margin: 0 auto; }
+main { min-width: 0; padding: 0 0 var(--space-4) var(--space-4); }
+.titlebar { display: flex; align-items: flex-end; gap: var(--space-6); min-height: var(--title-height); padding-top: var(--space-2); }
+h1 { flex: none; align-self: center; margin: 0; font-size: var(--size-h1); font-weight: var(--weight-bold); }
+
+/* 保存ビューは紙面の上の縁に貼った付箋。今のビューだけ紙面と続く地で、上の端に墨の太い線。ほかの付箋は 1 段沈めて紙面の裏に差す */
+.views { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.views a { display: inline-flex; align-items: center; gap: var(--space-2); height: var(--control-height); padding: 0 var(--space-3); color: var(--text); text-decoration: none; background: var(--surface-tab); border: 1px solid var(--input-border); border-bottom: 0; border-radius: var(--radius-control) var(--radius-control) 0 0; }
+.views a[aria-current="page"] { position: relative; z-index: 1; margin-bottom: -1px; height: calc(var(--control-height) + var(--space-1) + 1px); background: var(--sheet); border-color: var(--text); font-weight: var(--weight-bold); box-shadow: inset 0 var(--current-line) 0 var(--text); }
+@media (forced-colors: active) { .views a[aria-current="page"] { border-top: var(--current-line) solid Highlight; } }
+.views a:focus-visible { outline-offset: calc(var(--focus-width) * -1); }
+.views .n { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: var(--weight-bold); color: var(--text); }
+
+/* 帳簿の紙面。縁は入力枠の色の 1px。縞と罫線は紙面の右の縁まで届き、下の縁は一括操作の帯に続く */
+.sheet { padding: 0; background: var(--sheet); border: 1px solid var(--sheet-edge); container-type: inline-size; }
+.toolbar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; height: var(--bar-height); padding: 0 var(--space-3); background: var(--sheet); }
+.field { position: relative; flex: 0 1 var(--field-width); min-width: 0; }
+.field input { width: 100%; height: var(--control-height); padding: 0 calc(var(--space-6) + var(--space-3)) 0 var(--space-1); font: inherit; color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--input-border); border-radius: 0; }
+::placeholder { color: var(--text-sub); font-weight: var(--weight-bold); opacity: 1; }
+.field .summary { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); margin: 0; color: var(--text); font-weight: var(--weight-bold); }
+.summary { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.chip { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); height: var(--control-height); padding-left: var(--space-1); border-bottom: 1px solid var(--input-border); }
+.chip label { font-size: var(--size-body); font-weight: var(--weight-bold); color: var(--text-sub); }
+.chip select { appearance: none; height: var(--control-height); margin: 0 0 -1px; padding: 0 calc(var(--space-6) + var(--space-1)) 0 var(--space-1); font: inherit; color: var(--text); background: transparent; border: 0; border-radius: 0; background-image: linear-gradient(45deg, transparent 50%, var(--text-sub) 50%), linear-gradient(135deg, var(--text-sub) 50%, transparent 50%); background-position: calc(100% - var(--space-3) - var(--space-1)) 50%, calc(100% - var(--space-3)) 50%; background-size: var(--space-1) var(--space-1); background-repeat: no-repeat; }
+.chip.wide { display: none; }
+@container (min-width: 892px) { .chip.wide { display: inline-flex; } }
+@media (forced-colors: active) { .chip select { appearance: auto; background-image: none; } }
+.toolbar .palette { margin-left: auto; flex: none; }
+
+/* 帳簿。縦と横の罫線、見出しの下の二重罫、等幅の数字 */
+table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+col.select { width: var(--col-select); }
+col.no { width: var(--col-no); }
+col.status { width: var(--col-status); }
+col.amount { width: var(--col-amount); }
+col.staff { width: var(--col-staff); }
+col.carrier { width: var(--col-carrier); }
+col.pay { width: var(--col-pay); }
+col.date { width: var(--col-date); }
+th, td { height: var(--row-height); padding: 0 var(--space-3); text-align: left; vertical-align: middle; border-bottom: 1px solid var(--table-line); white-space: nowrap; }
+tbody tr[data-status] td + td, thead th + th { border-left: 1px solid var(--table-line-col); }
+td.name { overflow: hidden; text-overflow: ellipsis; }
+td.no { font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
+td.amount, td.c-date { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+thead th { position: sticky; top: var(--bar-height); z-index: 2; white-space: normal; font-size: var(--size-body); font-weight: var(--weight-bold); background: var(--sheet); border-bottom: 0; box-shadow: inset 0 -1px 0 var(--text), inset 0 calc(var(--rule-double-gap) * -1) 0 var(--sheet), inset 0 calc(var(--rule-double) * -1) 0 var(--text); }
+td.select, th.select { padding: 0; }
+.pick { display: flex; align-items: center; justify-content: center; width: var(--col-select); height: var(--row-height); cursor: pointer; }
+.pick input { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: var(--space-4); height: var(--space-4); margin: 0; background: var(--surface-control); border: var(--check-line) solid var(--text-sub); border-radius: var(--check-line); cursor: pointer; }
+.pick input:checked { background: var(--indigo); border-color: var(--indigo); }
+.pick input:checked::before { content: ""; width: var(--space-2); height: var(--space-1); border: solid var(--sheet); border-width: 0 0 var(--check-line) var(--check-line); transform: translateY(calc(var(--check-line) * -0.5)) rotate(-45deg); }
+@media (forced-colors: active) { .pick input { appearance: auto; } .pick input::before { display: none; } }
+.right { text-align: right; }
+td.status { padding: 0 var(--space-2); }
+td.amount, th.amount { padding-right: var(--gap-after-right); font-variant-numeric: tabular-nums; }
+th.amount { padding-left: var(--space-1); }
+
+/* 群の見出しは帳簿の節の帯。群の見出しの色の地に 16px の太字、下の端に墨の 2px の線を 1 本だけ。上の端は地の差で切る。件数は節の名前のすぐ右 */
+tr.group th { position: sticky; top: calc(var(--bar-height) + var(--row-height)); z-index: 1; height: var(--group-height); padding-top: var(--space-1); padding-bottom: var(--space-1); vertical-align: middle; font-size: var(--size-h2); font-weight: var(--weight-bold); background: var(--surface-group); border-bottom: 0; box-shadow: inset 0 calc(var(--group-line) * -1) 0 var(--text); }
+.group-count { margin-left: var(--space-3); font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: var(--weight-bold); color: var(--text); }
+.group-note { margin-left: var(--space-3); font-size: var(--size-body); font-weight: var(--weight-regular); color: var(--text); }
+tbody tr { transition: background-color var(--duration-1) var(--ease-standard); }
+/* 縞。群の中の偶数行に台紙の地を敷く。済の群は見出しが別の tbody なので、数えを 1 行ずらす */
+tbody tr[data-status]:nth-child(odd) { background: var(--row-stripe); }
+tbody:where(#done-rows) tr[data-status]:nth-child(odd) { background: transparent; }
+tbody:where(#done-rows) tr[data-status]:nth-child(even) { background: var(--row-stripe); }
+tbody tr[data-status]:hover { background: var(--row-hover); }
+/* 伝票に開いた行は、墨の左の太い線と上下の線で囲む。選んだ行の藍の地とは色で分ける */
+tr.is-open td { box-shadow: inset 0 var(--open-line) 0 var(--text), inset 0 calc(var(--open-line) * -1) 0 var(--text); }
+tr.is-open td:first-child { box-shadow: inset var(--mark-width) 0 0 var(--text), inset 0 var(--open-line) 0 var(--text), inset 0 calc(var(--open-line) * -1) 0 var(--text); }
+@media (forced-colors: active) { tr.is-open td { border-top: var(--open-line) solid Highlight; border-bottom: var(--open-line) solid Highlight; } tr.is-open td:first-child { border-left: var(--mark-width) solid Highlight; } }
+tbody tr.is-selected[data-status], tbody tr.is-selected[data-status]:hover { background: var(--row-selected); }
+
+/* 表の担当なしは、罫に墨を混ぜた名前より一段弱い字。同じ語の繰り返しを目立たせない */
+.none { color: var(--text-none); }
+tr.is-selected .none { color: var(--text-none-selected); }
+/* 伝票の担当なしは 1 回しか出ないので、ほかの字と同じ墨で書く */
+.pane .none { color: var(--text); }
+
+/* 状態の札。強さは 要対応（墨の塗り）＞ 出荷遅れ（墨の枠と薄墨の地、16px の太字の日数）＞ 検印（朱の線）の順。行の中の太字は注文番号と札だけ */
+.alert { display: inline-block; padding: 0 var(--space-1); border: var(--tag-line) solid var(--fill-strong); color: var(--on-fill-strong); background: var(--fill-strong); font-weight: var(--weight-bold); }
+.late strong { display: inline-block; padding: 0 var(--space-1); border: var(--tag-line) solid var(--text); color: var(--text); background: var(--fill-late); font-size: var(--size-h2); font-weight: var(--weight-bold); }
+.state { color: var(--text); }
+.seal { display: inline-flex; align-items: center; justify-content: center; width: var(--seal-size); height: var(--seal-size); border: var(--seal-line) solid var(--seal); border-radius: 50%; color: var(--seal); background: var(--sheet); font-family: var(--font-num); font-size: var(--size-body); font-weight: var(--weight-bold); line-height: 1; vertical-align: middle; }
+.seal-time { margin-left: var(--space-2); font-size: var(--size-body); color: var(--text); vertical-align: middle; }
+tr.done-head th { height: var(--row-height); padding: 0; overflow: visible; background: var(--surface-group); border-bottom: 0; }
+.done-head button { display: flex; align-items: center; gap: var(--space-3); width: 100%; height: var(--row-height); padding: 0 var(--space-3); text-align: left; background: var(--surface-group); border: 0; box-shadow: inset 0 calc(var(--group-line) * -1) 0 var(--text); font-size: var(--size-h2); font-weight: var(--weight-bold); }
+.done-head .group-count { margin-left: 0; }
+.done-head .open-label { margin-left: auto; color: var(--text); font-weight: var(--weight-regular); text-decoration: underline; }
+tbody[hidden], tr[hidden] { display: none; }
+.empty { margin: 0; padding: var(--space-6) var(--space-3); color: var(--text-sub); }
+@container (width < 848px) { col.c-date { width: 0; } th.c-date, td.c-date { display: none; } }
+@container (width < 728px) { col.c-staff { width: 0; } th.c-staff, td.c-staff { display: none; } }
+@container (width < 640px) { col.c-pay { width: 0; } th.c-pay, td.c-pay { display: none; } }
+
+/* 一括操作の帯。紙面の下の縁に付き、選んだときだけ出る */
+.bulkbar { position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--space-2); height: var(--bar-height); padding: 0 var(--space-3); background: var(--surface-bar); border: 1px solid var(--sheet-edge); border-top: var(--tag-line) solid var(--text); }
+.bulkbar[hidden] { display: none; }
+.bulkbar .picked { margin-right: var(--space-2); font-weight: var(--weight-bold); }
+.bulkbar .cancel { margin-left: auto; }
+
+/* 伝票。紙面の右に台紙を 16px 空けて並べ、中身の高さで終わる。画面の上に固定し（top 8px）、画面より高いときは中で送る。影は付けず、上の端の墨の線と縁の線で台紙に置いた紙に見せる。見出しの下に切り取りの点線、欄は横の罫で区切る */
+.pane { min-width: 0; padding: var(--title-height) var(--space-4) var(--space-4); }
+.pane-inner { position: sticky; top: var(--space-2); max-height: calc(100vh - var(--space-4)); overflow: auto; padding: 0 var(--space-4) var(--space-4); background: var(--surface-pane); border: 1px solid var(--sheet-edge); border-top: var(--current-line) solid var(--text); }
+.pane-head { display: flex; align-items: center; justify-content: space-between; min-height: var(--title-height); border-bottom: var(--seal-line) dashed var(--pane-rule); }
+.pane h2 { margin: 0; font-size: var(--size-h2); font-weight: var(--weight-bold); }
+.slip-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) 0; }
+.pane .pane-status { margin: 0; font-size: var(--size-h2); font-weight: var(--weight-bold); }
+.pane .meta { margin: 0; }
+.stampbox { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-1) var(--space-2); } /* 欄は升で囲まない（計画書。箱はボタンだけ） */
+.stamp-label { font-size: var(--size-sub); font-weight: var(--weight-bold); color: var(--text-sub); }
+.slot { width: var(--stamp-slot); height: var(--stamp-slot); border: var(--seal-line) dashed var(--text-sub); border-radius: 50%; }
+.box { border-top: 1px solid var(--table-line); }
+.box > :last-child { margin-bottom: var(--space-2); }
+.pane h3 { margin: var(--space-2) 0 var(--space-1); padding: 0; font-size: var(--size-body); font-weight: var(--weight-bold); color: var(--text); }
+.pane p { margin-top: 0; margin-bottom: 0; }
+.pane dl { display: grid; grid-template-columns: 1fr auto; margin-top: 0; }
+.pane dt, .pane dd { margin: 0; padding: var(--space-1) 0; border-bottom: 1px solid var(--table-line); }
+.pane dd { padding-left: var(--space-3); text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+/* 合計の上は帳簿の締めの二重罫 */
+.pane .total { font-weight: var(--weight-bold); border-top: var(--rule-double) double var(--text); border-bottom: 0; }
+.pane .size { font-weight: var(--weight-bold); }
+.pane .past li { justify-content: space-between; }
+.pane .past .num:last-child { margin-left: auto; }
+.pane .note { padding: var(--space-1) 0; font-weight: var(--weight-bold); }
+.pane ol { margin-top: 0; padding: 0; list-style: none; }
+.pane ol li { display: flex; gap: var(--space-3); }
+.pane .actions { display: grid; grid-template-columns: auto auto 1fr; gap: var(--space-2); margin-top: var(--space-4); }
+.pane .actions .btn:first-child { grid-column: 1 / -1; justify-content: center; }
+.pane .actions .cancel { justify-self: end; }
+
+@media (min-width: 1464px) { .app { grid-template-columns: minmax(0, 1fr) var(--pane-width); } }
+@media (max-width: 1279px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  main { padding-right: var(--space-4); }
+  .pane { padding: var(--space-4); }
+  .pane-inner { position: static; max-height: none; }
+}
+@media (max-width: 1023px) {
+  .menu, .me { display: none; }
+  .nav-inner { justify-content: space-between; }
+  .nav .menu-open { display: inline-flex; }
+}
+@media (max-width: 640px) {
+  html { scroll-padding-top: calc(var(--row-height) * 2); scroll-padding-bottom: calc(var(--control-height) * 2 + var(--space-2) * 3 + var(--tag-line) + 1px); }
+  .titlebar { flex-wrap: wrap; }
+  .toolbar { position: static; flex-wrap: wrap; height: auto; padding: var(--space-2) var(--space-3); }
+  thead th { top: 0; }
+  tr.group th { top: var(--row-height); }
+  .bulkbar { flex-wrap: wrap; height: auto; padding: var(--space-2) var(--space-3); }
+  .bulkbar .btn { flex: none; }
+}
+@container (width < 544px) {
+  thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  thead th.select .pick { display: none; }
+  table, tbody, tr, td, th { display: block; }
+  tr.group { position: sticky; top: 0; z-index: 1; }
+  tr.group th { top: 0; }
+  tbody tr[data-status] { display: grid; grid-template-columns: var(--col-select) minmax(0, 1fr) auto; grid-template-rows: repeat(2, calc(var(--size-body) * var(--leading))); row-gap: var(--space-1); align-items: center; min-height: var(--list-row-height); padding: var(--space-2) var(--space-3) var(--space-2) 0; border-bottom: 1px solid var(--table-line); }
+  tbody tr[data-status] td { height: auto; padding: 0; border: 0; }
+  tbody tr[data-status] td + td { border-left: 0; }
+  tbody tr[data-status] td.select { grid-row: 1 / span 2; }
+  tbody tr[data-status] td.no { grid-column: 2; grid-row: 1; }
+  tbody tr[data-status] td.status { grid-column: 3; grid-row: 1; text-align: right; }
+  tbody tr[data-status] td.name { grid-column: 2; grid-row: 2; }
+  tbody tr[data-status] td.amount { grid-column: 3; grid-row: 2; padding-right: 0; }
+  tbody tr[data-status] .c-staff, tbody tr[data-status] .c-carrier, tbody tr[data-status] .c-pay, tbody tr[data-status] .c-date { display: none; }
+  tbody tr.is-open[data-status] td { box-shadow: none; }
+  tbody tr.is-open[data-status] { box-shadow: inset var(--mark-width) 0 0 var(--text), inset 0 var(--open-line) 0 var(--text), inset 0 calc(var(--open-line) * -1) 0 var(--text); }
+}

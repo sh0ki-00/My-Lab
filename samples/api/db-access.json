@@ -1,0 +1,169 @@
+{
+  "about": "API の DB の利用者（orders_api）が表ごとに持つ操作の一覧。正はこのファイルで、バックエンドが持つ。インフラは db/roles.sql の権限をこれに合わせ、食い違いを検査で落とす。test_api_writes_only_its_own_tables が、見本の API の流す SQL がこの一覧の外に出ないこと（表・操作・列・行の絞り方・取り消しの印の条件）を確かめる。",
+  "role": "orders_api",
+  "source": "samples/api/orders_api.py",
+  "plan": "skills/backend/examples/backend-plan-order-list.md",
+  "fields": {
+    "select": "読めるか（true か false）。列は絞らない",
+    "insert": "INSERT で値を入れてよい列。空の配列は INSERT の権限なし",
+    "update": "UPDATE の SET に書いてよい列。空の配列は UPDATE の権限なし。列ごとの権限（GRANT UPDATE (列) ON 表）にする。updateUntil にある列は、その時までの権限",
+    "delete": "DELETE の権限があるか。idempotency の DELETE は、期限の切れた自分の同じキーの 1 行を取り直すときだけ使う（店の古いキーを書き込みの取引で消さない）",
+    "rows": "行の制限の掛け方。shop_id は表の shop_id の列を、鍵のハッシュから DB の側で引いた店（app_key_shop()）と比べて絞る。parent は親の表（of）を key の列で結び、親の行の制限に従う。token は鍵のハッシュで 1 行を引くので店では絞れない。none は表に触れない",
+    "triggerColumns": "API の文は書かず、DB のトリガーだけが書く列。本番は BEFORE のトリガーで NEW の値を変えるので、API の利用者に UPDATE の権限は要らない。cancelled_by と cancelled_at もトリガーだけが書く（API が書いてもトリガーが上書きする）が、UPDATE の権限は roles.sql と同時に外す（open の 5 つ目）",
+    "sinceOverlap": "since の取りこぼしを防ぐ前提。servedAt を、まだコミットしていない orders の書き手の取引の始まりより後にしない（orders_write_horizon）。servedAt は読みの取引を始める前に、取引の外の 1 つの文で読む。書き手に取引の上限は掛けない。書き手は writers に並べ、段 0 の調べで見つけた書き手を全部足す",
+    "cancelMark": "取り消しの正の印。移行のあとも意味を変えずに残す。API が orders を書く文は全部、この印が 0 の行だけを書く。未出荷の状態で行を選ぶ読みも、この印で取消済みを外す。status に 'cancelled' は書かない",
+    "otherRoles": "API のほかに orders の表を読み書きする DB の利用者（旧 API など）。RLS を有効にしても移行の前と同じに動くよう、明示の CONNECT とスキーマの USAGE、今の表の権限、全行の方針（rows が all。USING (true) の FOR ALL）を持つ。インフラの roles.sql は、RLS を有効にする前に orders_api.py の RLS_PREFLIGHT_PG（roles.sql の検査 9 と同じ除き方。名前が pg_ か rds で始まる役割と、表の持ち主の一員を除く）で確かめる。書き手は表の単位の権限だけでなく、列の単位の権限（has_any_column_privilege）でも見る",
+    "catalogReads": "API が読む DB の目録（既定で誰でも読める）。表の権限は要らない",
+    "owner": "orders と足す表の持ち主。移行の段 1〜4 はこの利用者で流す。持ち主はこの計画では移さない"
+  },
+  "tables": {
+    "orders": {
+      "select": true,
+      "insert": [],
+      "update": [
+        "status",
+        "is_cancelled",
+        "shipped_by",
+        "shipped_at",
+        "cancelled_by",
+        "cancelled_at"
+      ],
+      "delete": false,
+      "rows": {
+        "by": "shop_id"
+      },
+      "triggerColumns": [
+        "changed_at",
+        "stamped_xid"
+      ]
+    },
+    "order_items": {
+      "select": true,
+      "insert": [],
+      "update": [],
+      "delete": false,
+      "rows": {
+        "by": "parent",
+        "of": "orders",
+        "key": "order_id"
+      }
+    },
+    "order_events": {
+      "select": true,
+      "insert": [
+        "order_id",
+        "at",
+        "kind",
+        "actor"
+      ],
+      "update": [],
+      "delete": false,
+      "rows": {
+        "by": "parent",
+        "of": "orders",
+        "key": "order_id"
+      }
+    },
+    "customers": {
+      "select": true,
+      "insert": [],
+      "update": [],
+      "delete": false,
+      "rows": {
+        "by": "shop_id"
+      }
+    },
+    "users": {
+      "select": true,
+      "insert": [],
+      "update": [],
+      "delete": false,
+      "rows": {
+        "by": "shop_id"
+      }
+    },
+    "sessions": {
+      "select": true,
+      "insert": [],
+      "update": [],
+      "delete": false,
+      "rows": {
+        "by": "token"
+      }
+    },
+    "idempotency": {
+      "select": true,
+      "insert": [
+        "shop_id",
+        "user_id",
+        "key",
+        "request_sha256",
+        "status",
+        "body",
+        "created_at"
+      ],
+      "update": [
+        "status",
+        "body"
+      ],
+      "delete": true,
+      "rows": {
+        "by": "shop_id"
+      }
+    },
+    "shops": {
+      "select": false,
+      "insert": [],
+      "update": [],
+      "delete": false,
+      "rows": {
+        "by": "none"
+      }
+    }
+  },
+  "sinceOverlap": {
+    "overlapS": 10.0,
+    "apiTransactionLimitS": 8.0,
+    "horizon": "orders_write_horizon()。定義は samples/infra/db/roles.sql の 1 つだけ（持ち主 orders_horizon、指紋の検査もそこ）。pg_stat_activity から、orders の書き手（writers の DB の利用者）のうち、書いてまだコミットしていない取引の始まりの最も古い時刻を返す。API は読みの取引を始める前に、取引の外で least(statement_timestamp(), この値) を読み、servedAt にする（orders_api.py の SERVED_PG）。写しが決まってから読むと、そのあいだにコミットした取引が、写しにも horizon にも出ない。返すのは時刻だけで、文と鍵のハッシュは返さない。いまの roles.sql は書き手を orders_api と legacy_api の名前で固定している。名前で絞らず、orders に RowExclusiveLock を持つ取引を pg_locks で数える案をインフラに渡す（計画の未確定 11）",
+    "how": "本番の changed_at はトリガーが書いた時刻（clock_timestamp）。書き手の取引の始まりより後なので、servedAt を書き手の取引の始まりより後にしなければ、遅れてコミットした行も次の since に入る。旧 API と移行の利用者に取引の上限は掛けない。重ね幅 10 秒は、DB の時計の粒と、読みの取引の始まりから文までの差の余裕。移行の利用者は行を書かず、横の索引作りで servedAt を止めないよう writers の利用者に入れない。servedAt を取引の前に読むので、読みの写しが決まった直後にコミットした取引も、servedAt を読んだ時に開いていた取引として数える",
+    "writers": {
+      "orders_api": "新 API。出荷指示（ready から shipped）と取り消し（is_cancelled を 1）。API 自身の打ち切りは 8 秒",
+      "legacy_api": "旧 API。取り消し、取り消しの戻し、出荷、配達済み、決済の通知（pending から ready）、受注（INSERT）。この計画では止めず、文も取引の長さも変えない。段 0 で、この書き込みをするのが旧 API の利用者だけかを確かめ、別の利用者がいれば、ここと otherRoles と orders_write_horizon の一覧に足す",
+      "migration": "移行の利用者（orders の持ち主）。足し算の文だけで、行を書かない。索引は CONCURRENTLY で、lock_timeout と statement_timeout を 0 に戻してから流す"
+    }
+  },
+  "open": [
+    "DB を書く API 以外の仕事の利用者。sessions を書くのはログインのサービスで、全店の期限切れの冪等キーを消すのは掃除の仕事。見本はどちらも API の中の写しで、本番の利用者と権限の一覧は未確定（計画の未確定 8）",
+    "鍵の引き当て（sessions と users の SELECT）を、鍵のハッシュを受けて 1 行だけ返す関数にし、API の利用者から 2 表の SELECT を外すか（計画の未確定 9）",
+    "インフラの roles.sql は otherRoles の利用者を知らない。RLS を有効にする前に、旧い書き手の全部に全行の方針と CONNECT と USAGE を付け、RLS_PREFLIGHT_PG で確かめる（計画の未確定 16）",
+    "orders_write_horizon() の持ち主と、pg_read_all_stats の付け方（計画の未確定 11）。定義は roles.sql の 1 つだけにし、orders_api.py には置かない",
+    "orders_api の UPDATE の権限から cancelled_by と cancelled_at を外す（トリガーだけが書く）。roles.sql と同じ日に変える（計画の未確定 16）",
+    "orders を書く利用者の一覧（writers）。段 0 の調べで、決済の通知と受注を書く利用者が旧 API のほかにいれば足す（計画の未確定 15）",
+    "users の行の制限を、鍵の表（token と via の EXISTS）から店の列（shop_id = app_key_shop()）に変えた。注文の 3 列からの EXISTS は、一覧が RLS の下で約 1 秒になるため。roles.sql は合わせ済み（2026-11-07 の db-grants-check は FAIL 0）",
+    "roles.sql の検査 9 と orders_write_horizon は、列の単位の権限だけを持つ書き手を見落とす。RLS_PREFLIGHT_PG と同じく has_any_column_privilege で見る形と、pg_locks で書き手を数える形への直しをインフラへ渡す（計画の未確定 11 と 16）"
+  ],
+  "cancelMark": {
+    "column": "is_cancelled",
+    "meaning": "1 なら取消。移行の前と同じ意味で、どの書き手もこの列だけで取消を決める",
+    "status": "status に 'cancelled' は書かない。契約の status の 'cancelled' は、新 API が読むときに is_cancelled から作る",
+    "stamp": "トリガー orders_before_write（見本は orders_cancel_stamp と orders_touch）だけが、印の立て下ろしで cancelled_at と cancelled_by を書き、書いた取引の番号を stamped_xid に残す。トリガーは ENABLE ALWAYS で、session_replication_role が replica の取り込みでも動く（論理複製の適用が運んできた値はそのまま入れる）。人は要求の鍵（app.key_hash）から sessions で引き、旧 API の取り消しは null。API の文はこの 2 列を書かない。読みは印が立っていれば列の値を返し、行の xmin とは比べない（セーブポイントの中の書き込みと、表の写し直しのあとも消えない）。新 API は stamped_xid で、書いた行をトリガーがその取引で通したかを確かめる。旧い列と書き込みの成否は変えない",
+    "shipped": "出荷のあとに印が立った行（旧 API の取り消しの文は status を条件に持たない）は、取消でなく済のまま読み、済のビューに残す。前の日までの出荷も、出荷済み（shipped）のあいだは今日出荷と済のビューに残す（索引 orders_marked）。印の立て下ろしは、何日前の出荷でも changed_at を進める。cancelledAfterShip を true にして知らせ、新 API の取り消しは ORDER_CANCEL_NOT_ALLOWED"
+  },
+  "owner": {
+    "role": "orders の今の持ち主（旧 API の側。段 0 の 6 つ目で名前を調べる）",
+    "why": "ALTER TABLE と CREATE TRIGGER は表の持ち主しか流せない。持ち主を orders_migrate に移すと、旧 API が持ち主の権限と RLS の素通りを失うので、この計画では移さない。app_key_shop と orders_before_write は、この持ち主の関数にする（RLS を受けずに sessions と users を読む）"
+  },
+  "otherRoles": {
+    "legacy_api": {
+      "connect": true,
+      "schemaUsage": true,
+      "rows": "all",
+      "tables": "今の権限のまま（段 0 の 6 つ目で一覧にする）。orders、order_items、order_events、customers、users を読み書きする",
+      "why": "RLS の方針が無い利用者は全部拒まれる。読みは 0 行、UPDATE は黙って 0 行、INSERT はエラーになり、取り消しと決済の通知が止まる"
+    }
+  },
+  "catalogReads": {
+    "pg_trigger": "変化の記録のトリガー orders_before_write の有無と、足した時刻の注釈（obj_description）。since の鍵を読む文に入れる（トリガーは移行のあいだ外さないが、外された場合に since を 503 と 400 にする）",
+    "sqlite_master": "見本の写し。トリガーの文の印 feed_since を読む"
+  }
+}

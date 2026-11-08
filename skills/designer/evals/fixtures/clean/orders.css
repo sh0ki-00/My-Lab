@@ -1,0 +1,10 @@
+/* 計画どおりの実装の見本。色は tokens の変数だけ、動きは --duration だけ、角丸は 2 段。 */
+body { margin: 0; font-family: var(--font-text); font-size: var(--size-body); line-height: var(--leading); color: var(--text); background: var(--paper); }
+.sheet { background: var(--sheet); border-radius: var(--radius-panel); box-shadow: var(--shadow-panel); }
+.row { height: var(--row-height); transition: background-color var(--duration-1) var(--ease-standard); }
+.row[aria-selected="true"] { background: var(--row-selected); }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; text-align: right; }
+.seal { width: var(--seal-size); height: var(--seal-size); border: 2px solid var(--seal); border-radius: 50%; color: var(--seal); transform: rotate(-6deg); }
+.pane { width: var(--pane-width); transform: translateX(0); transition: transform var(--duration-3) var(--ease-standard), opacity var(--duration-2) var(--ease-standard); }
+:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: 2px; }
+button, input { border-radius: var(--radius-control); border: 1px solid var(--input-border); }

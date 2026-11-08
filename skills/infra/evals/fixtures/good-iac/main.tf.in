@@ -1,0 +1,126 @@
+# iac-scan の良い例（小さな構成）。evals と --selftest が一時ディレクトリに .tf として写して回す。
+
+provider "aws" {
+  region = "ap-northeast-1"
+}
+
+variable "backup_days" {
+  type    = number
+  default = 14
+}
+
+resource "aws_s3_bucket" "logs" {
+  bucket              = "good-example-audit"
+  object_lock_enabled = true
+}
+
+resource "aws_s3_bucket_public_access_block" "logs" {
+  bucket                  = aws_s3_bucket.logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "logs" {
+  bucket = aws_s3_bucket.logs.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
+  bucket = aws_s3_bucket.logs.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "logs" {
+  bucket = aws_s3_bucket.logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.logs.arn}/AWSLogs/*"
+        Condition = { StringEquals = { "s3:x-amz-acl" = "bucket-owner-full-control" } }
+      },
+      {
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = "${aws_s3_bucket.logs.arn}/*"
+        Condition = { Bool = { "aws:SecureTransport" = "false" } }
+      },
+    ]
+  })
+}
+
+resource "aws_cloudtrail" "audit" {
+  name                       = "good-example"
+  s3_bucket_name             = aws_s3_bucket.logs.id
+  is_multi_region_trail      = true
+  enable_log_file_validation = true
+  enable_logging             = true
+}
+
+resource "aws_security_group" "db" {
+  name   = "db"
+  vpc_id = "vpc-00000000"
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = ["sg-00000000"]
+  }
+}
+
+resource "aws_db_instance" "orders" {
+  engine                      = "postgres"
+  instance_class              = "db.t4g.micro"
+  username                    = "orders_admin"
+  manage_master_user_password = true
+  storage_encrypted           = true
+  publicly_accessible         = false
+  deletion_protection         = true
+  skip_final_snapshot         = false
+  backup_retention_period     = var.backup_days
+}
+
+resource "aws_iam_role_policy" "reader" {
+  role = "orders-reader"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${aws_s3_bucket.logs.arn}/reports/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*" # iac-scan:allow IAC-003 この操作は対象を絞れない
+      },
+    ]
+  })
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = "arn:aws:elasticloadbalancing:ap-northeast-1:111122223333:loadbalancer/app/x/0"
+  port              = 80
+  protocol          = "HTTP"
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}

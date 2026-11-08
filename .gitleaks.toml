@@ -1,0 +1,13 @@
+# gitleaks（秘密の検出）の設定。既定の規則をそのまま使い、依存と検証の記録だけを外す。
+# tmp/ は見る。実案件の写しに秘密が混ざっていれば、出さずに直す（.company/rules/evidence-and-safety.md）。
+title = "company-skills"
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''node_modules/''',
+  '''package-lock\.json''',
+  '''tmp/\.verify/''',
+]

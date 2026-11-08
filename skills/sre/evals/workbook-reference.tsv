@@ -1,0 +1,16 @@
+# 原典の値を写した照合の表。burn-rate.sh --reference がこの表と計算を突き合わせる（差は相対 1% まで。原典は桁を丸めて書く）。
+# 出典: Google「The Site Reliability Workbook」5 章「Alerting on SLOs」 https://sre.google/workbook/alerting-on-slos/
+#   exhaust の 4 行: 「Alert on burn rate」の節の表（99.9% の SLO と 30 日の期間での、バーンレート・失敗率・使い切るまでの時間）
+#   tier の 3 行: 「Multiwindow, Multi-Burn-Rate Alerts」の節の推奨の表（予算の消費・長い窓・バーンレート・通知）と、
+#                 同じ節の本文の「短い窓は長い窓の 12 分の 1」（5 分、30 分、6 時間）
+#   threshold の 1 行: 同じ章の式の例「job:slo_errors_per_request:ratio_rate1h > (14.4*0.001)」
+# 値は公開の本文を手で写した。この作業の中では原典を開き直していない（ダウンロード禁止の作業のため）。
+# 列: 種類	目標の %	期間	入力	期待 1	期待 2
+exhaust	99.9	30d	1	0.1%	30d
+exhaust	99.9	30d	2	0.2%	15d
+exhaust	99.9	30d	10	1%	3d
+exhaust	99.9	30d	1000	100%	43m
+tier	99.9	30d	2%:1h	14.4	5m
+tier	99.9	30d	5%:6h	6	30m
+tier	99.9	30d	10%:3d	1	6h
+threshold	99.9	30d	2%:1h	1.44%

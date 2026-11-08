@@ -1,0 +1,23 @@
+# 自前のコード（web/ と API）に、外へ移る処理と外へ送る処理を足す差分を落とす必須の検査（org/github.tf の required_status_checks）。
+#   画面の移動（location.href など）、新しい窓、ビーコン、外の宛先への fetch と XMLHttpRequest、画像やフォームで外へ送る形、
+#   API の外への接続（urllib、requests、http.client、socket）。例外の書き方は置かない（足すときは検査そのものを守りの経路で変える）。
+#   web/ と API の置き場は持ち主の欄（org/variables.tf の guard_paths）でセキュリティの承認が要る。この検査は 2 人目の目の前に機械で落とす。
+#   判定の本体は egress-check.sh（自己試験つき。見本は skills/infra/scripts/、配備のリポジトリでは tools/ に置く）。部品を入れず、python3 だけで動く。
+name: egress-check
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  web-egress:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001
+        with:
+          persist-credentials: false
+      - name: Self test, then scan the own code
+        run: |
+          set -eu
+          bash tools/egress-check.sh --selftest
+          bash tools/egress-check.sh web/src api

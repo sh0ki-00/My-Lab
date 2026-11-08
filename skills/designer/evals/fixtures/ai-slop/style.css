@@ -1,0 +1,9 @@
+/* AI の既定の見た目を集めた負例。ai-look-check が sloppy 以上で落とすこと。 */
+:root { --brand: #6366F1; --brand-2: #8B5CF6; }
+body { font-family: Inter, sans-serif; background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%); }
+.card { border-radius: 16px; transition: all 0.3s ease; backdrop-filter: blur(12px); }
+.card-2 { border-radius: 16px; backdrop-filter: blur(8px); }
+.card-3 { border-radius: 16px; backdrop-filter: blur(16px); }
+.hero { border-radius: 16px; }
+.cta { border-radius: 16px; animation: pulse 2s infinite; }
+.badge { border-radius: 16px; transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); }

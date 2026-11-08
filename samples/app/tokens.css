@@ -1,0 +1,166 @@
+/* samples/app/tokens.css — デザイン計画書「管理画面の注文一覧」のトークン。skills/designer/examples/tokens-order-list.css と同じ値。
+   生の 16 進と ms はこのファイルにだけ書く。app.css はこの変数だけで描く。 */
+:root {
+  color-scheme: light dark;
+  /* 名前つきの 6 色（明るい版） */
+  --paper: #E5F0ED;
+  --sheet: #FFFFFF;
+  --ink: #1C2321;
+  --rule: #4F6F67;
+  --seal: #B9321A;
+  --indigo: #2F5C9E;
+  /* 導出する色は明るい版で 9 色、ダーク版で 12 色。6 色からの式だけで書き、生の値を増やさない */
+  --row-selected: color-mix(in srgb, var(--indigo) 24%, var(--sheet));
+  --row-hover: color-mix(in srgb, var(--indigo) 5%, var(--sheet));
+  /* 縞は台紙そのもの。紙面と 1.17 対 1 で、縮めた画像でも行の段が見える */
+  --row-stripe: var(--paper);
+  --input-border: color-mix(in srgb, var(--rule) 85%, var(--sheet));
+  --table-line: color-mix(in srgb, var(--rule) 60%, var(--sheet));
+  /* 列の縦罫。明るい版は横の罫線と同じ色 */
+  --table-line-col: var(--table-line);
+  /* 面の役。群の見出しは帳簿の節の帯。明るい版は台紙に罫を混ぜ、紙面の行と縞より沈め、下の端に墨の 2px の線を 1 本引く */
+  --surface-group: color-mix(in srgb, var(--rule) 30%, var(--paper));
+  --surface-head: var(--paper);
+  --surface-pane: var(--sheet);
+  --pane-rule: var(--table-line);
+  --surface-bar: var(--paper);
+  --surface-control: var(--sheet);
+  /* 帳簿の紙面と伝票。付箋のタブは罫を薄く混ぜた紙。紙面と伝票の縁は入力枠の色 */
+  --surface-tab: color-mix(in srgb, var(--rule) 16%, var(--sheet));
+  --sheet-edge: var(--input-border);
+  /* 担当なしの字。罫に墨を混ぜ、名前の墨より一段弱く、薄すぎない字にする。縞で 7.31、選んだ行で 5.92 対 1 */
+  --text-none: color-mix(in srgb, var(--rule) 60%, var(--ink));
+  --text-none-selected: var(--text-none);
+  /* 出荷遅れの札の地。墨の枠の中を薄い墨で埋め、検印の朱の線より重く見せる */
+  --fill-late: color-mix(in srgb, var(--ink) 12%, var(--sheet));
+  /* 強い面（要対応の札の地）と、その上の字。どちらの版も墨の地で、画面でいちばん強い印にする */
+  --fill-strong: var(--ink);
+  --on-fill-strong: var(--sheet);
+  /* 主ボタンの地と字。明るい版は強い面と同じ墨 */
+  --fill-primary: var(--ink);
+  --on-fill-primary: var(--sheet);
+  /* 意味の名前 */
+  --text: var(--ink);
+  --text-sub: var(--rule);
+  --focus: var(--indigo);
+  --danger: var(--seal);
+  /* 書体。BIZ UD の 2 書体を 3 つの役に */
+  --font-text: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  /* 数字役は本文と同じ書体の等幅数字（tabular-nums）。表の数字の字形を 1 種類にそろえる */
+  --font-num: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  --size-sub: 12px;
+  --size-body: 14px;
+  --size-h2: 16px;
+  --size-h1: 20px;
+  --weight-regular: 400;
+  --weight-bold: 700;
+  --leading: 1.5;
+  /* 余白は 4px の倍数 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-16: 64px;
+  /* 角丸は 2 段、影は 1 光源で 2 層。影は画面の上に浮かせる通知とコマンドパレットだけで、伝票には付けない */
+  --radius-control: 4px;
+  --radius-panel: 8px;
+  --shadow-panel: 0 2px 4px rgb(28 35 33 / 0.12), 0 8px 16px rgb(28 35 33 / 0.06);
+  /* 動き */
+  --duration-1: 80ms;
+  --duration-2: 120ms;
+  --duration-3: 180ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* 大きさ */
+  --row-height: 44px;
+  --list-row-height: 64px;
+  --group-height: 40px;
+  --title-height: 56px;
+  --bar-height: 56px;
+  --control-height: 44px;
+  --pane-width: 480px;
+  --pane-width-narrow: 360px;
+  --field-width: 220px;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --mark-width: 6px;
+  --open-line: 2px;
+  /* 検印は直径 28px で傾けない。塗りを持たないので、要対応の塗りの札と遅れの枠の札より弱い */
+  --seal-size: 28px;
+  /* 伝票の検印の欄。まだ押していない朱の破線の円 */
+  --stamp-slot: 40px;
+  --seal-line: 2px;
+  /* 札の枠（要対応は塗り、出荷遅れは枠と薄い墨の地）と、群の見出しの上の線 */
+  --tag-line: 2px;
+  --group-line: 2px;
+  /* 今いる場所の線（保存ビューのタブの上の端、上の帯の項目の下の端、伝票の上の端） */
+  --current-line: 4px;
+  --icon-size: 16px;
+  --check-line: 2px;
+  /* 表の列。並びは左から出荷の判断に要る順。幅は下限で、文字の間隔を広げても欠けない値。省略するのは氏名だけ */
+  --col-select: 44px;
+  --col-no: 88px;
+  --col-status: 104px;
+  --col-name: 120px;
+  --col-amount: 100px;
+  --col-carrier: 88px;
+  --col-pay: 96px;
+  --col-staff: 88px;
+  --col-date: 120px;
+  --gap-after-right: 24px;
+  /* 帳簿の二重罫（列の見出しの下、群の見出しの下、明細の合計の上）。外の線 1px、間 2px、内の線 1px */
+  --rule-double: 4px;
+  --rule-double-gap: 3px;
+  --desk-max: 1520px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 名前つきの 6 色（ダーク版） */
+    --paper: #0E1714;
+    --sheet: #17221E;
+    --ink: #D4E2DC;
+    --rule: #8FA8A0;
+    --seal: #E2694F;
+    --indigo: #86AEE6;
+    /* 導出する色（ダーク版）。割合は明るい版と違う */
+    --row-selected: color-mix(in srgb, var(--indigo) 36%, var(--sheet));
+    --row-hover: color-mix(in srgb, var(--indigo) 6%, var(--sheet));
+    /* 縞は明るい版と同じく台紙そのもの。紙面より沈め、浮かせた群の見出しと 1.60 対 1 離す */
+    --row-stripe: var(--paper);
+    --input-border: color-mix(in srgb, var(--rule) 75%, var(--sheet));
+    --table-line: color-mix(in srgb, var(--rule) 50%, var(--sheet));
+    /* 列の縦罫は横の罫線より弱くする。暗い地では明るい線がにじんで太く見えるので、縦の線を間引く */
+    --table-line-col: color-mix(in srgb, var(--rule) 30%, var(--sheet));
+    /* 補助の字は罫に墨を半分混ぜ、暗い地でも沈めない */
+    --text-sub: color-mix(in srgb, var(--rule) 50%, var(--ink));
+    /* 面の役。ダーク版は群の見出しと伝票（群の帯）を紙面より浮かせ、影の代わりに明るさで重なりを見せる。
+       群の見出しは罫 20% に抑え、選んだ行（藍 36%）と明るさで 1.45 対 1 離す。色相の差だけに頼らない */
+    --surface-band: color-mix(in srgb, var(--rule) 14%, var(--sheet));
+    --surface-group: color-mix(in srgb, var(--rule) 20%, var(--sheet));
+    --surface-head: var(--sheet);
+    --surface-pane: var(--surface-band);
+    /* 伝票の見出しの下の切り取り線。地が群の帯と同じなので、入力枠の濃さで区切る */
+    --pane-rule: var(--input-border);
+    /* ボタンとチェックの地は群の帯と同じ明るさ。伝票の上で凹まず、紙面と台紙の上では浮く */
+    --surface-control: var(--surface-band);
+    --surface-tab: color-mix(in srgb, var(--rule) 22%, var(--paper));
+    /* 担当なしの字。縞の上では補助の字（罫と墨の半々）。選んだ行の上だけ罫を 30% に減らし、4.94 対 1 を保つ */
+    --text-none: var(--text-sub);
+    --text-none-selected: color-mix(in srgb, var(--rule) 30%, var(--ink));
+    --fill-late: color-mix(in srgb, var(--ink) 16%, var(--sheet));
+    /* 強い面はダーク版でも墨の地に台紙の字。明るい版と同じく、要対応の札を画面でいちばん強い印にする */
+    --fill-strong: var(--ink);
+    --on-fill-strong: var(--paper);
+    /* 主ボタンは藍の地に台紙の字。罫の地では押せないボタンに見える */
+    --fill-primary: var(--indigo);
+    --on-fill-primary: var(--paper);
+    --shadow-panel: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-1: 0ms;
+    --duration-2: 0ms;
+    --duration-3: 0ms;
+  }
+}

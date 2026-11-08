@@ -1,0 +1,135 @@
+# iac-scan の悪い例。規則 IAC-001〜012 と、理由の無い例外を 1 つずつ仕込む。
+# 秘密の形の文字列は置かず、検査が一時ディレクトリに写すときに組み立てる（__FAKE_…__ の所）。
+# 拡張子を .tf.in にしてあるのは、リポジトリ全体の検査（trivy）がこの穴を本物の構成と取り違えないため。
+
+provider "aws" {
+  region = "ap-northeast-1"
+}
+
+# IAC-009: aws_cloudtrail が無い（provider がある構成なのに）
+
+variable "db_password" {
+  type    = string
+  default = "__FAKE_SECRET__"
+}
+
+# IAC-002、IAC-005、IAC-010: 公開のブロック・暗号化・版の管理が無い
+resource "aws_s3_bucket" "exports" {
+  bucket = "bad-example-exports"
+}
+
+# IAC-001: 誰でも読める ACL
+resource "aws_s3_bucket_acl" "exports" {
+  bucket = aws_s3_bucket.exports.id
+  acl    = "public-read"
+}
+
+resource "aws_s3_bucket_policy" "exports" {
+  bucket = aws_s3_bucket.exports.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "s3:GetObject"
+      Resource  = "${aws_s3_bucket.exports.arn}/*"
+    }]
+  })
+}
+
+# IAC-003: 操作も対象も「*」
+resource "aws_iam_policy" "ops" {
+  name = "ops"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "*"
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*" # iac-scan:allow IAC-003
+      },
+    ]
+  })
+}
+
+# IAC-004: SSH とデータベースの口を全世界に
+resource "aws_security_group" "bastion" {
+  name   = "bastion"
+  vpc_id = "vpc-00000000"
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "db_world" {
+  security_group_id = aws_security_group.bastion.id
+  ip_protocol       = "tcp"
+  from_port         = 5432
+  to_port           = 5432
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
+# IAC-005、IAC-006、IAC-007、IAC-008、IAC-011: 暗号化なし・外から届く・削除の保護なし・保持 0 日・合言葉の直書き
+resource "aws_db_instance" "orders" {
+  engine                  = "postgres"
+  instance_class          = "db.t4g.micro"
+  username                = "orders_admin"
+  password                = "__FAKE_SECRET__"
+  storage_encrypted       = false
+  publicly_accessible     = true
+  deletion_protection     = false
+  skip_final_snapshot     = true
+  backup_retention_period = 0
+}
+
+# IAC-011: アクセスキーの形の文字列と、長期のアクセスキー
+locals {
+  legacy_key = "__FAKE_AKIA__"
+}
+
+resource "aws_iam_access_key" "deployer" {
+  user = "deployer"
+}
+
+# IAC-012: 平文の通信
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = "arn:aws:elasticloadbalancing:ap-northeast-1:111122223333:loadbalancer/app/x/0"
+  port              = 80
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = "arn:aws:elasticloadbalancing:ap-northeast-1:111122223333:targetgroup/x/0"
+  }
+}
+
+# 境界の外: 境界に無い操作を、境界つきの役割の方針に書く（AWS は拒むので、守りが黙って落ちる）
+resource "aws_iam_policy" "boundary" {
+  name = "demo-boundary"
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = ["sns:Publish"], Resource = "arn:aws:sns:ap-northeast-1:111122223333:demo" }]
+  })
+}
+
+resource "aws_iam_role" "watcher" {
+  name                 = "demo-watcher"
+  permissions_boundary = aws_iam_policy.boundary.arn
+  assume_role_policy   = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Principal = { Service = "lambda.amazonaws.com" }, Action = "sts:AssumeRole" }] })
+}
+
+resource "aws_iam_role_policy" "watcher" {
+  name = "watch"
+  role = aws_iam_role.watcher.id
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = ["sns:Publish", "ec2:DescribeSecurityGroupRules"], Resource = "arn:aws:ec2:ap-northeast-1:111122223333:security-group-rule/sgr-0" }]
+  })
+}

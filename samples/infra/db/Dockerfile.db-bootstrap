@@ -1,0 +1,8 @@
+# 利用者づくりの像（第 15 回）。土台はダイジェストだけ（deps-diff の --dockerfile）。作りは網の無い docker build。
+# 土台の上に入るのは roles.sql だけで、入口と利用者は image-lock.json と同じ値にする（守りの口座の関数が像を開いて照らす）。
+# 土台のダイジェストは架空（本物への置き換えは未確定 10）。
+FROM postgres@sha256:0000000000000000000000000000000000000000000000000000000000000000
+COPY roles.sql /app/roles.sql
+USER 10001
+WORKDIR /app
+ENTRYPOINT ["/bin/sh", "-c", "PGPASSWORD=\"$DB_ADMIN_CREDENTIAL\" exec psql -X -q -v ON_ERROR_STOP=1 -h \"$DB_HOST\" -U \"$DB_ADMIN_USER\" -d \"$DB_NAME\" -f /app/roles.sql"]

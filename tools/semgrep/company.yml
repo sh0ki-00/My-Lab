@@ -1,0 +1,48 @@
+# semgrep の自前の規則。レジストリ（外部）を読まずに回すため、ここに置く（--metrics=off で外に何も送らない）。
+# 役割スキルが増えたら、役割ごとの規則をこのディレクトリに足す。
+rules:
+  - id: company-shell-curl-pipe-sh
+    languages: [bash]
+    severity: ERROR
+    message: ネットから取った内容をそのまま sh に流さない。ファイルに保存し、中身を読んでから実行する
+    patterns:
+      - pattern-either:
+          - pattern: curl ... | sh
+          - pattern: curl ... | bash
+          - pattern: wget ... | sh
+          - pattern: wget ... | bash
+  - id: company-shell-chmod-777
+    languages: [bash]
+    severity: ERROR
+    message: 誰でも書ける権限（777）にしない。必要な人と必要な操作だけに絞る
+    pattern: chmod ... 777 ...
+  - id: company-shell-rm-rf-root
+    languages: [bash]
+    severity: ERROR
+    message: ルート、ホーム、変数だけのパスの直下を rm -rf しない。消す対象は固定の相対パスか、${X:?} で空を止めたパスにする
+    patterns:
+      - pattern-regex: '(?m)^\s*rm\s+-[a-zA-Z]*[rR][a-zA-Z]*\s+(/|/\*|~|"?\$HOME"?|"?\$\{?[A-Za-z_][A-Za-z_0-9]*\}?/\*?"?)\s*$'
+  - id: company-js-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: eval と new Function を使わない。入力を実行可能にする穴になる
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: company-js-child-process-concat
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: シェルの文字列を結合して実行しない。execFile か spawn に引数の配列で渡す
+    patterns:
+      - pattern-either:
+          - pattern: $CP.exec($A + $B, ...)
+          - pattern: $CP.exec(`...${$X}...`, ...)
+          - pattern: $CP.execSync($A + $B, ...)
+          - pattern: $CP.execSync(`...${$X}...`, ...)
+  - id: company-hardcoded-secret
+    languages: [javascript, typescript, python, bash]
+    severity: ERROR
+    message: 鍵・パスワード・トークンをコードに書かない。環境変数か秘密管理の仕組みで渡す
+    patterns:
+      - pattern-either:
+          - pattern-regex: (?i)(password|passwd|secret|api[_-]?key|token)\s*[:=]\s*["'][A-Za-z0-9+/=_\-]{12,}["']

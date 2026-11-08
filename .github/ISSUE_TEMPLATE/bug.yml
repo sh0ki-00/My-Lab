@@ -1,0 +1,84 @@
+name: 不具合の報告
+description: 起きている問題を、初めて見る人でも再現できる形で書きます
+title: "[不具合] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        1 つの Issue には、1 つの問題だけを書きます。優先度は書きません。
+        題名は、直し方ではなく「起きている症状」を 60 字以内で。初めて出る専門語は、括弧で言い換えてください。
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景と目的
+      description: 誰が、どの場面で、何に困っているか。件数や時間の数字と、なぜ今か
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 1 行 1 操作で書きます。画面の名前は「」で囲みます
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する結果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の結果
+      description: エラーの文があれば、そのまま貼ります
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 再現の頻度
+      options:
+        - 毎回
+        - ときどき
+        - 一度だけ
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 環境
+      description: 本番か検証環境、ブラウザ、OS、版
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了の条件
+      description: 1 行 1 条件で、全行に「誰が何をすれば判定できるか」を書きます
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: やらないこと
+      description: 範囲の外を書きます。書かないと、読み手は好きに広げます
+  - type: textarea
+    id: clues
+    attributes:
+      label: 手がかり
+      description: 関係する画面・ファイル・ログ・過去の決定。見当は「見当（未確認）」と書き、事実と分けます
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 出す前の確認
+      options:
+        - label: 同じ問題の Issue が無いことを、探して確かめた
+          required: true
+        - label: 数値は実測で、架空なら「架空」と書いた
+          required: true

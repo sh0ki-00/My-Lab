@@ -1,0 +1,1010 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "注文 API（架空の EC サイトの管理画面）",
+  "version": "2.0.0-breaking",
+  "description": "試験用の壊す変更を入れた 2 版目。contract-check の 2 版の比較で落ちることを確かめる。使わない。"
+ },
+ "servers": [
+  {
+   "url": "http://127.0.0.1:8080",
+   "description": "見本の API（samples/api/server.py）"
+  }
+ ],
+ "security": [
+  {
+   "bearer": []
+  }
+ ],
+ "tags": [
+  {
+   "name": "orders"
+  }
+ ],
+ "paths": {
+  "/v1/orders": {
+   "get": {
+    "operationId": "listOrders",
+    "tags": [
+     "orders"
+    ],
+    "summary": "注文一覧。件数と利用者とサーバーの時刻を同じ応答に入れる",
+    "parameters": [
+     {
+      "name": "shopId",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "view",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "today",
+        "mine",
+        "pending-all",
+        "shipped"
+       ],
+       "default": "today"
+      }
+     },
+     {
+      "name": "status",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "action",
+        "late",
+        "ready",
+        "pending"
+       ]
+      }
+     },
+     {
+      "name": "staff",
+      "in": "query",
+      "description": "利用者の id、me、none（担当なし）",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "carrier",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "payment",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "description": "注文番号の前方一致か氏名の部分一致。ログには書かない",
+      "schema": {
+       "type": "string",
+       "maxLength": 64
+      }
+     },
+     {
+      "name": "sort",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "next",
+        "orderedAt"
+       ],
+       "default": "next"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 24
+      }
+     },
+     {
+      "name": "after",
+      "in": "query",
+      "description": "起点。前の応答の nextCursor をそのまま渡す（中身は読まない）",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "since",
+      "in": "query",
+      "description": "この時刻より後に済か取消済みになった行だけを返す",
+      "schema": {
+       "type": "string",
+       "format": "date-time"
+      }
+     },
+     {
+      "name": "traceparent",
+      "in": "header",
+      "required": false,
+      "description": "W3C Trace Context。無ければサーバーが追跡番号を作る。",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "一覧",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OrderList"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "INVALID_REQUEST",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "AUTH_REQUIRED",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "ORDER_LIST_INTERNAL",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "ORDER_LIST_UPSTREAM_SLOW（API 自身の打ち切り 8 秒）",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/orders/{orderId}": {
+   "get": {
+    "operationId": "getOrder",
+    "tags": [
+     "orders"
+    ],
+    "summary": "注文詳細。過去の注文 2 件と荷物の指定を同じ応答に入れる",
+    "parameters": [
+     {
+      "name": "orderId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[0-9]{6}$"
+      }
+     },
+     {
+      "name": "traceparent",
+      "in": "header",
+      "required": false,
+      "description": "W3C Trace Context。無ければサーバーが追跡番号を作る。",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "詳細",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OrderDetail"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "AUTH_REQUIRED",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "ORDER_NOT_FOUND（他の店の注文も同じ）",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "ORDER_LIST_INTERNAL",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "ORDER_DETAIL_UPSTREAM_SLOW",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/orders/ship": {
+   "post": {
+    "operationId": "shipOrders",
+    "tags": [
+     "orders"
+    ],
+    "summary": "出荷指示。検証で行を分け、出荷可の行を 1 つのトランザクションで全件か無しで更新する",
+    "parameters": [
+     {
+      "name": "Idempotency-Key",
+      "in": "header",
+      "required": true,
+      "description": "冪等キー。同じ利用者が同じ鍵で同じ内容を送ると、最初の応答をそのまま返す。24 時間保持（架空）。",
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9_-]{8,64}$"
+      }
+     },
+     {
+      "name": "traceparent",
+      "in": "header",
+      "required": false,
+      "description": "W3C Trace Context。無ければサーバーが追跡番号を作る。",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WriteRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "1 件以上を出荷指示にした。行ごとの結果つき",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ShipResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "INVALID_REQUEST、IDEMPOTENCY_KEY_REQUIRED",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "AUTH_REQUIRED",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "FORBIDDEN_ROLE（閲覧者）",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "IDEMPOTENCY_KEY_MISMATCH",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "ORDER_WRITE_INTERNAL",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "securitySchemes": {
+   "bearer": {
+    "type": "http",
+    "scheme": "bearer",
+    "description": "利用者ごとの鍵。役割は operator（運営担当者）と viewer（閲覧者）。店の id は鍵から決まり、要求では受けない"
+   }
+  },
+  "schemas": {
+   "Error": {
+    "type": "object",
+    "required": [
+     "code",
+     "category",
+     "cause",
+     "action",
+     "traceId"
+    ],
+    "properties": {
+     "code": {
+      "type": "string",
+      "enum": [
+       "ORDER_LIST_UPSTREAM_SLOW",
+       "ORDER_LIST_INTERNAL",
+       "ORDER_SHIP_PARTIAL",
+       "ORDER_ALREADY_SHIPPED",
+       "ORDER_CANCEL_NOT_ALLOWED",
+       "ORDER_NOT_FOUND",
+       "ORDER_DETAIL_UPSTREAM_SLOW",
+       "AUTH_REQUIRED",
+       "FORBIDDEN_ROLE",
+       "INVALID_REQUEST",
+       "IDEMPOTENCY_KEY_REQUIRED",
+       "IDEMPOTENCY_KEY_MISMATCH",
+       "ORDER_WRITE_INTERNAL"
+      ]
+     },
+     "category": {
+      "type": "string",
+      "enum": [
+       "auth",
+       "permission",
+       "validation",
+       "not_found",
+       "conflict",
+       "upstream",
+       "internal"
+      ],
+      "description": "分類"
+     },
+     "cause": {
+      "type": "string",
+      "description": "原因（何が起きたか）"
+     },
+     "action": {
+      "type": "string",
+      "description": "対処（どうすればよいか）"
+     },
+     "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "追跡番号。画面ではお問い合わせ番号"
+     }
+    }
+   },
+   "ErrorBody": {
+    "type": "object",
+    "required": [
+     "error"
+    ],
+    "properties": {
+     "error": {
+      "$ref": "#/components/schemas/Error"
+     }
+    }
+   },
+   "WriteErrorBody": {
+    "type": "object",
+    "required": [
+     "error",
+     "results",
+     "summary"
+    ],
+    "properties": {
+     "error": {
+      "$ref": "#/components/schemas/Error"
+     },
+     "results": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/WriteResult"
+      }
+     },
+     "summary": {
+      "$ref": "#/components/schemas/WriteSummary"
+     }
+    }
+   },
+   "UserRef": {
+    "type": [
+     "object",
+     "null"
+    ],
+    "required": [
+     "id",
+     "name"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     }
+    }
+   },
+   "Me": {
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "role",
+     "keys"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "role": {
+      "type": "string",
+      "enum": [
+       "operator",
+       "viewer"
+      ]
+     },
+     "keys": {
+      "type": "object",
+      "description": "1 文字キーと操作。閲覧者は空",
+      "additionalProperties": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "Counts": {
+    "type": "object",
+    "required": [
+     "action",
+     "late",
+     "ready",
+     "pending",
+     "shippedToday"
+    ],
+    "properties": {
+     "action": {
+      "type": "integer"
+     },
+     "late": {
+      "type": "integer"
+     },
+     "ready": {
+      "type": "integer"
+     },
+     "pending": {
+      "type": "integer"
+     },
+     "shippedToday": {
+      "type": "integer"
+     }
+    }
+   },
+   "OrderSummary": {
+    "type": "object",
+    "required": [
+     "orderId",
+     "status",
+     "group",
+     "customerName",
+     "amountYen",
+     "carrier",
+     "payment",
+     "orderedAt",
+     "shipDue",
+     "lateDays"
+    ],
+    "properties": {
+     "orderId": {
+      "type": "string",
+      "pattern": "^[0-9]{6}$"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "action",
+       "ready",
+       "pending",
+       "shipped",
+       "cancelled",
+       "delivered"
+      ]
+     },
+     "group": {
+      "type": "string",
+      "enum": [
+       "action",
+       "late",
+       "ready",
+       "pending",
+       "shipped",
+       "cancelled",
+       "delivered"
+      ]
+     },
+     "alert": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "enum": [
+       "address_problem",
+       "payment_failed",
+       null
+      ]
+     },
+     "customerName": {
+      "type": "string"
+     },
+     "amountYen": {
+      "type": "string"
+     },
+     "carrier": {
+      "type": "string"
+     },
+     "payment": {
+      "type": "string"
+     },
+     "staff": {
+      "$ref": "#/components/schemas/UserRef"
+     },
+     "orderedAt": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "shipDue": {
+      "type": "string",
+      "format": "date"
+     },
+     "lateDays": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "shippedBy": {
+      "$ref": "#/components/schemas/UserRef"
+     },
+     "shippedAt": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date-time"
+     },
+     "cancelledAt": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "format": "date-time"
+     }
+    }
+   },
+   "OrderList": {
+    "type": "object",
+    "required": [
+     "items",
+     "total",
+     "me",
+     "nextCursor"
+    ],
+    "properties": {
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/OrderSummary"
+      }
+     },
+     "total": {
+      "type": "integer",
+      "description": "条件に当たる件数（行の数ではない）"
+     },
+     "counts": {
+      "$ref": "#/components/schemas/Counts"
+     },
+     "me": {
+      "$ref": "#/components/schemas/Me"
+     },
+     "nextCursor": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "次の 24 件の起点。最後なら null"
+     },
+     "suggestions": {
+      "type": "array",
+      "description": "空のときだけ。条件を 1 つ外した件数",
+      "items": {
+       "type": "object",
+       "required": [
+        "withoutFilter",
+        "total"
+       ],
+       "properties": {
+        "withoutFilter": {
+         "type": "string"
+        },
+        "total": {
+         "type": "integer"
+        }
+       }
+      }
+     }
+    }
+   },
+   "OrderDetail": {
+    "type": "object",
+    "required": [
+     "orderId",
+     "status",
+     "items",
+     "pastOrders",
+     "history",
+     "parcel"
+    ],
+    "properties": {
+     "orderId": {
+      "type": "string",
+      "pattern": "^[0-9]{6}$"
+     },
+     "status": {
+      "type": "string"
+     },
+     "group": {
+      "type": "string"
+     },
+     "alert": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "customerName": {
+      "type": "string"
+     },
+     "amountYen": {
+      "type": "integer"
+     },
+     "carrier": {
+      "type": "string"
+     },
+     "payment": {
+      "type": "string"
+     },
+     "staff": {
+      "$ref": "#/components/schemas/UserRef"
+     },
+     "orderedAt": {
+      "type": "string"
+     },
+     "shipDue": {
+      "type": "string"
+     },
+     "lateDays": {
+      "type": "integer"
+     },
+     "shippedBy": {
+      "$ref": "#/components/schemas/UserRef"
+     },
+     "shippedAt": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "cancelledAt": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "postal": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "address": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "note": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "parcel": {
+      "type": "object",
+      "required": [
+       "size",
+       "fragile"
+      ],
+      "properties": {
+       "size": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "fragile": {
+        "type": "boolean"
+       }
+      }
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "name",
+        "qty",
+        "amountYen",
+        "taxRate"
+       ],
+       "properties": {
+        "name": {
+         "type": "string"
+        },
+        "qty": {
+         "type": "integer"
+        },
+        "amountYen": {
+         "type": "integer"
+        },
+        "taxRate": {
+         "type": "integer",
+         "enum": [
+          8,
+          10
+         ]
+        }
+       }
+      }
+     },
+     "pastOrders": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+       "type": "object",
+       "required": [
+        "orderId",
+        "orderedAt",
+        "amountYen"
+       ],
+       "properties": {
+        "orderId": {
+         "type": "string"
+        },
+        "orderedAt": {
+         "type": "string"
+        },
+        "amountYen": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "history": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+       "type": "object",
+       "required": [
+        "at",
+        "kind"
+       ],
+       "properties": {
+        "at": {
+         "type": "string"
+        },
+        "kind": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "WriteRequest": {
+    "type": "object",
+    "required": [
+     "orderIds"
+    ],
+    "properties": {
+     "orderIds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+       "type": "string",
+       "pattern": "^[0-9]{6}$"
+      }
+     }
+    }
+   },
+   "WriteResult": {
+    "type": "object",
+    "required": [
+     "orderId",
+     "outcome",
+     "code"
+    ],
+    "properties": {
+     "orderId": {
+      "type": "string"
+     },
+     "outcome": {
+      "type": "string",
+      "enum": [
+       "shipped",
+       "already_shipped",
+       "not_shippable",
+       "not_found",
+       "cancelled",
+       "already_cancelled",
+       "not_allowed"
+      ]
+     },
+     "code": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "enum": [
+       "ORDER_ALREADY_SHIPPED",
+       "ORDER_SHIP_PARTIAL",
+       "ORDER_NOT_FOUND",
+       "ORDER_CANCEL_NOT_ALLOWED",
+       null
+      ]
+     },
+     "reason": {
+      "type": "string"
+     },
+     "shippedBy": {
+      "$ref": "#/components/schemas/UserRef"
+     },
+     "shippedAt": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "cancelledAt": {
+      "type": "string"
+     }
+    }
+   },
+   "WriteSummary": {
+    "type": "object",
+    "required": [
+     "requested"
+    ],
+    "additionalProperties": {
+     "type": "integer"
+    },
+    "properties": {
+     "requested": {
+      "type": "integer"
+     }
+    }
+   },
+   "ShipResponse": {
+    "type": "object",
+    "required": [
+     "results",
+     "summary"
+    ],
+    "properties": {
+     "results": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/WriteResult"
+      }
+     },
+     "summary": {
+      "$ref": "#/components/schemas/WriteSummary"
+     }
+    }
+   },
+   "CancelResponse": {
+    "type": "object",
+    "required": [
+     "results",
+     "summary"
+    ],
+    "properties": {
+     "results": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/WriteResult"
+      }
+     },
+     "summary": {
+      "$ref": "#/components/schemas/WriteSummary"
+     }
+    }
+   }
+  }
+ }
+}

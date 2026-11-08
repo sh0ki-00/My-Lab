@@ -1,0 +1,8 @@
+[
+  {
+    "name": "注文一覧の初期表示の JS（brotli 圧縮後）",
+    "path": ".next/static/chunks/app/admin/orders/*.js",
+    "limit": "170 KB",
+    "brotli": true
+  }
+]

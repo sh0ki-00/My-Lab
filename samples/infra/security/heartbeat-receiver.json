@@ -1,0 +1,21 @@
+{
+  "_comment": "守りの口座の便りを受ける AWS の外の受け手の型（第 16 回。未確定 24 の受け手の側）。値は架空。受け手は呼び出しの仕組みの『便りの途絶』の見張りで、AWS と管理の口座の外にある。管理の口座（信頼の根）が SCP を外して守りの口座の見張りを消しても、便りが止まるのでここで鳴る。",
+  "name": "orders-guard-heartbeat",
+  "senders": [
+    "SNS の話題 orders-guard-security の https の購読（security_pager_url）",
+    "SNS の話題 orders-guard-watch の https の購読（pager_url）"
+  ],
+  "message": {
+    "kind": "orders-guard-heartbeat",
+    "status": "ok"
+  },
+  "send_every_seconds": 900,
+  "alert_after_seconds": 1200,
+  "alert_to": [
+    "セキュリティの呼び出し（当番の外）",
+    "SRE の呼び出し"
+  ],
+  "sender_sends_only_when": "guard-expected.json のアラーム・メトリクスフィルタ・記録の購読・話題と確かめた購読の欠けが 0",
+  "who_can_change": "受け手の設定はセキュリティの 2 人の承認（AWS の外。管理の口座の人は持たない）",
+  "test": "月に 1 回、検証環境の便りを止め、20 分で呼び出しが届くことを確かめる"
+}

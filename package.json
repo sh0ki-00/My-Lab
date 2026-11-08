@@ -1,0 +1,18 @@
+{
+  "name": "company-skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "会社の形と役割スキル。検証の道具（Playwright・axe・Lighthouse）をここに入れる",
+  "scripts": {
+    "verify": "bash tools/verify-all.sh",
+    "verify:full": "bash tools/verify-all.sh --full"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "lighthouse": "^12.8.2",
+    "playwright": "^1.56.1"
+  },
+  "dependencies": {
+    "mermaid": "^12.3.0"
+  }
+}

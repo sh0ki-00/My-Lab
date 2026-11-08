@@ -1,0 +1,93 @@
+# 移行と利用者づくりのイメージを作り、押し込み、来歴を付ける手順（第 15 回。未確定 10 の押し込む workflow の見本）。
+#   作る場所の形: 作る job（build）は札も資格も持たず、網の無い docker build で作る。土台は先の step でダイジェストで取り、
+#     Dockerfile の FROM も同じダイジェスト（deps-diff の --dockerfile）。作る間に外から取る物は全部落ちる。
+#   押し込む job（push）は id-token だけを持ち、部品を動かさない（外の部品も、repo の script も、docker build も）。run は tools/ci/cred-steps.sh を
+#     この実行の SHA で取る 1 行と呼ぶ 1 行だけ（第 16 回）。
+#     attestations: write を持たないので、来歴を書けない。押し込んだダイジェストを次の job へ渡すだけ。
+#   来歴は、信頼する再利用の workflow（attest-image.yml）が、押し込んだ像のダイジェストを主語にして付ける。署名者は
+#     その workflow の job で、呼んだ側（この file）と走った機械は証明書の拡張に入る。守りの口座の関数（event_watch.py）が、
+#     押し込みの出来事ごとに、来歴の署名者と呼んだ側と機械を名指しで照らし、像の層を自分で開いて lock と main の file に照らす。
+#   押し込める役割は ci-push-db-jobs だけで、信頼はこの file の push job と環境（-guarded）を名指しする（iam.tf の push_roles）。
+#   使う Actions の部品は 40 桁の SHA で固定した物だけ（架空の SHA。本物への置き換えは未確定 7）。土台のダイジェストも架空。
+name: db-image-push
+on:
+  push:
+    branches: [main]
+    paths: ["infra/db/**"]
+permissions:
+  contents: read
+concurrency:
+  group: db-image-push-main
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001
+        with:
+          persist-credentials: false
+      - name: Take the base image by digest before the build
+        run: |
+          set -eu
+          docker pull postgres@sha256:0000000000000000000000000000000000000000000000000000000000000000
+      - name: Build with no network from the pinned base only
+        run: |
+          set -eu
+          docker build --network=none --pull=false -t db-bootstrap -f infra/db/Dockerfile.db-bootstrap infra/db
+          docker build --network=none --pull=false -t db-migrate -f infra/db/Dockerfile.db-migrate infra/db
+      - name: Save the images for the push job
+        run: |
+          set -eu
+          mkdir -p "${RUNNER_TEMP}/db-images"
+          docker save db-bootstrap -o "${RUNNER_TEMP}/db-images/db-bootstrap.tar"
+          docker save db-migrate -o "${RUNNER_TEMP}/db-images/db-migrate.tar"
+      - uses: actions/upload-artifact@0000000000000000000000000000000000000005
+        with:
+          name: db-images
+          path: ${{ runner.temp }}/db-images
+  push:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: prod-guarded
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    outputs:
+      bootstrap: ${{ steps.push.outputs.bootstrap }}
+      migrate: ${{ steps.push.outputs.migrate }}
+    steps:
+      # 資格を借りる job の run は、tools/ci/cred-steps.sh を取る 1 行と呼ぶ 1 行だけ（第 16 回）。
+      - name: Take the credential steps from main with the runner's gh, not with checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY}/contents/tools/ci/cred-steps.sh?ref=${GITHUB_SHA}" > "${RUNNER_TEMP}/cred-steps.sh"
+      - name: Download the images of this run with the runner's gh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" db-fetch
+      - name: Borrow the push role with the runner's own OIDC token
+        env:
+          ROLE_ARN: ${{ vars.DB_PUSH_ROLE_ARN }}
+          SESSION: gh-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" assume-role
+      - name: Push both images and pass on their digests
+        id: push
+        env:
+          REGISTRY: ${{ vars.DB_REGISTRY }}
+          PREFIX: ${{ vars.DB_REPOSITORY_PREFIX }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" db-push
+  attest:
+    needs: push
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/attest-image.yml
+    with:
+      bootstrap: ${{ needs.push.outputs.bootstrap }}
+      migrate: ${{ needs.push.outputs.migrate }}

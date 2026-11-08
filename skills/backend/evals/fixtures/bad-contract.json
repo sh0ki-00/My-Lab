@@ -1,0 +1,15 @@
+{
+ "openapi": "3.1.0",
+ "info": {"title": "負例の契約（試験用）。エラーの 4 点・冪等キー・認可・起点の送りが欠けている", "version": "0.1.0"},
+ "paths": {
+  "/v1/orders": {"get": {
+   "operationId": "listOrders",
+   "parameters": [{"name": "offset", "in": "query", "schema": {"type": "integer"}}, {"name": "limit", "in": "query", "schema": {"type": "integer"}}],
+   "responses": {
+    "200": {"description": "一覧", "content": {"application/json": {"schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object"}}, "total": {"type": "integer"}}}}}},
+    "500": {"description": "失敗", "content": {"application/json": {"schema": {"type": "object", "properties": {"message": {"type": "string"}}}}}}}}},
+  "/v1/orders/ship": {"post": {
+   "operationId": "shipOrders",
+   "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["orderIds"], "properties": {"orderIds": {"type": "array", "items": {"type": "string"}}}}}}},
+   "responses": {"200": {"description": "済"}}}}}
+}

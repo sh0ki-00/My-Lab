@@ -1,0 +1,9 @@
+/* 正例のトークン。色・大きさ・時間はここにだけ生の値を書く。 */
+:root {
+  --paper: #F2F4F1; --ink: #1C2321; --rule: #4F6F67; --indigo: #2F5C9E;
+  --font-text: "BIZ UDPGothic", sans-serif;
+  --size-body: 14px; --space-2: 8px; --space-3: 12px; --row-height: 36px; --radius-control: 4px;
+  --focus-width: 2px; --focus-offset: 2px;
+  --duration-1: 80ms; --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) { :root { --duration-1: 0ms; } }

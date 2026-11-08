@@ -1,0 +1,62 @@
+name: 機能の要望
+description: 困りごとと望む動きを書きます。作り方は書かなくてよいです
+title: "[機能] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        1 つの Issue には、1 つの要望だけを書きます。優先度は書きません。
+        題名は「何ができるようになるか」を 60 字以内で。初めて出る専門語は、括弧で言い換えてください。
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景と目的
+      description: 誰が、どの場面で、何に困っているか。件数や時間の数字と、なぜ今か
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: 今の動き
+      description: 今はどうなっていて、どこで手が止まるか
+    validations:
+      required: true
+  - type: textarea
+    id: wanted
+    attributes:
+      label: 望む動き
+      description: できるようになったときの操作を、1 行 1 操作で。画面の名前は「」で囲みます
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了の条件
+      description: 1 行 1 条件で、全行に「誰が何をすれば判定できるか」を書きます
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: やらないこと
+      description: この要望に含めないことと、その理由
+  - type: textarea
+    id: clues
+    attributes:
+      label: 手がかり
+      description: 関係する画面・ファイル・過去の決定・似た機能。見当は「見当（未確認）」と書きます
+  - type: textarea
+    id: open
+    attributes:
+      label: 未確定
+      description: 決まっていないことと、誰がいつ決めるか
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 出す前の確認
+      options:
+        - label: 同じ要望の Issue が無いことを、探して確かめた
+          required: true
+        - label: 作り方ではなく、困りごとと望む動きを書いた
+          required: true

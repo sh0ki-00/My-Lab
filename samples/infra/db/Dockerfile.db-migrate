@@ -1,0 +1,8 @@
+# 移行の像（第 15 回）。土台はダイジェストだけ。土台の上に入るのは移行の入口と移行の SQL（スキーマの写しを含む）だけ。
+# 土台は psql と aws を持つ像にする（どの像かは未確定 10。下のダイジェストは架空）。
+FROM postgres@sha256:0000000000000000000000000000000000000000000000000000000000000000
+COPY migrate-run.sh /app/migrate-run.sh
+COPY migrations/ /migrations/
+USER 10001
+WORKDIR /app
+ENTRYPOINT ["/app/migrate-run.sh"]

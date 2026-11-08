@@ -1,0 +1,1238 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "注文 API（架空の EC サイトの管理画面）",
+    "version": "1.2.0",
+    "description": "設計と実装計画 skills/backend/examples/backend-plan-order-list.md の契約。数値はすべて架空。時刻は UTC の RFC 3339、金額は円の整数。"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "見本の API（samples/api/server.py）"
+    }
+  ],
+  "security": [
+    {
+      "bearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "orders"
+    }
+  ],
+  "paths": {
+    "/v1/orders": {
+      "get": {
+        "operationId": "listOrders",
+        "tags": [
+          "orders"
+        ],
+        "summary": "注文一覧。件数・ビューごとの件数・利用者・サーバーの時刻を同じ応答に入れる",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "today",
+                "mine",
+                "pending-all",
+                "shipped"
+              ],
+              "default": "today"
+            },
+            "description": "保存ビュー。today と mine は、未出荷の 4 群のあとに、今日出荷指示した行と、出荷のあとに取り消しの印が立った出荷済みの行（前の日までの出荷も）を、群 shipped として出荷指示の新しい順で続ける（画面の直後の群と済の群）。shipped も同じ済の行を返す。ビューの件数 viewCounts は、today と mine は未出荷だけ、shipped は済のビューの行を数える"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "action",
+                "late",
+                "ready",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "staff",
+            "in": "query",
+            "description": "利用者の id、me、none（担当なし）。view=mine とは併せない（併せると 400）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "carrier",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "payment",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "注文番号の前方一致か氏名の部分一致。% と _ は字として探す。1〜64 字。ログには書かない",
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "next",
+                "orderedAt",
+                "-orderedAt",
+                "-shippedAt"
+              ]
+            },
+            "description": "並び。-shippedAt（出荷指示の新しい順）は view=shipped だけで受け、view=shipped の既定にする。since とは併せない"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 24
+            },
+            "description": "半角の数字だけ。全角やほかの文字の数字は 400"
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "起点。前の応答の nextCursor をそのまま渡す（中身は読まない）。起点は並びと絞り込み（view・status・staff・carrier・payment・q・since）に結びつき、条件を変えて渡すと 400。起点は API が鍵で署名した値で、画面で組み立てた値と書き換えた値は 400。一覧の起点は日付（日本時間）にも結びつき、日付が変わってから渡すと 400（遅れの群が変わるので、画面は先頭から読み直す）。送りのあいだに群が前に戻った行（決済待ちから出荷可へなど）は、最初の頁の servedAt を since に渡すと届く。前へ戻る起点（before）は無い",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "description": "この時刻より後に変わった行（済、取消、取り消しの戻し、新しい注文、決済待ちから出荷可、担当の変更など、どの書き手の変更も）を、変わった順に返す。行はビューで絞らず、店の中で変わった行を全部返す。行ごとの inViews が、その行が今どの保存ビューに入るかを示す。画面は今のビューが inViews にあれば行の status と group で今の群に置き直し、無ければ表から外す。タブの件数 viewCounts も同じ応答に入る。群ごとの件数 counts は入らないので、画面は今のビューへの出入りか群の移りがあった応答のあとで、一覧の先頭を読み直して counts を置き換える。行の status と cancelledAfterShip で今の状態を知らせる（取消済みの行は status が cancelled、戻した行は status が元の状態で cancelledAt が null。出荷のあとに印が立った行は status が shipped で cancelledAfterShip が true）。時差（Z か +09:00）の無い値は 400。サーバーは 10 秒の重ね幅を取り、重ね幅の行は前の応答と重なることがある（画面は注文番号で除く）。nextCursor が null になるまで after で送り、最後の応答の servedAt を次の since に使う（送りの全頁が、最初の頁の servedAt を返す）。view・status・staff・carrier・payment・q・sort とは併せない（併せると 400）。いまから 15 分（架空）より前の時刻は 400（店の全履歴をたどらせない）。変化の記録のトリガーは移行のあいだ外さない。外された場合は、トリガーが無いあいだは 503 の ORDER_LIST_UPSTREAM_SLOW（一覧は返る）で、足し直す前の時刻は 400（無かったあいだの変化を数えられない）。2 日より前に出荷した済の行の一括の書き込みと、値の変わらない書き込みは返さない（取り消しの印の立て下ろしは、何日前の出荷でも返す）。画面は一覧を読み直し、その servedAt から since を続ける",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "traceparent",
+            "in": "header",
+            "required": false,
+            "description": "W3C Trace Context。無ければサーバーが追跡番号を作る。",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST（契約に無い引数、空の値、同じ引数の重ね、範囲外の limit、64 字を超える q、時差の無い since、15 分より前の since、条件と結びつかない起点、署名の合わない起点、前の日の一覧の起点）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "ORDER_LIST_INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ORDER_LIST_UPSTREAM_SLOW（API 自身の打ち切り 8 秒。lock の待ちを含む。鍵ごとの同時の要求の上限を超えたときも、待たずに返す。since は、変化の記録のトリガーが無いあいだも返す）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{orderId}": {
+      "get": {
+        "operationId": "getOrder",
+        "tags": [
+          "orders"
+        ],
+        "summary": "注文詳細。過去の注文 2 件と荷物の指定を同じ応答に入れる",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6,12}$"
+            }
+          },
+          {
+            "name": "traceparent",
+            "in": "header",
+            "required": false,
+            "description": "W3C Trace Context。無ければサーバーが追跡番号を作る。",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "詳細",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST（注文番号が契約の形 ^[0-9]{6,12}$ に合わない）。無い注文の 404 と分ける",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ORDER_NOT_FOUND（他の店の注文も同じ）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "ORDER_LIST_INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ORDER_DETAIL_UPSTREAM_SLOW（打ち切りと、鍵ごとの同時の要求の上限）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/ship": {
+      "post": {
+        "operationId": "shipOrders",
+        "tags": [
+          "orders"
+        ],
+        "summary": "出荷指示。検証で行を分け、出荷可の行を 1 つのトランザクションで全件か無しで更新する",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "冪等キー。同じ利用者が同じ鍵で同じ内容を送ると、最初の応答をそのまま返す。24 時間保持（架空）。",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,64}$"
+            }
+          },
+          {
+            "name": "traceparent",
+            "in": "header",
+            "required": false,
+            "description": "W3C Trace Context。無ければサーバーが追跡番号を作る。",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "1 件以上を出荷指示にした。行ごとの結果つき",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST、IDEMPOTENCY_KEY_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN_ROLE（閲覧者）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ORDER_ALREADY_SHIPPED（全件が先に済）、ORDER_SHIP_PARTIAL（出荷指示にできた行が 0 件）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_KEY_MISMATCH",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "ORDER_WRITE_INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ORDER_WRITE_UNAVAILABLE（何も書かずに断った。利用者ごとの同時の要求の上限、lock と行の鍵の待ちの打ち切り）。冪等キーは取らないので、しばらく待って同じキーで送り直せる。画面は原因と対処を API の文のまま出す。書いた行を変化の記録のトリガーが印していなかったときも、全部を戻して返す。ORDER_WRITE_DISABLED（新 API の書き込みを止めた戻し。機能フラグで画面を旧 API に戻した）は、送り直しでは通らないので、画面を読み込み直させる（旧画面が開く）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/cancel": {
+      "post": {
+        "operationId": "cancelOrders",
+        "tags": [
+          "orders"
+        ],
+        "summary": "取り消し。出荷指示済みの行は ORDER_CANCEL_NOT_ALLOWED",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "冪等キー。同じ利用者が同じ鍵で同じ内容を送ると、最初の応答をそのまま返す。24 時間保持（架空）。",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,64}$"
+            }
+          },
+          {
+            "name": "traceparent",
+            "in": "header",
+            "required": false,
+            "description": "W3C Trace Context。無ければサーバーが追跡番号を作る。",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "1 件以上を取り消した、または全件が取消済み",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST、IDEMPOTENCY_KEY_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN_ROLE（閲覧者）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ORDER_CANCEL_NOT_ALLOWED、ORDER_NOT_FOUND（取り消せた行が 0 件。他の店の注文も 404 にせず、行ごとの結果の not_found で返す）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_KEY_MISMATCH",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "ORDER_WRITE_INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ORDER_WRITE_UNAVAILABLE（何も書かずに断った。利用者ごとの同時の要求の上限、lock と行の鍵の待ちの打ち切り）。冪等キーは取らないので、しばらく待って同じキーで送り直せる。画面は原因と対処を API の文のまま出す。書いた行を変化の記録のトリガーが印していなかったときも、全部を戻して返す。ORDER_WRITE_DISABLED（新 API の書き込みを止めた戻し。機能フラグで画面を旧 API に戻した）は、送り直しでは通らないので、画面を読み込み直させる（旧画面が開く）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "利用者ごとの鍵。役割は operator（運営担当者）と viewer（閲覧者）。店の id は鍵から決まり、要求では受けない。鍵はログインのたびに乱数で発行し、利用者の id からは作れない。期限は 12 時間（架空）、役割の変更と退職で失効。サーバーは鍵のハッシュだけを持つ"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "category",
+          "cause",
+          "action",
+          "traceId"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "ORDER_LIST_UPSTREAM_SLOW",
+              "ORDER_LIST_INTERNAL",
+              "ORDER_SHIP_PARTIAL",
+              "ORDER_ALREADY_SHIPPED",
+              "ORDER_CANCEL_NOT_ALLOWED",
+              "ORDER_NOT_FOUND",
+              "ORDER_DETAIL_UPSTREAM_SLOW",
+              "AUTH_REQUIRED",
+              "FORBIDDEN_ROLE",
+              "INVALID_REQUEST",
+              "IDEMPOTENCY_KEY_REQUIRED",
+              "IDEMPOTENCY_KEY_MISMATCH",
+              "ORDER_WRITE_INTERNAL",
+              "ORDER_WRITE_UNAVAILABLE",
+              "ORDER_WRITE_DISABLED"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "auth",
+              "permission",
+              "validation",
+              "not_found",
+              "conflict",
+              "upstream",
+              "internal"
+            ],
+            "description": "分類"
+          },
+          "cause": {
+            "type": "string",
+            "description": "原因（何が起きたか）"
+          },
+          "action": {
+            "type": "string",
+            "description": "対処（どうすればよいか）"
+          },
+          "traceId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "追跡番号。画面ではお問い合わせ番号"
+          }
+        }
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        }
+      },
+      "WriteErrorBody": {
+        "type": "object",
+        "required": [
+          "error",
+          "results",
+          "summary"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WriteResult"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WriteSummary"
+          }
+        }
+      },
+      "UserRef": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role",
+          "keys"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "viewer"
+            ]
+          },
+          "keys": {
+            "type": "object",
+            "description": "1 文字キーと操作。この版の API で動く操作だけを返す（運営担当者は S=ship と P=print）。閲覧者は空",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Counts": {
+        "type": "object",
+        "description": "群ごとの件数。この応答の条件（ビューと絞り込み）に当たる行だけを数え、items の群と食い違わない。取消の行は数えない。since の応答には無い",
+        "required": [
+          "action",
+          "late",
+          "ready",
+          "pending",
+          "shippedToday"
+        ],
+        "properties": {
+          "action": {
+            "type": "integer"
+          },
+          "late": {
+            "type": "integer"
+          },
+          "ready": {
+            "type": "integer"
+          },
+          "pending": {
+            "type": "integer"
+          },
+          "shippedToday": {
+            "type": "integer",
+            "description": "この応答の条件に当たる、今日出荷指示した行の数。済の群（group が shipped）の件数で、total から 4 群を引いた数と同じ。店全体の今日の済は viewCounts.shipped"
+          }
+        }
+      },
+      "ViewCounts": {
+        "type": "object",
+        "description": "保存ビューのタブの件数。絞り込みによらず、ビューの条件だけで数える。取消の行は数えない。since の応答にも入る",
+        "required": [
+          "today",
+          "mine",
+          "pending-all",
+          "shipped"
+        ],
+        "properties": {
+          "today": {
+            "type": "integer",
+            "description": "今日出荷。出荷予定が今日までの未出荷"
+          },
+          "mine": {
+            "type": "integer",
+            "description": "自分の担当。today のうち担当が自分"
+          },
+          "pending-all": {
+            "type": "integer",
+            "description": "決済待ちの全体。出荷予定日を問わない"
+          },
+          "shipped": {
+            "type": "integer",
+            "description": "今日の済"
+          }
+        }
+      },
+      "OrderSummary": {
+        "type": "object",
+        "required": [
+          "orderId",
+          "status",
+          "group",
+          "customerName",
+          "amountYen",
+          "carrier",
+          "payment",
+          "orderedAt",
+          "shipDue",
+          "lateDays",
+          "cancelledAfterShip"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "pattern": "^[0-9]{6,12}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "action",
+              "ready",
+              "pending",
+              "shipped",
+              "cancelled",
+              "delivered"
+            ],
+            "description": "注文の状態。cancelled は DB の status には無く、API が取り消しの印（is_cancelled）から作る。取消の行は、DB の status が決済待ちや出荷可のままでも cancelled。出荷のあとに旧 API が印を立てた行は、荷物が出ていくので cancelled にせず shipped（か delivered）のまま返し、cancelledAfterShip を true にして出荷のあとの取り消しを知らせる"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "action",
+              "late",
+              "ready",
+              "pending",
+              "shipped",
+              "cancelled",
+              "delivered"
+            ]
+          },
+          "alert": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "address_problem",
+              "payment_failed",
+              null
+            ]
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "amountYen": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "carrier": {
+            "type": "string"
+          },
+          "payment": {
+            "type": "string"
+          },
+          "staff": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "orderedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shipDue": {
+            "type": "string",
+            "format": "date"
+          },
+          "lateDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "shippedBy": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "shippedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "cancelledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "取り消しの印が立った日時。取消の行と、出荷のあとに印が立った済の行に入る。印の無い行は null。印を立てた取引で DB のトリガーが書いた時刻だけを返す。時刻の記録が無い取り消し（トリガーを足す前の旧 API）と、トリガーを素通りした書き込み（取り込みなど）のあとの行は、分からないので null で、前の取り消しの時刻や行が変わったほかの時刻で埋めない"
+          },
+          "cancelledBy": {
+            "$ref": "#/components/schemas/UserRef",
+            "description": "取り消した人。印が立った行だけに入れ、ほかは null。旧 API が取り消した行（人の記録が無い）も null。人は、印を立てた取引で DB のトリガーが要求の鍵から引いて書いた値だけを返す。印を戻して立て直したときは、立て直した取引の値に替わり（旧 API なら null）、前の取り消しの人を返さない。名前を引けない利用者も null"
+          },
+          "cancelledAfterShip": {
+            "type": "boolean",
+            "description": "出荷のあとに取り消しの印が立った（旧 API の客の取り消しなど）。status は shipped か delivered のままで、荷物は出ていく。画面はこの行を普通の済と分けて目立たせ、荷物を止める判断を促す（受け持ちは画面仕様と実装計画。計画の未確定 18）。前の日までに出荷した行も、出荷済み（shipped）のあいだは today・mine・shipped のビューに残し、印が立った書き込みは since に出る。取消の行と印の無い行は false。cancelledAt が分からない（null）ときも、この値は印から決まる"
+          },
+          "inViews": {
+            "type": "array",
+            "description": "この行が今入る保存ビュー（呼び手から見て）。一覧と since の行に入り、詳細には無い。取消の行は空。今日出荷と自分の担当は、今日の済の行も入る",
+            "items": {
+              "type": "string",
+              "enum": [
+                "today",
+                "mine",
+                "pending-all",
+                "shipped"
+              ]
+            }
+          }
+        }
+      },
+      "OrderList": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "me",
+          "servedAt",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "条件に当たる件数（行の数ではない）。today と mine では今日の済の行も含む。済の群の件数は total から counts の 4 群を引いた数。since のときは、変わった行の全件の数"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/Counts"
+          },
+          "me": {
+            "$ref": "#/components/schemas/Me"
+          },
+          "servedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "サーバーの時刻。行の変わった時刻（since で比べる時刻）と同じ DB の時計で、行を読む取引を始める前に取る。まだコミットしていない書き手の取引があれば、その始まりより後にしない（行を読んでから遅れてコミットした行も、次の since に入れる）。since を after で送るあいだは、全部の頁が最初の頁の servedAt を返す。次の since に使う"
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "次の起点。最後なら null。since の応答でも、行が limit を超えれば返る"
+          },
+          "suggestions": {
+            "type": "array",
+            "description": "空のときだけ。条件を 1 つ外した件数",
+            "items": {
+              "type": "object",
+              "required": [
+                "withoutFilter",
+                "total"
+              ],
+              "properties": {
+                "withoutFilter": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "viewCounts": {
+            "$ref": "#/components/schemas/ViewCounts"
+          }
+        }
+      },
+      "OrderDetail": {
+        "type": "object",
+        "required": [
+          "orderId",
+          "status",
+          "items",
+          "pastOrders",
+          "history",
+          "parcel",
+          "cancelledAfterShip"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "pattern": "^[0-9]{6,12}$"
+          },
+          "status": {
+            "type": "string",
+            "description": "注文の状態。cancelled は DB の status には無く、API が取り消しの印（is_cancelled）から作る。取消の行は、DB の status が決済待ちや出荷可のままでも cancelled。出荷のあとに旧 API が印を立てた行は、荷物が出ていくので cancelled にせず shipped（か delivered）のまま返し、cancelledAfterShip を true にして出荷のあとの取り消しを知らせる"
+          },
+          "group": {
+            "type": "string"
+          },
+          "alert": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "amountYen": {
+            "type": "integer"
+          },
+          "carrier": {
+            "type": "string"
+          },
+          "payment": {
+            "type": "string"
+          },
+          "staff": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "orderedAt": {
+            "type": "string"
+          },
+          "shipDue": {
+            "type": "string"
+          },
+          "lateDays": {
+            "type": "integer"
+          },
+          "shippedBy": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "shippedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "取り消しの印が立った日時。取消の行と、出荷のあとに印が立った済の行に入る。印の無い行は null。印を立てた取引で DB のトリガーが書いた時刻だけを返す。時刻の記録が無い取り消し（トリガーを足す前の旧 API）と、トリガーを素通りした書き込み（取り込みなど）のあとの行は、分からないので null で、前の取り消しの時刻や行が変わったほかの時刻で埋めない"
+          },
+          "cancelledBy": {
+            "$ref": "#/components/schemas/UserRef",
+            "description": "取り消した人。印が立った行だけに入れ、ほかは null。旧 API が取り消した行（人の記録が無い）も null。人は、印を立てた取引で DB のトリガーが要求の鍵から引いて書いた値だけを返す。印を戻して立て直したときは、立て直した取引の値に替わり（旧 API なら null）、前の取り消しの人を返さない。名前を引けない利用者も null"
+          },
+          "cancelledAfterShip": {
+            "type": "boolean",
+            "description": "出荷のあとに取り消しの印が立った（旧 API の客の取り消しなど）。status は shipped か delivered のままで、荷物は出ていく。画面はこの行を普通の済と分けて目立たせ、荷物を止める判断を促す（受け持ちは画面仕様と実装計画。計画の未確定 18）。前の日までに出荷した行も、出荷済み（shipped）のあいだは today・mine・shipped のビューに残し、印が立った書き込みは since に出る。取消の行と印の無い行は false。cancelledAt が分からない（null）ときも、この値は印から決まる"
+          },
+          "postal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parcel": {
+            "type": "object",
+            "required": [
+              "size",
+              "fragile"
+            ],
+            "properties": {
+              "size": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fragile": {
+                "type": "boolean"
+              }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "qty",
+                "amountYen",
+                "taxRate"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "amountYen": {
+                  "type": "integer"
+                },
+                "taxRate": {
+                  "type": "integer",
+                  "enum": [
+                    8,
+                    10
+                  ]
+                }
+              }
+            }
+          },
+          "pastOrders": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "required": [
+                "orderId",
+                "orderedAt",
+                "amountYen"
+              ],
+              "properties": {
+                "orderId": {
+                  "type": "string"
+                },
+                "orderedAt": {
+                  "type": "string"
+                },
+                "amountYen": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "history": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "required": [
+                "at",
+                "kind"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "WriteRequest": {
+        "type": "object",
+        "required": [
+          "orderIds"
+        ],
+        "properties": {
+          "orderIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{6,12}$"
+            }
+          }
+        },
+        "description": "本文は 16,384 バイトまで。Content-Length が負か上限を超えたら、本文を読まずに 400"
+      },
+      "WriteResult": {
+        "type": "object",
+        "required": [
+          "orderId",
+          "outcome",
+          "code"
+        ],
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "shipped",
+              "already_shipped",
+              "not_shippable",
+              "not_found",
+              "cancelled",
+              "already_cancelled",
+              "not_allowed"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ORDER_ALREADY_SHIPPED",
+              "ORDER_SHIP_PARTIAL",
+              "ORDER_NOT_FOUND",
+              "ORDER_CANCEL_NOT_ALLOWED",
+              null
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "出荷指示にできなかった行の今の状態（not_shippable のとき）。取り消した行は cancelled（取り消しの印から作る）"
+          },
+          "shippedBy": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "shippedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledAt": {
+            "type": "string"
+          }
+        }
+      },
+      "WriteSummary": {
+        "type": "object",
+        "required": [
+          "requested"
+        ],
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "properties": {
+          "requested": {
+            "type": "integer"
+          }
+        }
+      },
+      "ShipResponse": {
+        "type": "object",
+        "required": [
+          "results",
+          "summary"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WriteResult"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WriteSummary"
+          }
+        }
+      },
+      "CancelResponse": {
+        "type": "object",
+        "required": [
+          "results",
+          "summary"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WriteResult"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WriteSummary"
+          }
+        }
+      }
+    }
+  }
+}

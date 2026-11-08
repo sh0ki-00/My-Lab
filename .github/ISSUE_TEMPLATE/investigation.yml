@@ -1,0 +1,55 @@
+name: 調査の依頼
+description: 答えを出したい問いと、答えの出し方を書きます
+title: "[調査] "
+labels: ["investigation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        1 つの Issue には、1 つの問いだけを書きます。優先度は書きません。
+        題名は「問い」を 60 字以内で。初めて出る専門語は、括弧で言い換えてください。
+  - type: textarea
+    id: question
+    attributes:
+      label: 問い
+      description: 1 文で。「どれがよいか」なら、比べる候補も書きます
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景と目的
+      description: 誰が、何を決めるためにこの答えが要るか。いつまでに要るか
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: 出すもの
+      description: 調査報告の形。比較表の観点、必ず書く数字、出典の条件（一次情報か）
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了の条件
+      description: 1 行 1 条件で、全行に「誰が何を見れば判定できるか」を書きます
+    validations:
+      required: true
+  - type: textarea
+    id: known
+    attributes:
+      label: 分かっていること
+      description: 事実（出典つき）と推測（確かめ方つき）を分けて書きます
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: やらないこと
+      description: この調査で答えないこと
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 出す前の確認
+      options:
+        - label: 同じ問いの Issue や過去の調査が無いことを、探して確かめた
+          required: true

@@ -1,0 +1,73 @@
+# 画面の file を配る手順。作る手順（static-build.yml）とは別の workflow の file にし、配る job だけが AWS の資格を借りる。
+#   借りる役割は iam.tf の ci_push_static の 1 つだけ。信頼の sub は「環境 <env> と、main のこの file」で、作る job からは借りられない。
+#   借り入れの名前は gh-<実行の番号>-<試みの番号>。守りの口座の GitHub の見張りが、AWS の記録の名前から実行を引いて照らす。
+#   配る前に、配る実行が main の static-build の最新の作りかを確かめ、古い作りは配らない。最新は、成功した push の実行のうち、
+#     やり直しでない（run_attempt が 1）実行の run_number の最大で決める（やり直した古い実行は一覧の先頭に来うる）。やり直しは配らない。
+#     照らし（守りの口座）も同じ決まりで、書かれた版を、書かれた時刻の最新の作りと照らす。
+#   file ごとに作りの来歴（static-build.yml の署名、refs/heads/main、GitHub の機械）を確かめ、合わなければ止める。これは手違いを止める
+#   前の確かめで、照らしの正ではない。照らしの正は守りの口座にある（security/static-watch.tf）。バケットへの書き込みのたびに、
+#   守りの口座の関数が来歴の署名を自分で確かめ、書かれた版の指紋と照らして、合わなければ鳴らす。
+#   分けた送り（multipart）は使わない。閾値を上げ、file は 1 回の PutObject で送る。照らしは配る役割の分けた送りを ng にする。
+#   束は機械に入っている gh で落とす。外の部品は 1 つも使わない。資格も、機械の OIDC の窓口と機械に入っている aws で借りる
+#     （configure-aws-credentials を使わない。その悪い版が、資格を借りる全部の workflow の道を受け継ぐため）。
+#   束は、作る job が終わる前に作られた名前 site の 1 つだけを配る。来歴は、束の全部の file を主語に持つ署名だけを認める。
+#     署名する job の部品（組み立ての型の中の部品を含む）が、束を上げ直すか、任意の指紋に署名を足しても、ここで止まる。
+#   index.html は最後に書く。指紋を名前に入れた assets/ の file を先に置き、入口が新しい file を指したときに無い、を避ける。
+#   長く控えるのは、名前に指紋を入れた script と style（assets/*.js と assets/*.css）だけ。html は入口と同じく毎回確かめる（edge.tf）。
+#     外した部品の古い html を後で案内されても、配信の端は 60 秒で元へ取りに行き、--delete で消えた file は返らない。
+#   書いた後、入口の控え（60 秒）が切れるのを待ってから、今の作りに無い file を消す（--delete）。外した部品の入った古い html と script を
+#     配信に残さない。消し漏れは、守りの口座の毎日の見回りが鳴らす（static_watch.py の sweep）。
+#   使う Actions の部品は 40 桁の SHA で固定した物だけ（架空の SHA。本物への置き換えは未確定 7）。
+name: static-deploy
+on:
+  workflow_run:
+    workflows: [static-build]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: static-deploy-prod
+  cancel-in-progress: true
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    environment: prod
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      # 資格を借りる job の run は、tools/ci/cred-steps.sh を取る 1 行と呼ぶ 1 行だけ（第 16 回。deps-diff の --uses が許す行の一覧で確かめる）。
+      - name: Take the credential steps from main with the runner's gh, not with checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY}/contents/tools/ci/cred-steps.sh?ref=${GITHUB_SHA}" > "${RUNNER_TEMP}/cred-steps.sh"
+      - name: Deploy only the latest successful build on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" deploy-pick
+      - name: Download only the one bundle made by the build job
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" deploy-fetch
+      - name: Check every file against the build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" deploy-verify
+      - name: Borrow the push role with the runner's own OIDC token, without a third-party action
+        env:
+          ROLE_ARN: ${{ vars.STATIC_PUSH_ROLE_ARN }}
+          SESSION: gh-${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" assume-role
+      - name: Upload the assets first and the entry last
+        env:
+          BUCKET: ${{ vars.STATIC_BUCKET }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" deploy-sync

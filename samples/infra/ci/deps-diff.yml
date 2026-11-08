@@ -1,0 +1,130 @@
+# 部品の一覧（SBOM）の差分。main へ入る PR ごとに回る必須の検査（org/github.tf の required_status_checks）。
+#   画面の npm の lock に加え、API（Python）の部品の固定の file と、Actions の部品（uses: の SHA）も差分を出す。
+#   Python の lock と uses の行は、許す形の一覧で確かめる（拒む一覧にしない）。形の外の行は全部止める。
+#   固定した部品が組み立ての型なら、中の uses も 40 桁の SHA かを、固定した SHA の action.yml を取って確かめる。
+#   外の組み立ての型は run の step を持てない（中で外から取る物は SHA で固まらない）。workflow と手元の部品の run も、外からの取り出しを落とす。
+#   手元の部品（uses: ./）は .github/actions の下に限る（ほかの ./ は形の外）。確かめる file は repo の全部の action.yml と action.yaml で、
+#     置き場が .github の外でも数える（手元の部品の中の札を、確かめる file の集まりの外へ逃がさない）。
+#   Actions の SHA の付け替えも、新しい部品の版として注記で鳴らす。
+#   新しい部品と版の変更は、PR の注記と job の要約に出す（鳴らす）。lock の file の持ち主はセキュリティなので、その人が差分を読んで承認する。
+#   登録所の外の取り込み元、指紋の無い部品、版を変えない指紋の変更、新しい入れ時の命令は、検査を落として止める。
+#   判定の本体は tools/deps-diff/（skills/infra/scripts/deps-diff.sh の写し）。この file と tools/ の持ち主もセキュリティ。
+#   判定の本体は main の版を動かす（PR の側の deps_diff.py を書き換えて、必須の検査を通す道を閉じる。第 15 回）。
+#   作る場所の形（第 15 回）: 像の行（container、services、手元の部品の image）はダイジェストだけ。資格を借りる job は container と
+#     services を置かず、run が呼ぶ file は tools/ci/ の下だけ。Dockerfile の FROM はダイジェストだけ（--dockerfile）。
+#     package.json の scripts の取り出しの命令も落とす（--scripts）。作る job は網の無い場所で動くので、ここは PR の段の早い知らせ。
+#   固定した外の SHA は、上流の既定のブランチから届く commit だけを許す（fork の網に置いた偽の commit を、同じ名前で動かす道を閉じる）。
+#   使う Actions の部品は 40 桁の SHA で固定した物だけ（架空の SHA。本物への置き換えは未確定 7）。
+name: deps-diff
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  sbom-diff:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Take the checker from main, not from the pull request
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          mkdir -p "${RUNNER_TEMP}/dd"
+          git show "origin/${BASE_REF}:tools/deps-diff/deps_diff.py" > "${RUNNER_TEMP}/dd/deps_diff.py"
+          git show "origin/${BASE_REF}:tools/deps-diff/deps-diff.sh" > "${RUNNER_TEMP}/dd/deps-diff.sh"
+      - name: Compare every package-lock.json with main
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -u
+          status=0
+          for lock in $(git ls-files '*package-lock.json'); do
+            if ! git show "origin/${BASE_REF}:${lock}" > "${RUNNER_TEMP}/base.json" 2>/dev/null; then
+              echo '{"lockfileVersion":3,"packages":{}}' > "${RUNNER_TEMP}/base.json"
+            fi
+            rc=0
+            bash "${RUNNER_TEMP}/dd/deps-diff.sh" "${RUNNER_TEMP}/base.json" "$lock" --github >> "$GITHUB_STEP_SUMMARY" || rc=$?
+            if [ "$rc" -eq 1 ] || [ "$rc" -eq 2 ]; then status=1; fi
+          done
+          exit "$status"
+      - name: Show the Python lock changes and stop every line outside the allowed form
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          # API（Python）の部品の固定の file も、差分を注記に出す。持ち主はセキュリティ（org/variables.tf の lock_paths）。
+          # 行は許す形の一覧で確かめる（名前==版、指紋の続きの行、コメント、空行だけ）。取り込み元を変える書き方は全部、形の外で落ちる。
+          files=$(git ls-files '*requirements*.txt' '*uv.lock' '*poetry.lock')
+          [ -z "$files" ] && exit 0
+          { echo '## Python の部品の差分'; echo '```diff'; git diff "origin/${BASE_REF}" -- $files; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          req=$(git ls-files '*requirements*.txt')
+          [ -z "$req" ] || python3 -I "${RUNNER_TEMP}/dd/deps_diff.py" --requirements $req
+      - name: Show the Actions pin changes and stop every action reference outside the allowed form
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          # Actions の部品の足し引きと SHA の付け替えを、PR の注記と job の要約に出す（持ち主の欄で、セキュリティがこの差分を読む）。
+          git diff -U0 "origin/${BASE_REF}" -- .github/workflows '*action.yml' '*action.yaml' > "${RUNNER_TEMP}/actions.diff" || true
+          if [ -s "${RUNNER_TEMP}/actions.diff" ]; then
+            { echo '## Actions の部品の差分'; echo '```diff'; cat "${RUNNER_TEMP}/actions.diff"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning title=Actions の file の変更::部品の足し引きと SHA の付け替えは、job の要約の差分を読む"
+          fi
+          # 行の頭の grep ではなく、許す形の一覧で全部の file を確かめる（流れの書き方、引用した鍵、折り返しも落ちる）。
+          # 確かめる file は workflow と、repo の全部の action.yml と action.yaml（置き場を問わない。.github の外に置いた部品も数える）。
+          python3 -I "${RUNNER_TEMP}/dd/deps_diff.py" --uses $(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml' '*action.yml' '*action.yaml')
+      - name: Stop base images by tag and fetch commands in package scripts
+        run: |
+          set -eu
+          # Dockerfile の FROM はダイジェストだけ。作る job は網の無い場所で動き、土台は先の step でダイジェストで取る（第 15 回）。
+          # Containerfile の名も数える（第 16 回）。docker build の -f は Dockerfile の名の型だけを許す（--uses）ので、型の外の file では作れない。
+          df=$(git ls-files '*Dockerfile' '*Dockerfile.*' '*.dockerfile' '*Containerfile' '*Containerfile.*' '*.containerfile')
+          [ -z "$df" ] || python3 -I "${RUNNER_TEMP}/dd/deps_diff.py" --dockerfile $df
+          # package.json の scripts の取り出し（npx、curl、npm exec など）。網の無い作りで落ちる物を、PR の段で先に見つける。
+          pj=$(git ls-files '*package.json' | grep -v '/node_modules/' || true)
+          [ -z "$pj" ] || python3 -I "${RUNNER_TEMP}/dd/deps_diff.py" --scripts $pj
+      - name: Stop pinned actions whose own composite steps are not pinned
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # 既定の shell（bash -e、pipefail なし）では、パイプの終了の値が最後の base64 の 0 になり、取り出しの失敗を黙って通す。
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 固定した部品が組み立ての型（composite）なら、中の uses も 40 桁の SHA でなければ、外の固定で中身が固まらない。
+          # 固定した SHA の action.yml を GitHub の API で取り、中の uses を許す形の一覧で確かめる（中の部品の中も、同じ形で辿る）。
+          mkdir -p "${RUNNER_TEMP}/remote"
+          refs=$(grep -hoE '[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}' $(git ls-files '.github/workflows/*.yml' '.github/workflows/*.yaml' '*action.yml' '*action.yaml') | sort -u || true)
+          seen=""
+          while [ -n "$refs" ]; do
+            next=""
+            for ref in $refs; do
+              case " $seen " in *" $ref "*) continue ;; esac
+              seen="$seen $ref"
+              path="${ref%@*}"; sha="${ref#*@}"; repo=$(printf '%s' "$path" | cut -d/ -f1-2); sub=$(printf '%s' "$path" | cut -d/ -f3- -s)
+              out="${RUNNER_TEMP}/remote/$(printf '%s' "$ref" | tr '/@' '__').yml"
+              # action.yml か action.yaml の取り出しが両方とも失敗したら（無い、権限、回数の上限）、この job を落とす。
+              # 取り出した file が空か runs の形の外なら、--uses-remote が落とす（Docker の型の image もダイジェストだけを許す）。
+              if gh api -H "Accept: application/vnd.github.raw" "repos/${repo}/contents/${sub:+$sub/}action.yml?ref=${sha}" > "$out" 2>/dev/null \
+                || gh api -H "Accept: application/vnd.github.raw" "repos/${repo}/contents/${sub:+$sub/}action.yaml?ref=${sha}" > "$out"; then
+                :
+              else
+                echo "::error title=部品の取り出しの失敗::${ref} の action.yml を取り出せない"
+                exit 1
+              fi
+              python3 -I "${RUNNER_TEMP}/dd/deps_diff.py" --uses-remote "$out"
+              # SHA は、上流の既定のブランチから届く commit だけを許す（fork に置いた commit は、同じ名前で動いても届かない）。
+              default=$(gh api "repos/${repo}" --jq .default_branch)
+              reach=$(gh api "repos/${repo}/compare/${default}...${sha}" --jq .status)
+              case "$reach" in
+                identical|behind) ;;
+                *) echo "::error title=上流から届かない SHA::${ref} は ${repo} の ${default} から届かない（${reach}）"; exit 1 ;;
+              esac
+              next="$next $({ grep -hoE '[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}' "$out" || true; } | sort -u | tr '\n' ' ')"
+            done
+            refs=$(printf '%s\n' $next | sort -u | tr '\n' ' ' | sed 's/^ *//; s/ *$//')
+          done

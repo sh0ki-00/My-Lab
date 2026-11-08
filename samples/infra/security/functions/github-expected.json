@@ -1,0 +1,38 @@
+{
+  "repository": "example-org/orders-admin",
+  "repository_id": "100000001",
+  "repository_owner_id": "100000002",
+  "environments": {
+    "stg": "deploy-reviewers",
+    "stg-guarded": "security-reviewers",
+    "prod": "deploy-reviewers",
+    "prod-guarded": "security-reviewers",
+    "org-guarded": "security-reviewers",
+    "security-guarded": "security-reviewers"
+  },
+  "status_checks": [
+    {"context": "infra-plan-run / plan-gate", "app_id": 15368},
+    {"context": "deps-diff / sbom-diff", "app_id": 15368},
+    {"context": "egress-check / web-egress", "app_id": 15368},
+    {"context": "migrate-gate / migrate-gate", "app_id": 15368}
+  ],
+  "codeowners_sha256": "42a565bc1332a553ce4143a9116bf699bf18e0bd571b39cf71868faf80433546",
+  "pinned_actions": [
+    "actions/checkout@0000000000000000000000000000000000000001",
+    "actions/attest-build-provenance@0000000000000000000000000000000000000004",
+    "actions/upload-artifact@0000000000000000000000000000000000000005",
+    "actions/download-artifact@0000000000000000000000000000000000000006"
+  ],
+  "oidc_claim_keys": [
+    "repo",
+    "context",
+    "job_workflow_ref",
+    "repository_id",
+    "repository_owner_id"
+  ],
+  "_note": "決めた値（架空）。org/github.tf・org/ci.tf・foundation/github.tf・org.tfvars の値と同じにする。置き場は守りの口座の関数の束の中で、変えるのは守りの口座への適用だけ（変えたら watch-change が鳴る）",
+  "visibility": "private",
+  "self_hosted_runners": 0,
+  "pr_roles": ["orders-admin-stg-plan"],
+  "hosted_runner_group": "GitHub Actions"
+}

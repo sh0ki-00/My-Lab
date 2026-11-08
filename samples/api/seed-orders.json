@@ -1,0 +1,535 @@
+{
+ "_note": "架空の見本データ。名前・住所・金額・時刻はすべて作り物。時刻は日本時間（UTC+9）で書き、読み込むときに UTC に直す。samples/app/index.html の 29 行と同じ注文。",
+ "scene": "2026-11-06 09:52",
+ "shops": [
+  {
+   "id": "s1",
+   "name": "見本の店"
+  },
+  {
+   "id": "s2",
+   "name": "別の店"
+  }
+ ],
+ "users": [
+  {
+   "id": "u-takagi",
+   "shop": "s1",
+   "name": "高木",
+   "role": "operator"
+  },
+  {
+   "id": "u-mori",
+   "shop": "s1",
+   "name": "森",
+   "role": "operator"
+  },
+  {
+   "id": "u-ishii",
+   "shop": "s1",
+   "name": "石井",
+   "role": "operator"
+  },
+  {
+   "id": "u-sakaguchi",
+   "shop": "s1",
+   "name": "坂口",
+   "role": "operator"
+  },
+  {
+   "id": "u-nomura",
+   "shop": "s1",
+   "name": "野村",
+   "role": "operator"
+  },
+  {
+   "id": "u-kobayashi",
+   "shop": "s1",
+   "name": "小林",
+   "role": "viewer"
+  },
+  {
+   "id": "u-other",
+   "shop": "s2",
+   "name": "別店",
+   "role": "operator"
+  }
+ ],
+ "orders": [
+  {
+   "id": "582473",
+   "name": "北川 修",
+   "amount": 8663,
+   "carrier": "yamato",
+   "payment": "cod",
+   "staff": "u-takagi",
+   "orderedAt": "2026-11-04 16:21",
+   "shipDue": "2026-11-06",
+   "status": "action",
+   "alert": "address_problem",
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "583993",
+   "name": "大塚 美咲",
+   "amount": 3366,
+   "carrier": "japanpost",
+   "payment": "card",
+   "staff": null,
+   "orderedAt": "2026-11-05 22:18",
+   "shipDue": "2026-11-06",
+   "status": "action",
+   "alert": "payment_failed",
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584117",
+   "name": "中島ゆかり",
+   "amount": 14699,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": null,
+   "orderedAt": "2026-11-06 07:12",
+   "shipDue": "2026-11-06",
+   "status": "action",
+   "alert": "address_problem",
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "581950",
+   "name": "佐藤 恵子",
+   "amount": 6138,
+   "carrier": "sagawa",
+   "payment": "cod",
+   "staff": "u-mori",
+   "orderedAt": "2026-11-04 10:47",
+   "shipDue": "2026-11-04",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "582757",
+   "name": "渡辺 隆之",
+   "amount": 11517,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": "u-ishii",
+   "orderedAt": "2026-11-04 21:36",
+   "shipDue": "2026-11-05",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "583861",
+   "name": "ミナモト企画",
+   "amount": 28160,
+   "carrier": "sagawa",
+   "payment": "deferred",
+   "staff": "u-takagi",
+   "orderedAt": "2026-11-05 20:05",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "583865",
+   "name": "木村 美穂",
+   "amount": 4422,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": "u-takagi",
+   "orderedAt": "2026-11-05 20:09",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584015",
+   "name": "三浦 直美",
+   "amount": 3828,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": "u-takagi",
+   "orderedAt": "2026-11-05 22:51",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584037",
+   "name": "山口 誠",
+   "amount": 22110,
+   "carrier": "yamato",
+   "payment": "cod",
+   "staff": "u-nomura",
+   "orderedAt": "2026-11-05 23:58",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584171",
+   "name": "佐藤 浩二",
+   "amount": 9339,
+   "carrier": "sagawa",
+   "payment": "card",
+   "staff": null,
+   "orderedAt": "2026-11-06 08:41",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584191",
+   "name": "長谷川舞",
+   "amount": 16739,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": null,
+   "orderedAt": "2026-11-06 09:05",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584205",
+   "name": "松本 清",
+   "amount": 12022,
+   "carrier": "yamato",
+   "payment": "cod",
+   "staff": null,
+   "orderedAt": "2026-11-06 09:17",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584216",
+   "name": "伊藤 典子",
+   "amount": 4180,
+   "carrier": "japanpost",
+   "payment": "card",
+   "staff": null,
+   "orderedAt": "2026-11-06 09:26",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584230",
+   "name": "小川 直樹",
+   "amount": 5357,
+   "carrier": "sagawa",
+   "payment": "card",
+   "staff": null,
+   "orderedAt": "2026-11-06 09:38",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "584240",
+   "name": "前田まゆみ",
+   "amount": 1958,
+   "carrier": "yamato",
+   "payment": "paypay",
+   "staff": null,
+   "orderedAt": "2026-11-06 09:47",
+   "shipDue": "2026-11-06",
+   "status": "ready",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "581093",
+   "name": "鈴木 洋子",
+   "amount": 3768,
+   "carrier": "japanpost",
+   "payment": "konbini",
+   "staff": null,
+   "orderedAt": "2026-11-03 13:22",
+   "shipDue": "2026-11-06",
+   "status": "pending",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "582787",
+   "name": "高橋拓也",
+   "amount": 10192,
+   "carrier": "yamato",
+   "payment": "konbini",
+   "staff": null,
+   "orderedAt": "2026-11-04 22:09",
+   "shipDue": "2026-11-06",
+   "status": "pending",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "583429",
+   "name": "加藤 由美",
+   "amount": 5643,
+   "carrier": "sagawa",
+   "payment": "konbini",
+   "staff": null,
+   "orderedAt": "2026-11-05 12:40",
+   "shipDue": "2026-11-06",
+   "status": "pending",
+   "alert": null,
+   "shippedBy": null,
+   "shippedAt": null
+  },
+  {
+   "id": "583961",
+   "name": "清水 久美子",
+   "amount": 5377,
+   "carrier": "japanpost",
+   "payment": "card",
+   "staff": "u-sakaguchi",
+   "orderedAt": "2026-11-05 21:40",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-sakaguchi",
+   "shippedAt": "2026-11-06 09:52"
+  },
+  {
+   "id": "583776",
+   "name": "林 健一",
+   "amount": 2365,
+   "carrier": "japanpost",
+   "payment": "paypay",
+   "staff": "u-takagi",
+   "orderedAt": "2026-11-05 18:31",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-takagi",
+   "shippedAt": "2026-11-06 09:51"
+  },
+  {
+   "id": "583812",
+   "name": "井上 和子",
+   "amount": 4595,
+   "carrier": "yamato",
+   "payment": "cod",
+   "staff": "u-mori",
+   "orderedAt": "2026-11-05 19:12",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-mori",
+   "shippedAt": "2026-11-06 09:51"
+  },
+  {
+   "id": "583754",
+   "name": "吉田 智子",
+   "amount": 8751,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": "u-takagi",
+   "orderedAt": "2026-11-05 18:04",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-takagi",
+   "shippedAt": "2026-11-06 09:50"
+  },
+  {
+   "id": "584107",
+   "name": "斎藤 真理子",
+   "amount": 2256,
+   "carrier": "japanpost",
+   "payment": "paypay",
+   "staff": "u-ishii",
+   "orderedAt": "2026-11-06 06:47",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-ishii",
+   "shippedAt": "2026-11-06 09:49"
+  },
+  {
+   "id": "583602",
+   "name": "岡田 勝",
+   "amount": 7480,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": "u-mori",
+   "orderedAt": "2026-11-05 15:02",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-mori",
+   "shippedAt": "2026-11-06 09:41"
+  },
+  {
+   "id": "583689",
+   "name": "後藤 真由美",
+   "amount": 3839,
+   "carrier": "japanpost",
+   "payment": "cod",
+   "staff": "u-ishii",
+   "orderedAt": "2026-11-05 16:40",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-ishii",
+   "shippedAt": "2026-11-06 09:33"
+  },
+  {
+   "id": "583484",
+   "name": "藤田 健",
+   "amount": 4499,
+   "carrier": "sagawa",
+   "payment": "card",
+   "staff": "u-sakaguchi",
+   "orderedAt": "2026-11-05 13:15",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-sakaguchi",
+   "shippedAt": "2026-11-06 09:26"
+  },
+  {
+   "id": "583725",
+   "name": "村上 愛",
+   "amount": 3179,
+   "carrier": "yamato",
+   "payment": "paypay",
+   "staff": "u-nomura",
+   "orderedAt": "2026-11-05 17:26",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-nomura",
+   "shippedAt": "2026-11-06 09:18"
+  },
+  {
+   "id": "583200",
+   "name": "近藤 茂",
+   "amount": 13090,
+   "carrier": "yamato",
+   "payment": "card",
+   "staff": "u-mori",
+   "orderedAt": "2026-11-05 11:08",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-mori",
+   "shippedAt": "2026-11-06 09:12"
+  },
+  {
+   "id": "583574",
+   "name": "青木 千尋",
+   "amount": 2159,
+   "carrier": "japanpost",
+   "payment": "card",
+   "staff": "u-ishii",
+   "orderedAt": "2026-11-05 14:33",
+   "shipDue": "2026-11-06",
+   "status": "shipped",
+   "alert": null,
+   "shippedBy": "u-ishii",
+   "shippedAt": "2026-11-06 09:05"
+  }
+ ],
+ "detail": {
+  "584205": {
+   "postal": "870-0021",
+   "address": "大分市府内町2-4-11 ことぶきハイツ302号",
+   "note": "日曜の夜に。置き配はやめてください",
+   "parcel": "100",
+   "fragile": true,
+   "items": [
+    {
+     "name": "土鍋 8号",
+     "qty": 1,
+     "amount": 7480,
+     "taxRate": 10
+    },
+    {
+     "name": "蜂蜜 300g",
+     "qty": 2,
+     "amount": 4212,
+     "taxRate": 8
+    },
+    {
+     "name": "代引き手数料",
+     "qty": 1,
+     "amount": 330,
+     "taxRate": 10
+    }
+   ],
+   "history": [
+    [
+     "2026-11-06 09:17",
+     "ordered"
+    ],
+    [
+     "2026-11-06 09:17",
+     "stock_allocated"
+    ],
+    [
+     "2026-11-06 09:18",
+     "mail_sent"
+    ]
+   ]
+  }
+ },
+ "pastOrders": [
+  {
+   "id": "554968",
+   "sameCustomerAs": "584205",
+   "orderedAt": "2026-10-12 19:40",
+   "amount": 5092
+  },
+  {
+   "id": "513662",
+   "sameCustomerAs": "584205",
+   "orderedAt": "2026-09-08 12:05",
+   "amount": 6919
+  }
+ ],
+ "otherShopOrders": [
+  {
+   "id": "700001",
+   "name": "別店 花子",
+   "amount": 5500,
+   "carrier": "yamato",
+   "payment": "card",
+   "orderedAt": "2026-11-06 08:00",
+   "shipDue": "2026-11-06",
+   "status": "ready"
+  }
+ ]
+}
