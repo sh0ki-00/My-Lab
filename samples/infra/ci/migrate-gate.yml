@@ -1,0 +1,29 @@
+# 移行の文を許す文の一覧（足し算の DDL だけ）で確かめる必須の検査（org/github.tf の required_status_checks と github-expected.json）。
+#   main へ入る PR ごとに、移行の file が無くても回る（必須の検査は、回らないと PR が待ち続けるので、置き場で絞らない）。
+#   移行のイメージを押し込む workflow（-guarded の環境）も、押し込む前に workflow_call でこの file を呼ぶ。承認を通った後の差し替えも落とす。
+#   一覧の外（行の読み書き、型の付け直しの USING、関数、規則、権限、スキーマ、search_path、psql の命令）は落とし、承認 2 人の経路へ回す。
+#   DB の側でも roles.sql の事象のトリガー（DDL の型と表の書き直し）と文のトリガーが強制する。この検査は PR の段の 1 つ目の目である。
+#   判定の本体は tools/migrate-gate/（skills/infra/scripts/migrate-gate.sh の写し）。この file と tools/ の持ち主はセキュリティ。
+#   移行の file の置き場は */migrations/*.sql。スキーマの写し schema-expected.sql は文ではないので外す。
+#   使う Actions の部品は 40 桁の SHA で固定した物だけ（架空の SHA。本物への置き換えは未確定 7）。
+name: migrate-gate
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  migrate-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000001
+        with:
+          persist-credentials: false
+      - name: Self test, then check every migration file
+        run: |
+          set -eu
+          bash tools/migrate-gate/migrate-gate.sh --selftest
+          files=$(git ls-files '*migrations/*.sql' | grep -v '/schema-expected\.sql$' || true)
+          [ -z "$files" ] && { echo "no migration files"; exit 0; }
+          bash tools/migrate-gate/migrate-gate.sh $files

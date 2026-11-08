@@ -1,0 +1,5 @@
+/* 負例の部品。生の色・px・書体名があり、動きに縮小版が無く、transition: all を使っている。 */
+body { margin: 0; font-family: Inter, sans-serif; font-size: 13px; color: #1a1a1a; background: rgb(244, 241, 234); }
+.card { padding: 16px; border-radius: 16px; transition: all 0.3s ease; }
+.pane { transform: translateX(0); transition: transform 240ms ease-out; }
+.spinner { animation: spin 1s linear infinite; }

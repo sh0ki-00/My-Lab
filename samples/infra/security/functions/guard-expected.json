@@ -1,0 +1,71 @@
+{
+  "_comment": "守りの口座の見張りの正本（第 16 回）。event_watch.py の guard_heartbeat が 15 分ごとに今の形と比べ、欠けが 0 のときだけ AWS の外の受け手（security/heartbeat-receiver.json）へ便りを送る。security/heartbeat.tf の check が、security/ の資源の名とこの file の食い違いを計画で落とす。持ち主はセキュリティ。",
+  "alarms": [
+    "orders-guard-backup-copy",
+    "orders-guard-breakglass-used",
+    "orders-guard-entry-ng",
+    "orders-guard-event-watch-errors",
+    "orders-guard-github-audit-ng",
+    "orders-guard-github-audit-silent",
+    "orders-guard-github-watch-errors",
+    "orders-guard-github-watch-ng",
+    "orders-guard-github-watch-not-ok",
+    "orders-guard-guarded-apply-used",
+    "orders-guard-human-access-change",
+    "orders-guard-human-write-denied",
+    "orders-guard-inventory-not-ok-prod",
+    "orders-guard-inventory-not-ok-stg",
+    "orders-guard-log-path-change",
+    "orders-guard-long-term-key-used",
+    "orders-guard-network-endpoint-denied",
+    "orders-guard-notify-path-change",
+    "orders-guard-oncall-queries-hourly",
+    "orders-guard-oncall-query-results-hourly",
+    "orders-guard-oncall-used",
+    "orders-guard-org-guard-change",
+    "orders-guard-outside-principal",
+    "orders-guard-stackset-change",
+    "orders-guard-static-sweep-missed",
+    "orders-guard-static-watch-errors",
+    "orders-guard-static-watch-missed",
+    "orders-guard-static-watch-ng",
+    "orders-guard-trail-silent-prod",
+    "orders-guard-trail-silent-stg",
+    "orders-guard-trust-root-used",
+    "orders-guard-watch-change",
+    "orders-guard-watch-path-change"
+  ],
+  "alarm_topics": [
+    "orders-guard-watch",
+    "orders-guard-security"
+  ],
+  "metric_filters": [
+    "orders-guard-backup-copy",
+    "orders-guard-breakglass-used",
+    "orders-guard-entry-ng",
+    "orders-guard-github-audit-file",
+    "orders-guard-github-audit-ng",
+    "orders-guard-guarded-apply-used",
+    "orders-guard-human-access-change",
+    "orders-guard-human-write-denied",
+    "orders-guard-log-path-change",
+    "orders-guard-long-term-key-used",
+    "orders-guard-network-endpoint-denied",
+    "orders-guard-notify-path-change",
+    "orders-guard-oncall-used",
+    "orders-guard-org-guard-change",
+    "orders-guard-outside-principal",
+    "orders-guard-stackset-change",
+    "orders-guard-trust-root-used",
+    "orders-guard-watch-change",
+    "orders-guard-watch-path-change"
+  ],
+  "subscription_filters": [
+    "orders-guard-entries",
+    "orders-guard-static-watch"
+  ],
+  "topics": {
+    "orders-guard-watch": 2,
+    "orders-guard-security": 2
+  }
+}

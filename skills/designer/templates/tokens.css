@@ -1,0 +1,60 @@
+/* tokens.css の雛形。計画書の色の表にある 16 進だけを書き、残りは名前からの参照か color-mix の式にする。
+   #RRGGBB を計画書の値に置き換える。時間は --duration-*、曲線は --ease-* だけを使う。 */
+:root {
+  /* 名前つきの色（4〜6 色） */
+  --surface: #RRGGBB;      /* 画面の地 */
+  --sheet: #RRGGBB;        /* 表や面の地 */
+  --ink: #RRGGBB;          /* 本文 */
+  --ink-sub: #RRGGBB;      /* 補助の文字 */
+  --accent: #RRGGBB;       /* 強調と焦点 */
+  /* 導出する色は式で */
+  --row-selected: color-mix(in srgb, var(--accent) 10%, var(--sheet));
+  /* 意味の名前 */
+  --text: var(--ink);
+  --text-sub: var(--ink-sub);
+  --focus: var(--accent);
+  /* 書体。1 家族 2〜3 役 */
+  --font-text: "<本文の書体>", sans-serif;
+  --font-num: "<数字の書体>", monospace;
+  --size-sub: 12px;
+  --size-body: 14px;
+  --size-h2: 16px;
+  --size-h1: 20px;
+  --weight-regular: 400;
+  --weight-bold: 700;
+  --leading: 1.5;
+  /* 余白は 4px の倍数 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  /* 角丸は 2 段、影は 1 光源で層にする */
+  --radius-control: 4px;
+  --radius-panel: 8px;
+  --shadow-panel: 0 2px 4px rgb(0 0 0 / 0.12), 0 8px 16px rgb(0 0 0 / 0.06);
+  /* 動き。300ms 未満 */
+  --duration-1: 80ms;
+  --duration-2: 120ms;
+  --duration-3: 180ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* 大きさ */
+  --row-height: 36px;
+  --focus-width: 2px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #RRGGBB;
+    --sheet: #RRGGBB;
+    --ink: #RRGGBB;
+    --ink-sub: #RRGGBB;
+    --accent: #RRGGBB;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-1: 0ms;
+    --duration-2: 0ms;
+    --duration-3: 0ms;
+  }
+}

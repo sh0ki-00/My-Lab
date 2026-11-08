@@ -1,0 +1,8 @@
+{
+  "_note": "資格を借りる job が使う道具の本体。版と SHA-256 を repo に固定する（持ち主の欄の /infra/ と /tools/ の内側）。SHA-256 は置き換え前の印で、本物の値への置き換えは未確定 7。印のままなら fetch-terraform.sh が止まる",
+  "terraform": {
+    "version": "1.9.8",
+    "url": "https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip",
+    "sha256": "REPLACE_WITH_THE_PUBLISHED_SHA256_OF_THE_ZIP"
+  }
+}

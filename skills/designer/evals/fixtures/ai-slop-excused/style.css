@@ -1,0 +1,3 @@
+/* 既定の書体と紫のグラデーションを、計画書に理由を書いて使う見本。--plan を付ければ clean になること。 */
+body { font-family: Inter, sans-serif; }
+.hero { background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%); }

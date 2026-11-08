@@ -1,0 +1,45 @@
+# 信頼する再利用の workflow（第 15 回）。DB の像の来歴を、押し込んだ像のダイジェストを主語にして付ける。
+#   来歴の署名者は、この file の job（証明書の SAN が attest-image.yml@refs/heads/main）。作る job も押し込む job も来歴を書けない。
+#   呼べるのは main の db-image-push.yml だけで、守りの口座の関数が証明書の「作りの設定の URI」で呼んだ側を照らす。
+#   この job は部品を 1 つだけ動かす（attest-build-provenance。中の uses も SHA かを deps-diff の --uses-remote が確かめる）。
+#   repo の script も外からの取り出しも動かさない。run は tools/ci/cred-steps.sh を取る 1 行と呼ぶ 1 行だけ（第 16 回）。主語の名前は像のリポジトリの名、指紋は押し込みの出力のダイジェスト。
+#   押し込む job が別のダイジェストを渡しても、守りの口座の関数が像の層を開いて lock と main に照らすので、中身の違う像は ng になる。
+#   使う Actions の部品は 40 桁の SHA で固定した物だけ（架空の SHA。本物への置き換えは未確定 7）。
+name: attest-image
+on:
+  workflow_call:
+    inputs:
+      bootstrap:
+        type: string
+        required: true
+      migrate:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  attest:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      matrix:
+        name: [bootstrap, migrate]
+    steps:
+      - name: Take the credential steps from main with the runner's gh, not with checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY}/contents/tools/ci/cred-steps.sh?ref=${GITHUB_SHA}" > "${RUNNER_TEMP}/cred-steps.sh"
+      - name: Check the digest form
+        env:
+          DIGEST: ${{ matrix.name == 'bootstrap' && inputs.bootstrap || inputs.migrate }}
+        run: bash "${RUNNER_TEMP}/cred-steps.sh" digest-form
+      - uses: actions/attest-build-provenance@0000000000000000000000000000000000000004
+        with:
+          subject-name: ${{ vars.DB_REGISTRY }}/${{ vars.DB_REPOSITORY_PREFIX }}/db-${{ matrix.name }}
+          subject-digest: ${{ matrix.name == 'bootstrap' && inputs.bootstrap || inputs.migrate }}
+          push-to-registry: false

@@ -1,0 +1,5 @@
+# semgrep（コードの静的検査）が見ないもの。依存、git の中身、作業領域、検証の記録。
+node_modules/
+.git/
+tmp/
+docs/verify/

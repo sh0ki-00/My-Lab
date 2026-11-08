@@ -1,0 +1,3 @@
+# motion-lint の許可リスト。1 行 1 つの正規表現。宣言「名前: 値」に一致すれば、縮小版が無くても通す。
+# 色と透明度だけが変わる transition は位置が動かないので、前庭への負担が無い
+^transition:\s*(color|background-color|border-color|outline-color|opacity)\b[^;]*$

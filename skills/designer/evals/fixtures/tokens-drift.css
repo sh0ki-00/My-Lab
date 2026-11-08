@@ -1,0 +1,14 @@
+/* 計画書とずれたトークンの負例。台紙が #F4F1EA（生成 UI のクリーム地）になっている。 */
+:root {
+  --paper: #F4F1EA;
+  --sheet: #FFFFFF;
+  --ink: #1C2321;
+  --rule: #4F6F67;
+  --seal: #B9321A;
+  --indigo: #2F5C9E;
+  --input-border: #7A8C87;
+  --table-line: #CBD3CF;
+  --duration-1: 80ms;
+  --duration-2: 120ms;
+  --duration-3: 400ms;
+}

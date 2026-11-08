@@ -1,0 +1,9 @@
+# 依存と作業領域。tmp/ は提案文書・検証の途中結果・実案件の写しの置き場で、git に入れない。
+# 社長に出す文書は docs/ に写してから commit する（検証の記録は docs/verify/）。
+node_modules/
+tmp/
+.DS_Store
+*.log
+test-results/
+playwright-report/
+__pycache__/

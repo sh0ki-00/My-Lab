@@ -1,0 +1,3 @@
+# token-lint の許可リスト。1 行 1 つの正規表現。宣言「名前: 値」に一致すれば、その宣言は通す。
+# currentColor と transparent は色の名前ではない（0 と 1px は規則の側で数えない）
+currentColor|transparent

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 書き方の決まり
+    url: https://github.com/cl-s-furutani/My-Lab/blob/main/.company/rules/documents.md
+    about: 3 つのフォーム（不具合・機能・調査）に当てはまらないときは、まず書き方の決まりを読みます

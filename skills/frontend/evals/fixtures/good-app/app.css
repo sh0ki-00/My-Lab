@@ -1,0 +1,6 @@
+/* 正例の部品。色・大きさ・時間はトークンだけ。色だけの transition は許可リストで通る。 */
+body { margin: 0; font-family: var(--font-text); font-size: var(--size-body); color: var(--ink); background: var(--paper); }
+.row { height: var(--row-height); padding: 0 var(--space-3); transition: background-color var(--duration-1) var(--ease-standard); }
+.pane { transform: translateX(0); transition: transform var(--duration-1) var(--ease-standard); }
+.badge { border: 1px solid var(--rule); border-radius: var(--radius-control); }
+:focus-visible { outline: var(--focus-width) solid var(--indigo); outline-offset: var(--focus-offset); }

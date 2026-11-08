@@ -1,0 +1,22 @@
+# 初出で括弧の説明が要る専門用語。1 行 1 語。tools/check-doc.sh が読む。行頭の # は注釈。
+# コードの中（`…`）の語は数えない。「用語」の節の表にある語は説明済みと見る。
+hooks
+Mermaid
+Lighthouse
+axe
+Playwright
+shellcheck
+gitleaks
+trivy
+semgrep
+IaC
+SLO
+SLI
+RoE
+Runbook
+N+1
+CI/CD
+frontmatter
+ペルソナ
+サブエージェント
+User Rules

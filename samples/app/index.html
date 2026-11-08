@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>注文一覧 — 北浜商店 管理</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="デザイン計画書「管理画面の注文一覧」の見本。上の細い帯、付箋のタブ、罫線の帳簿、右に並べた伝票で描いた注文一覧の 1 画面。">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<a class="skip" href="#orders">表へ移る</a>
+<header class="topbar">
+<nav class="nav" aria-label="メニュー">
+  <div class="nav-inner">
+    <a class="shop" href="#"><span class="shop-name"><b>北浜商店</b><span>管理画面</span></span></a>
+    <button type="button" class="btn menu-open">メニュー</button>
+    <ul class="menu">
+      <li><a href="#" aria-current="page">注文</a></li>
+      <li><a href="#">商品</a></li>
+      <li><a href="#">在庫</a></li>
+      <li><a href="#">顧客</a></li>
+      <li><a href="#">問い合わせ <span class="n">4</span></a></li>
+      <li><a href="#">売上の集計</a></li>
+      <li><a href="#">設定</a></li>
+    </ul>
+    <div class="me"><b>高木 さやか</b><span>運営</span><a href="#">ヘルプ</a></div>
+  </div>
+</nav>
+</header>
+<div class="app">
+<main>
+  <div class="titlebar">
+    <h1>注文一覧</h1>
+    <nav aria-label="保存ビュー">
+      <ul class="views">
+        <li><a href="#" aria-current="page">今日出荷 <span class="n">18</span></a></li>
+        <li><a href="#">自分の担当 <span class="n">4</span></a></li>
+        <li><a href="#">決済待ち <span class="n">12</span></a></li>
+        <li><a href="#">返品 <span class="n">3</span></a></li>
+        <li><a href="#">すべて</a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="sheet">
+    <form class="toolbar" role="search" aria-label="注文の絞り込み">
+      <div class="field"><label for="q" class="visually-hidden">検索</label><input id="q" type="search" placeholder="番号か氏名" autocomplete="off"><p class="summary" id="count" role="status" aria-live="polite"></p></div>
+      <div class="chip"><label for="st">状態</label><select id="st"><option value="">すべて</option><option value="action">要対応</option><option value="late">出荷遅れ</option><option value="ready">出荷可</option><option value="pending">決済待ち</option><option value="done">済</option></select></div>
+      <div class="chip"><label for="staff">担当</label><select id="staff"><option value="">すべて</option><option>自分</option><option>担当なし</option><option>高木</option><option>森</option><option>石井</option><option>坂口</option><option>野村</option></select></div>
+      <div class="chip wide"><label for="carrier">配送</label><select id="carrier"><option value="">すべて</option><option>ヤマト</option><option>佐川</option><option>日本郵便</option><option>西濃</option></select></div>
+      <div class="chip wide"><label for="pay">支払い</label><select id="pay"><option value="">すべて</option><option>カード</option><option>代引き</option><option>PayPay</option><option>後払い</option><option>コンビニ</option><option>振込</option></select></div>
+      <button type="button" class="btn palette">操作を探す</button>
+    </form>
+    <table id="orders" tabindex="-1">
+      <caption class="visually-hidden">今日出荷の注文</caption>
+      <colgroup><col class="select"><col class="no"><col class="status"><col class="name"><col class="amount"><col class="carrier c-carrier"><col class="pay c-pay"><col class="staff c-staff"><col class="date c-date"></colgroup>
+      <thead><tr>
+        <th scope="col" class="select"><span class="visually-hidden">選択</span><label class="pick"><input type="checkbox" aria-label="表の注文をすべて選ぶ"></label></th>
+        <th scope="col">注文番号</th>
+        <th scope="col" aria-sort="other">状態</th>
+        <th scope="col">氏名</th>
+        <th scope="col" class="amount right">金額（円）</th>
+        <th scope="col" class="c-carrier">配送</th>
+        <th scope="col" class="c-pay">支払い</th>
+        <th scope="col" class="c-staff">担当</th>
+        <th scope="col" class="c-date right">受注日時</th>
+      </tr></thead>
+<tbody class="grp" data-group="action">
+<tr class="group"><th scope="rowgroup" colspan="9">要対応<span class="group-count">3件</span><span class="group-note">受注の古い順</span></th></tr>
+<tr data-status="action"><td class="select"><label class="pick"><input type="checkbox" aria-label="582473 を選ぶ"></label></td><td class="no num">582473</td><td class="status"><span class="alert">▲住所不備</span></td><td class="name">北川 修</td><td class="amount right">8,663</td><td class="c-carrier">ヤマト</td><td class="c-pay">代引き</td><td class="c-staff">高木</td><td class="c-date right"><span class="num">11/04 16:21</span></td></tr>
+<tr data-status="action"><td class="select"><label class="pick"><input type="checkbox" aria-label="583993 を選ぶ"></label></td><td class="no num">583993</td><td class="status"><span class="alert">▲決済失敗</span></td><td class="name">大塚 美咲</td><td class="amount right">3,366</td><td class="c-carrier">日本郵便</td><td class="c-pay">カード</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right"><span class="num">11/05 22:18</span></td></tr>
+<tr data-status="action"><td class="select"><label class="pick"><input type="checkbox" aria-label="584117 を選ぶ"></label></td><td class="no num">584117</td><td class="status"><span class="alert">▲住所不備</span></td><td class="name">中島ゆかり</td><td class="amount right">14,699</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right">今日 <span class="num">07:12</span></td></tr>
+</tbody>
+<tbody class="grp" data-group="late">
+<tr class="group"><th scope="rowgroup" colspan="9">出荷遅れ<span class="group-count">2件</span></th></tr>
+<tr data-status="late"><td class="select"><label class="pick"><input type="checkbox" aria-label="581950 を選ぶ"></label></td><td class="no num">581950</td><td class="status late"><strong>2日遅れ</strong><span class="visually-hidden">、出荷予定 11月4日</span></td><td class="name">佐藤 恵子</td><td class="amount right">6,138</td><td class="c-carrier">佐川</td><td class="c-pay">代引き</td><td class="c-staff">森</td><td class="c-date right"><span class="num">11/04 10:47</span></td></tr>
+<tr data-status="late"><td class="select"><label class="pick"><input type="checkbox" aria-label="582757 を選ぶ"></label></td><td class="no num">582757</td><td class="status late"><strong>1日遅れ</strong><span class="visually-hidden">、出荷予定 11月5日</span></td><td class="name">渡辺 隆之</td><td class="amount right">11,517</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff">石井</td><td class="c-date right"><span class="num">11/04 21:36</span></td></tr>
+</tbody>
+<tbody class="grp" data-group="ready">
+<tr class="group"><th scope="rowgroup" colspan="9">出荷可<span class="group-count">10件</span></th></tr>
+<tr data-status="ready" class="is-selected"><td class="select"><label class="pick"><input type="checkbox" checked aria-label="583861 を選ぶ"></label></td><td class="no num">583861</td><td class="status"><span class="state">出荷可</span></td><td class="name">ミナモト企画</td><td class="amount right">28,160</td><td class="c-carrier">佐川</td><td class="c-pay">後払い</td><td class="c-staff">高木</td><td class="c-date right"><span class="num">11/05 20:05</span></td></tr>
+<tr data-status="ready" class="is-selected"><td class="select"><label class="pick"><input type="checkbox" checked aria-label="583865 を選ぶ"></label></td><td class="no num">583865</td><td class="status"><span class="state">出荷可</span></td><td class="name">木村 美穂</td><td class="amount right">4,422</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff">高木</td><td class="c-date right"><span class="num">11/05 20:09</span></td></tr>
+<tr data-status="ready"><td class="select"><label class="pick"><input type="checkbox" aria-label="584015 を選ぶ"></label></td><td class="no num">584015</td><td class="status"><span class="state">出荷可</span></td><td class="name">三浦 直美</td><td class="amount right">3,828</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff">高木</td><td class="c-date right"><span class="num">11/05 22:51</span></td></tr>
+<tr data-status="ready" class="is-selected"><td class="select"><label class="pick"><input type="checkbox" checked aria-label="584037 を選ぶ"></label></td><td class="no num">584037</td><td class="status"><span class="state">出荷可</span></td><td class="name">山口 誠</td><td class="amount right">22,110</td><td class="c-carrier">ヤマト</td><td class="c-pay">代引き</td><td class="c-staff">野村</td><td class="c-date right"><span class="num">11/05 23:58</span></td></tr>
+<tr data-status="ready"><td class="select"><label class="pick"><input type="checkbox" aria-label="584171 を選ぶ"></label></td><td class="no num">584171</td><td class="status"><span class="state">出荷可</span></td><td class="name">佐藤 浩二</td><td class="amount right">9,339</td><td class="c-carrier">佐川</td><td class="c-pay">カード</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right">今日 <span class="num">08:41</span></td></tr>
+<tr data-status="ready"><td class="select"><label class="pick"><input type="checkbox" aria-label="584191 を選ぶ"></label></td><td class="no num">584191</td><td class="status"><span class="state">出荷可</span></td><td class="name">長谷川舞</td><td class="amount right">16,739</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right">今日 <span class="num">09:05</span></td></tr>
+<tr data-status="ready" class="is-open" aria-current="true"><td class="select"><label class="pick"><input type="checkbox" aria-label="584205 を選ぶ"></label></td><td class="no num">584205</td><td class="status"><span class="state">出荷可</span></td><td class="name">松本 清</td><td class="amount right">12,022</td><td class="c-carrier">ヤマト</td><td class="c-pay">代引き</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right">今日 <span class="num">09:17</span></td></tr>
+<tr data-status="ready"><td class="select"><label class="pick"><input type="checkbox" aria-label="584216 を選ぶ"></label></td><td class="no num">584216</td><td class="status"><span class="state">出荷可</span></td><td class="name">伊藤 典子</td><td class="amount right">4,180</td><td class="c-carrier">日本郵便</td><td class="c-pay">カード</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right">今日 <span class="num">09:26</span></td></tr>
+<tr data-status="ready"><td class="select"><label class="pick"><input type="checkbox" aria-label="584230 を選ぶ"></label></td><td class="no num">584230</td><td class="status"><span class="state">出荷可</span></td><td class="name">小川 直樹</td><td class="amount right">5,357</td><td class="c-carrier">佐川</td><td class="c-pay">カード</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right">今日 <span class="num">09:38</span></td></tr>
+<tr data-status="ready"><td class="select"><label class="pick"><input type="checkbox" aria-label="584240 を選ぶ"></label></td><td class="no num">584240</td><td class="status"><span class="state">出荷可</span></td><td class="name">前田まゆみ</td><td class="amount right">1,958</td><td class="c-carrier">ヤマト</td><td class="c-pay">PayPay</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right">今日 <span class="num">09:47</span></td></tr>
+</tbody>
+<tbody class="grp" data-group="pending">
+<tr class="group"><th scope="rowgroup" colspan="9">決済待ち<span class="group-count">3件</span><span class="group-note">今日出荷の分・全体 12件</span></th></tr>
+<tr data-status="pending"><td class="select"><label class="pick"><input type="checkbox" aria-label="581093 を選ぶ"></label></td><td class="no num">581093</td><td class="status"><span class="state">決済待ち</span></td><td class="name">鈴木 洋子</td><td class="amount right">3,768</td><td class="c-carrier">日本郵便</td><td class="c-pay">コンビニ</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right"><span class="num">11/03 13:22</span></td></tr>
+<tr data-status="pending"><td class="select"><label class="pick"><input type="checkbox" aria-label="582787 を選ぶ"></label></td><td class="no num">582787</td><td class="status"><span class="state">決済待ち</span></td><td class="name">高橋拓也</td><td class="amount right">10,192</td><td class="c-carrier">ヤマト</td><td class="c-pay">コンビニ</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right"><span class="num">11/04 22:09</span></td></tr>
+<tr data-status="pending"><td class="select"><label class="pick"><input type="checkbox" aria-label="583429 を選ぶ"></label></td><td class="no num">583429</td><td class="status"><span class="state">決済待ち</span></td><td class="name">加藤 由美</td><td class="amount right">5,643</td><td class="c-carrier">佐川</td><td class="c-pay">コンビニ</td><td class="c-staff"><span class="none">担当なし</span></td><td class="c-date right"><span class="num">11/05 12:40</span></td></tr>
+</tbody>
+<tbody class="grp" data-group="shipped">
+<tr class="group"><th scope="rowgroup" colspan="9">出荷指示の直後<span class="group-count">5件</span></th></tr>
+<tr data-status="shipped"><td class="select"><label class="pick"><input type="checkbox" aria-label="583961 を選ぶ"></label></td><td class="no num">583961</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:52、坂口">済</span><span class="seal-time num" aria-hidden="true">09:52</span></td><td class="name">清水 久美子</td><td class="amount right">5,377</td><td class="c-carrier">日本郵便</td><td class="c-pay">カード</td><td class="c-staff">坂口</td><td class="c-date right"><span class="num">11/05 21:40</span></td></tr>
+<tr data-status="shipped"><td class="select"><label class="pick"><input type="checkbox" aria-label="583776 を選ぶ"></label></td><td class="no num">583776</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:51、高木">済</span><span class="seal-time num" aria-hidden="true">09:51</span></td><td class="name">林 健一</td><td class="amount right">2,365</td><td class="c-carrier">日本郵便</td><td class="c-pay">PayPay</td><td class="c-staff">高木</td><td class="c-date right"><span class="num">11/05 18:31</span></td></tr>
+<tr data-status="shipped"><td class="select"><label class="pick"><input type="checkbox" aria-label="583812 を選ぶ"></label></td><td class="no num">583812</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:51、森">済</span><span class="seal-time num" aria-hidden="true">09:51</span></td><td class="name">井上 和子</td><td class="amount right">4,595</td><td class="c-carrier">ヤマト</td><td class="c-pay">代引き</td><td class="c-staff">森</td><td class="c-date right"><span class="num">11/05 19:12</span></td></tr>
+<tr data-status="shipped"><td class="select"><label class="pick"><input type="checkbox" aria-label="583754 を選ぶ"></label></td><td class="no num">583754</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:50、高木">済</span><span class="seal-time num" aria-hidden="true">09:50</span></td><td class="name">吉田 智子</td><td class="amount right">8,751</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff">高木</td><td class="c-date right"><span class="num">11/05 18:04</span></td></tr>
+<tr data-status="shipped"><td class="select"><label class="pick"><input type="checkbox" aria-label="584107 を選ぶ"></label></td><td class="no num">584107</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:49、石井">済</span><span class="seal-time num" aria-hidden="true">09:49</span></td><td class="name">斎藤 真理子</td><td class="amount right">2,256</td><td class="c-carrier">日本郵便</td><td class="c-pay">PayPay</td><td class="c-staff">石井</td><td class="c-date right">今日 <span class="num">06:47</span></td></tr>
+</tbody>
+<tbody class="grp" data-group="done-head" data-total="377"><tr class="group done-head"><th scope="rowgroup" colspan="9"><button type="button" aria-expanded="false" aria-controls="done-rows"><span class="seal" aria-hidden="true">済</span><span class="visually-hidden">済</span><span class="group-count done-count">377件</span><span class="open-label">開く</span></button></th></tr></tbody>
+<tbody class="grp" id="done-rows" data-group="done" hidden>
+<tr data-status="done"><td class="select"><label class="pick"><input type="checkbox" aria-label="583602 を選ぶ"></label></td><td class="no num">583602</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:49、森">済</span></td><td class="name">岡田 勝</td><td class="amount right">7,480</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff">森</td><td class="c-date right"><span class="num">11/05 15:02</span></td></tr>
+<tr data-status="done"><td class="select"><label class="pick"><input type="checkbox" aria-label="583689 を選ぶ"></label></td><td class="no num">583689</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:48、石井">済</span></td><td class="name">後藤 真由美</td><td class="amount right">3,839</td><td class="c-carrier">日本郵便</td><td class="c-pay">代引き</td><td class="c-staff">石井</td><td class="c-date right"><span class="num">11/05 16:40</span></td></tr>
+<tr data-status="done"><td class="select"><label class="pick"><input type="checkbox" aria-label="583484 を選ぶ"></label></td><td class="no num">583484</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:48、坂口">済</span></td><td class="name">藤田 健</td><td class="amount right">4,499</td><td class="c-carrier">佐川</td><td class="c-pay">カード</td><td class="c-staff">坂口</td><td class="c-date right"><span class="num">11/05 13:15</span></td></tr>
+<tr data-status="done"><td class="select"><label class="pick"><input type="checkbox" aria-label="583725 を選ぶ"></label></td><td class="no num">583725</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:47、野村">済</span></td><td class="name">村上 愛</td><td class="amount right">3,179</td><td class="c-carrier">ヤマト</td><td class="c-pay">PayPay</td><td class="c-staff">野村</td><td class="c-date right"><span class="num">11/05 17:26</span></td></tr>
+<tr data-status="done"><td class="select"><label class="pick"><input type="checkbox" aria-label="583200 を選ぶ"></label></td><td class="no num">583200</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:47、森">済</span></td><td class="name">近藤 茂</td><td class="amount right">13,090</td><td class="c-carrier">ヤマト</td><td class="c-pay">カード</td><td class="c-staff">森</td><td class="c-date right"><span class="num">11/05 11:08</span></td></tr>
+<tr data-status="done"><td class="select"><label class="pick"><input type="checkbox" aria-label="583574 を選ぶ"></label></td><td class="no num">583574</td><td class="status"><span class="seal" role="img" aria-label="出荷指示済み、11月6日 09:46、石井">済</span></td><td class="name">青木 千尋</td><td class="amount right">2,159</td><td class="c-carrier">日本郵便</td><td class="c-pay">カード</td><td class="c-staff">石井</td><td class="c-date right"><span class="num">11/05 14:33</span></td></tr>
+</tbody>
+    </table>
+    <p class="empty" id="empty" hidden>条件に合う注文はありません。絞り込みを緩めてください。</p>
+  </div>
+  <div class="bulkbar" role="region" aria-label="選んだ注文の操作">
+    <span class="picked">3件を選択</span>
+    <button type="button" class="btn primary ship-bulk">3件を出荷指示</button>
+    <button type="button" class="btn">担当</button>
+    <button type="button" class="btn">印刷</button>
+    <button type="button" class="btn cancel">取り消し</button>
+  </div>
+</main>
+<aside class="pane" aria-labelledby="pane-title">
+  <div class="pane-inner">
+    <div class="pane-head"><h2 id="pane-title">注文 <span class="num">584205</span></h2><button type="button" class="btn">閉じる</button></div>
+    <div class="slip-top">
+      <div>
+        <p class="pane-status">出荷可</p>
+        <p class="meta">受注 今日 <span class="num">09:17</span>・<span class="none">担当なし</span></p>
+      </div>
+      <p class="stampbox"><span class="stamp-label">検印</span><span class="slot" aria-hidden="true"></span><span class="visually-hidden">まだ押していない</span></p>
+    </div>
+    <div class="slip-body">
+      <section class="box"><h3>宛先</h3>
+        <p>松本 清</p>
+        <p>〒870-0021 大分市府内町2-4-11</p>
+        <p>ことぶきハイツ302号</p>
+      </section>
+      <section class="box"><h3>お届けの希望</h3>
+        <p class="note">日曜の夜に。置き配はやめてください</p>
+      </section>
+      <section class="box"><h3>明細</h3>
+        <dl>
+          <dt>土鍋 8号 × 1</dt><dd>7,480円</dd>
+          <dt>蜂蜜 300g（8%）× 2</dt><dd>4,212円</dd>
+          <dt>代引き手数料</dt><dd>330円</dd>
+          <dt class="total">合計（税込み）</dt><dd class="total">12,022円</dd>
+        </dl>
+      </section>
+      <section class="box"><h3>配送と支払い</h3>
+        <p>ヤマト・出荷予定 今日（<span class="num">11/06</span>）・代引き</p>
+        <p class="size">100サイズ・割れ物の指定</p>
+      </section>
+      <section class="box"><h3>過去の注文</h3>
+        <ol class="past">
+          <li><span class="num">10/12</span><span class="num">554968</span><span class="num">5,092円</span></li>
+          <li><span class="num">09/08</span><span class="num">513662</span><span class="num">6,919円</span></li>
+        </ol>
+      </section>
+      <section class="box"><h3>履歴</h3>
+        <ol>
+          <li><span class="num">09:17</span>受注（ウェブ）</li>
+          <li><span class="num">09:17</span>在庫を引き当て</li>
+          <li><span class="num">09:18</span>注文確認のメールを送信</li>
+        </ol>
+      </section>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn ship-one">この1件を出荷指示</button>
+      <button type="button" class="btn">担当</button>
+      <button type="button" class="btn">印刷</button>
+      <button type="button" class="btn cancel">取り消し</button>
+    </div>
+  </div>
+</aside>
+</div>
+<script src="app.js" defer></script>
+</body>
+</html>

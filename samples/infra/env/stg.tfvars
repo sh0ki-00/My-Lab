@@ -1,0 +1,31 @@
+# 検証環境の値。数値は架空。本番と別の口座に置き、本番のデータの複製は置かず、合成のデータだけを入れる。
+# 開けるのは開発の網の出口だけで、本番の事務所のアドレスは許さない。
+env                         = "stg"
+account_id                  = "444455556666"
+vpc_cidr                    = "10.30.0.0/16"
+office_cidrs                = ["198.51.100.32/28"]
+admin_domain                = "admin.stg.example.jp"
+edge_certificate_arn        = "arn:aws:acm:us-east-1:444455556666:certificate/00000000-0000-0000-0000-000000000011"
+api_certificate_arn         = "arn:aws:acm:ap-northeast-1:444455556666:certificate/00000000-0000-0000-0000-000000000012"
+api_image_digest            = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+db_bootstrap_image_digest   = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+db_migrate_image_digest     = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+state_bucket_name           = "orders-admin-stg-tfstate-444455556666"
+api_desired_count           = 1
+api_max_count               = 1
+db_instance_class           = "db.t4g.micro"
+db_multi_az                 = false
+db_allocated_storage        = 20
+backup_retention_days       = 7
+snapshot_retention_days     = 7
+log_retention_days          = 30
+audit_retention_days        = 30
+github_repository           = "example-org/orders-admin"
+github_repository_id        = "100000001"
+github_repository_owner_id  = "100000002"
+alert_email                 = "sre-oncall@example.jp"
+alert_pager_url             = "https://pager.example.invalid/hooks/orders-stg"
+guard_static_watch_role_arn = "arn:aws:iam::777766665555:role/orders-guard-static-watch"
+guard_event_watch_role_arn  = "arn:aws:iam::777766665555:role/orders-guard-event-watch"
+guard_heartbeat_bus_arn     = "arn:aws:events:ap-northeast-1:777766665555:event-bus/orders-guard-heartbeat"
+oncall_role_name_prefix     = "AWSReservedSSO_orders-oncall-stg_"
