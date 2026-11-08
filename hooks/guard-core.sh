@@ -5,20 +5,20 @@
 # 接続口（claude-*.sh、cursor-*.sh）は入出力の変換だけを持ち、判定はすべてここで行う。
 #
 # 使い方:
-#   guard-core.sh [--signal deny|honor] -- "<コマンド>"
-#   printf '%s' "<コマンド>" | guard-core.sh [--signal deny|honor]
+#   guard-core.sh [--signal deny] -- "<コマンド>"
+#   printf '%s' "<コマンド>" | guard-core.sh [--signal deny]
 # 出力: 「判定<TAB>理由」の 1 行。終了コードは常に 0（判定は出力で伝える）。
 #
-# --signal deny  : 合図の語 APPROVE_GIT が含まれていれば deny。Claude Code 用。確認ダイアログがあるので合図は使わない。
-# --signal honor : 先頭の APPROVE_GIT=1 だけを社長の合図として allow。Cursor で確認（ask）が効かないときの退避路。
-#                  合図は社長が自分で付けるもので、AI が付けることは最も重い違反である。
+# 合図の語 APPROVE_GIT が含まれていれば、どの接続口のどの設定でも deny。合図で通す道は持たない。
+# Cursor の beforeShellExecution では命令の文字列を AI が書くので、合図で通すと AI の自己承認になる。
+# 承認は確認ダイアログ（ask）で受けるか、社長が hooks の掛からない自分の端末で実行する。
+# --signal は前の呼び方との互換のために受け取るだけで、値は判定に使わない（honor を渡しても同じ判定）。
 set -u
 
-SIGNAL_MODE="deny"
 CMD=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --signal) SIGNAL_MODE="${2:-deny}"; shift 2 ;;
+    --signal) shift; [ $# -gt 0 ] && shift ;;
     --) shift; CMD="$*"; break ;;
     *) CMD="${CMD}${CMD:+ }$1"; shift ;;
   esac
@@ -34,17 +34,10 @@ flat="$(printf ' %s ' "$CMD" | tr -d "$quotes" | tr '\n\t\r' '   ' | tr -s ' ')"
 
 has() { printf '%s' "$flat" | grep -Eq -- "$1"; }
 
-# 2. 合図の語。
-SIGNAL_OK=0
+# 2. 合図の語。どこにあっても deny。
 case "$flat" in
   *APPROVE_GIT*)
-    if [ "$SIGNAL_MODE" = "honor" ] && has '^ APPROVE_GIT=1 '; then
-      SIGNAL_OK=1
-    elif [ "$SIGNAL_MODE" = "honor" ]; then
-      out deny "合図の語 APPROVE_GIT=1 はコマンドの先頭にだけ置ける。先頭以外の合図と、AI が付けた合図は無効。"
-    else
-      out deny "合図の語 APPROVE_GIT は社長が自分で付けるもの。AI が付けることは最も重い違反。Claude Code では確認ダイアログで承認を受ける。"
-    fi
+    out deny "合図の語 APPROVE_GIT はどの設定でも通さない。AI が付けることは最も重い違反。承認は確認ダイアログで受けるか、社長が自分の端末で実行する。"
     ;;
 esac
 
@@ -53,69 +46,66 @@ B='(^|[^[:alnum:]_.-])'                          # 語の始まり（/usr/bin/gi
 G="${B}git( +(-C +[^ ]+|-c +[^ ]+|--?[^ ]+))* +"  # git と、その直後の共通オプション（-C <dir>、-c k=v、--no-pager など）
 A='( |$)'                                         # 語の終わり
 
-ask_or_allow() {  # 社長の合図つきなら allow、なければ ask
-  if [ "$SIGNAL_OK" = 1 ]; then out allow "社長の合図（先頭の APPROVE_GIT=1）を確認した。$1"; fi
-  out ask "$1"
-}
+ask_president() { out ask "$1"; }  # 社長の承認が要る操作。合図で allow にする道は持たない
 
 # 3a. 関所 2: 外に出る操作
-has "${G}commit${A}"      && ask_or_allow "commit は関所 2。社長の承認があれば実行し、なければ中止する。"
-has "${G}push${A}"        && ask_or_allow "push は外に出る操作（関所 2）。社長の承認があれば実行する。"
-has "${G}send-email${A}"  && ask_or_allow "外部へ送る操作。社長の承認があれば実行する。"
+has "${G}commit${A}"      && ask_president "commit は関所 2。社長の承認があれば実行し、なければ中止する。"
+has "${G}push${A}"        && ask_president "push は外に出る操作（関所 2）。社長の承認があれば実行する。"
+has "${G}send-email${A}"  && ask_president "外部へ送る操作。社長の承認があれば実行する。"
 has "${B}gh +pr +(create|merge|close|reopen|edit|comment|review|ready|lock|unlock)${A}" \
-  && ask_or_allow "PR の作成と変更は外に出る操作（関所 2）。社長の承認があれば実行する。"
+  && ask_president "PR の作成と変更は外に出る操作（関所 2）。社長の承認があれば実行する。"
 has "${B}gh +issue +(create|close|reopen|edit|comment|delete|transfer|pin|unpin|lock|unlock|develop)${A}" \
-  && ask_or_allow "Issue の作成と変更は外に出る操作（関所 2）。社長の承認があれば実行する。"
+  && ask_president "Issue の作成と変更は外に出る操作（関所 2）。社長の承認があれば実行する。"
 has "${B}gh +(release|repo|gist) +(create|delete|edit|upload|delete-asset|fork|archive|unarchive|rename|sync)${A}" \
-  && ask_or_allow "GitHub への書き込みは外に出る操作。社長の承認があれば実行する。"
+  && ask_president "GitHub への書き込みは外に出る操作。社長の承認があれば実行する。"
 has "${B}gh +label +(create|delete|edit|clone)${A}" \
-  && ask_or_allow "GitHub への書き込みは外に出る操作。社長の承認があれば実行する。"
+  && ask_president "GitHub への書き込みは外に出る操作。社長の承認があれば実行する。"
 has "${B}gh +(secret|variable) +(set|delete)${A}" \
-  && ask_or_allow "GitHub の秘密と変数の書き換えは外に出る操作。社長の承認があれば実行する。"
+  && ask_president "GitHub の秘密と変数の書き換えは外に出る操作。社長の承認があれば実行する。"
 has "${B}gh +(workflow +(run|enable|disable)|run +(cancel|rerun|delete)|cache +delete)${A}" \
-  && ask_or_allow "GitHub Actions への操作は外に出る操作。社長の承認があれば実行する。"
+  && ask_president "GitHub Actions への操作は外に出る操作。社長の承認があれば実行する。"
 has "${B}gh +api( +[^ ]+)* +(-[fF] |--(field|raw-field|input)[= ]|-X *(POST|PUT|PATCH|DELETE)|--method[= ]+(POST|PUT|PATCH|DELETE))" \
-  && ask_or_allow "GitHub API への書き込みは外に出る操作。社長の承認があれば実行する。"
-has "${B}(npm|pnpm|yarn) +publish${A}" && ask_or_allow "パッケージの公開は外に出る操作。社長の承認があれば実行する。"
-has "${B}docker +push${A}"             && ask_or_allow "イメージの公開は外に出る操作。社長の承認があれば実行する。"
+  && ask_president "GitHub API への書き込みは外に出る操作。社長の承認があれば実行する。"
+has "${B}(npm|pnpm|yarn) +publish${A}" && ask_president "パッケージの公開は外に出る操作。社長の承認があれば実行する。"
+has "${B}docker +push${A}"             && ask_president "イメージの公開は外に出る操作。社長の承認があれば実行する。"
 
 # 3b. 取り消せない操作
 has "${G}reset( +[^ ]+)* +--(hard|merge)${A}" \
-  && ask_or_allow "作業の破棄（reset --hard）。取り消せないので、社長の承認があれば実行する。"
+  && ask_president "作業の破棄（reset --hard）。取り消せないので、社長の承認があれば実行する。"
 has "${G}clean( +[^ ]+)*( +--force| +-[a-zA-Z]*[fdxX][a-zA-Z]*)${A}" \
-  && ask_or_allow "追跡外ファイルの削除（clean -f）。取り消せないので、社長の承認があれば実行する。"
+  && ask_president "追跡外ファイルの削除（clean -f）。取り消せないので、社長の承認があれば実行する。"
 has "${G}stash +(drop|clear)${A}" \
-  && ask_or_allow "退避した変更の破棄（stash drop）。取り消せないので、社長の承認があれば実行する。"
+  && ask_president "退避した変更の破棄（stash drop）。取り消せないので、社長の承認があれば実行する。"
 has "${G}branch( +[^ ]+)* +(-[a-zA-Z]*[dD][a-zA-Z]*|--delete|--force)${A}" \
-  && ask_or_allow "ブランチの削除。社長の承認があれば実行する。"
+  && ask_president "ブランチの削除。社長の承認があれば実行する。"
 has "${G}tag( +[^ ]+)* +(-d|--delete)${A}" \
-  && ask_or_allow "タグの削除。社長の承認があれば実行する。"
+  && ask_president "タグの削除。社長の承認があれば実行する。"
 has "${G}(checkout|restore)( +[^ ]+)* +--(ours|theirs)${A}" \
-  && ask_or_allow "片側を捨てるコンフリクトの解消（--ours/--theirs）は原則しない。社長の承認があれば実行する。"
+  && ask_president "片側を捨てるコンフリクトの解消（--ours/--theirs）は原則しない。社長の承認があれば実行する。"
 has "${G}(merge|rebase|pull|cherry-pick|revert)( +[^ ]+)* +(-X *|--strategy-option[= ]+)(ours|theirs)${A}" \
-  && ask_or_allow "片側を捨てるコンフリクトの解消（-X ours/theirs）は原則しない。社長の承認があれば実行する。"
+  && ask_president "片側を捨てるコンフリクトの解消（-X ours/theirs）は原則しない。社長の承認があれば実行する。"
 has "${G}(merge|pull)( +[^ ]+)* +(-s +ours|--strategy[= ]+ours)${A}" \
-  && ask_or_allow "片側を捨てるマージ（-s ours）は原則しない。社長の承認があれば実行する。"
+  && ask_president "片側を捨てるマージ（-s ours）は原則しない。社長の承認があれば実行する。"
 has "${G}(rebase|filter-branch|filter-repo|replace)${A}" \
-  && ask_or_allow "履歴の書き換え。社長の承認があれば実行する。"
+  && ask_president "履歴の書き換え。社長の承認があれば実行する。"
 has "${G}reflog +(expire|delete)${A}" \
-  && ask_or_allow "履歴の書き換え（reflog の削除）。社長の承認があれば実行する。"
+  && ask_president "履歴の書き換え（reflog の削除）。社長の承認があれば実行する。"
 has "${G}gc( +[^ ]+)* +--prune" \
-  && ask_or_allow "履歴の書き換え（gc --prune）。社長の承認があれば実行する。"
+  && ask_president "履歴の書き換え（gc --prune）。社長の承認があれば実行する。"
 has "${G}update-ref +-d${A}" \
-  && ask_or_allow "参照の削除。社長の承認があれば実行する。"
+  && ask_president "参照の削除。社長の承認があれば実行する。"
 has "${G}checkout( +[^ ]+)* +(-f|--force)${A}" \
-  && ask_or_allow "作業の破棄（checkout --force）。社長の承認があれば実行する。"
+  && ask_president "作業の破棄（checkout --force）。社長の承認があれば実行する。"
 has "${G}checkout +(-- |\\.(/| |$))" \
-  && ask_or_allow "作業中の変更の破棄（checkout -- / checkout .）。社長の承認があれば実行する。"
+  && ask_president "作業中の変更の破棄（checkout -- / checkout .）。社長の承認があれば実行する。"
 if has "${G}restore${A}"; then
   if ! has "${G}restore( +[^ ]+)* +(--staged|-S)${A}" || has "${G}restore( +[^ ]+)* +(--worktree|-W)${A}"; then
-    ask_or_allow "作業中の変更の破棄（restore）。社長の承認があれば実行する。"
+    ask_president "作業中の変更の破棄（restore）。社長の承認があれば実行する。"
   fi
 fi
 has "${G}worktree +remove( +[^ ]+)* +(-f|--force)${A}" \
-  && ask_or_allow "作業ツリーの強制削除。社長の承認があれば実行する。"
+  && ask_president "作業ツリーの強制削除。社長の承認があれば実行する。"
 has "${B}rm( +-[^ ]+)* +[^ ]*\\.git(/[^ ]*)?${A}" \
-  && ask_or_allow "リポジトリの破壊（.git の削除）。社長の承認があれば実行する。"
+  && ask_president "リポジトリの破壊（.git の削除）。社長の承認があれば実行する。"
 
 out allow "読むだけか、取り消せる操作。"

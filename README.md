@@ -56,7 +56,7 @@ My-Lab の中では、開くだけで動きます。他のプロジェクトで�
 
 ## 5. 守り
 
-hooks の判定本体が、コマンドの文字列を見て 3 つの判定を返します。承認は社長の言葉だけを数え、合図の語 `APPROVE_GIT=1` は社長だけが付けます。
+hooks の判定本体が、コマンドの文字列を見て 3 つの判定を返します。承認は社長の言葉だけを数えます。合図の語 `APPROVE_GIT=1` が付いたコマンドは、Claude Code でも Cursor でも、設定によらず拒否します。
 
 | 操作 | 判定 |
 |---|---|
@@ -93,6 +93,6 @@ hooks の判定本体が、コマンドの文字列を見て 3 つの判定を�
 
 | 確かめること | 手順 | 結果 |
 |---|---|---|
-| Cursor で `ask` と `stop` が効く | My-Lab を Cursor で開き、「`git status` を実行して」と「commit して」を頼む。前者は止まらず、後者で確認が出れば `ask` が効く。文書を 1 つ直して終え、`verify-all.sh --fast` が走れば `stop` が効く | 未確認。効かなければ `~/.cursor/company-guard.mode` に `deny` と書き、社長が先頭に `APPROVE_GIT=1` を付けて実行する |
+| Cursor で `ask` と `stop` が効く | My-Lab を Cursor で開き、「`git status` を実行して」と「commit して」を頼む。前者は止まらず、後者で確認が出れば `ask` が効く。文書を 1 つ直して終え、`verify-all.sh --fast` が走れば `stop` が効く | 未確認。効かなければ `~/.cursor/company-guard.mode` に `deny` と書く。deny では承認が要る操作をすべて拒否し、合図の語が付いていても通さない。commit や push は、社長が hooks の掛からない自分の端末で実行する |
 | Claude Code で commit が確認で止まり、承認で通る | 社長が commit を承認する最初の機会に見る。`PostToolUse`（直したファイルの検査）と `Stop` は、段階 0 の作業中に実際に動いた | 未確認（commit はまだ 1 度も行っていない） |
 | 両ツールでサブエージェントが呼べる | Claude Code のサブエージェントの一覧に ceo・designer・frontend・backend・infra・security・sre が出るか見る。Cursor では `/ceo` を呼び、`.company/ceo/CLAUDE.md` を読んで答えるか見る | Claude Code は確認済み（2026-11-06。作った会話の途中で 7 本が一覧に出た）。Cursor は未確認 |

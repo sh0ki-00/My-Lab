@@ -4,7 +4,8 @@
 # 出力: {"permission":"allow|ask|deny","user_message":"...","agent_message":"..."}。常に JSON を出す（空の出力は Cursor が拒否と扱う）。
 #
 # 既定は ask（確認）。Cursor で ask が効かないと実機で分かったら、社長が ~/.cursor/company-guard.mode に deny と書く。
-# deny の設定では、承認が要る操作はすべて拒否し、先頭に社長の合図 APPROVE_GIT=1 が付いたコマンドだけを通す。
+# deny の設定では、承認が要る操作をすべて拒否する。合図の語 APPROVE_GIT=1 が付いていても通さない。
+# この接続口に来る命令の文字列は AI が書くので、合図で通すと AI の自己承認になる。社長は hooks の掛からない自分の端末で実行する。
 # 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、文を省いて判定だけ返す。
 set -u
 # shellcheck source=hooks/lib.sh
@@ -18,15 +19,14 @@ root="$(project_root "$input")"
 mode="${COMPANY_GUARD_CURSOR_MODE:-}"
 [ -n "$mode" ] || mode="$(tr -d '[:space:]' < "$HOME/.cursor/company-guard.mode" 2>/dev/null || true)"
 [ "$mode" = "deny" ] || mode="ask"
-signal="deny"; [ "$mode" = "deny" ] && signal="honor"
 
 if [ -z "$cmd" ]; then printf '{"permission":"allow"}\n'; exit 0; fi
 
-line="$(bash "$HOOKS_DIR/guard-core.sh" --signal "$signal" -- "$cmd")"
+line="$(bash "$HOOKS_DIR/guard-core.sh" --signal deny -- "$cmd")"
 decision="${line%%$'\t'*}"; reason="${line#*$'\t'}"
 if [ "$decision" = "ask" ] && [ "$mode" = "deny" ]; then
   decision="deny"
-  reason="$reason この Cursor では確認が効かないため拒否する。社長が先頭に APPROVE_GIT=1 を付けて実行する。"
+  reason="$reason この Cursor では確認が効かないため拒否する。社長が自分の端末で実行する。"
 fi
 log "cursor before-shell $decision $reason"
 

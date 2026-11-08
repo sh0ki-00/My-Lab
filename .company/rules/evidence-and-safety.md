@@ -17,12 +17,12 @@
 
 | 行為 | 扱い | 守る仕組み |
 |---|---|---|
-| `git commit`、`git push`、Issue と PR の作成 | そのたびに社長の承認（Claude Code は確認ダイアログ） | hooks の判定本体 `hooks/guard-core.sh` |
+| `git commit`、`git push`、Issue と PR の作成 | そのたびに社長の承認（Claude Code は確認ダイアログ。確認が効かない Cursor では、社長が自分の端末で実行する） | hooks の判定本体 `hooks/guard-core.sh` |
 | `reset --hard`、`clean -f`、`stash drop`、ブランチの削除、履歴の書き換え | 承認 | 同上 |
 | コンフリクトの機械的な解消（`--ours`、`--theirs`） | 承認。片側を捨てる解消は原則しない | 同上 |
 | 本番環境への適用、データの削除、外部への送信、秘密の取り扱い | 社長が行う。AI は手順と差分を示して止まる | 役割スキルの禁止の節 |
 | 常時ルール（`~/.claude/CLAUDE.md`、User Rules）の書き換え | しない。本文を社長に渡す | `install.sh` は書き込まない |
-| 合図の語 `APPROVE_GIT=1` | 社長が自分で付けるもの。AI が付けることは最も重い違反 | 判定本体はコマンドの先頭にあるときだけ許す |
+| 合図の語 `APPROVE_GIT=1` | 使わない。AI が付けることは最も重い違反 | 判定本体がどの設定でも拒否する |
 
 ## 3. 秘密
 

@@ -140,23 +140,27 @@ expect allow deny 'grep -rn "commit" tools/'
 expect allow deny 'rm -rf node_modules'
 expect allow deny 'rm -rf tmp/.verify'
 expect allow deny 'mygit commit'
-# 1d. 合図の語。Claude Code（deny）では常に deny。Cursor の退避路（honor）では先頭だけ allow
+# 1d. 合図の語。どこにあっても deny。前の退避路の値（honor）を渡しても deny で、合図で通す道は無い
 expect deny deny 'APPROVE_GIT=1 git commit -m x'
 expect deny deny 'git commit -m x # APPROVE_GIT=1'
 expect deny deny 'export APPROVE_GIT=1; git push'
-expect allow honor 'APPROVE_GIT=1 git commit -m x'
-expect allow honor 'APPROVE_GIT=1 git push'
-expect allow honor '  APPROVE_GIT=1 git push'
+expect deny honor 'APPROVE_GIT=1 git commit -m x'
+expect deny honor 'APPROVE_GIT=1 git push'
+expect deny honor '  APPROVE_GIT=1 git push'
+expect deny honor 'APPROVE_GIT=1 gh pr create --fill'
+expect deny honor 'APPROVE_GIT=1 git reset --hard HEAD~1'
+expect deny honor 'APPROVE_GIT=1 git status'
 expect deny honor 'git status && APPROVE_GIT=1 git push'
 expect deny honor 'echo APPROVE_GIT=1'
 expect ask honor 'git commit -m x'
 expect allow honor 'git status'
+if [ "$(bash "$CORE" -- 'APPROVE_GIT=1 git push' | cut -f1)" = deny ]; then ok; else bad "判定: --signal を省いても、先頭の合図つきの push は deny"; fi
 
 # ---- 2. 接続口（端から端）
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export CLAUDE_PROJECT_DIR="$T" CURSOR_PROJECT_DIR="$T"
 export COMPANY_GUARD_VERIFY_CMD="false"
-unset COMPANY_GUARD_CURSOR_MODE
+export COMPANY_GUARD_CURSOR_MODE=ask  # この Mac の ~/.cursor/company-guard.mode に左右されない。ファイルを読む道は 2d で HOME を差し替えて試す
 OUT=""; RC=0
 run() {  # run <接続口> <stdin の JSON> [引数...] → OUT と RC
   local script="$1" json="$2"; shift 2
@@ -226,8 +230,22 @@ run cursor-before-shell.sh '{"command":"APPROVE_GIT=1 git commit -m x","cwd":"'"
 assert "Cursor before-shell(ask の設定): 合図は deny" has_out '"permission":"deny"'
 COMPANY_GUARD_CURSOR_MODE=deny run cursor-before-shell.sh '{"command":"git commit -m x","cwd":"'"$T"'"}'
 assert "Cursor before-shell(deny の設定): commit は deny" has_out '"permission":"deny"'
+assert "Cursor before-shell(deny の設定): 合図の語を文に出さない" lacks_out 'APPROVE_GIT'
 COMPANY_GUARD_CURSOR_MODE=deny run cursor-before-shell.sh '{"command":"APPROVE_GIT=1 git commit -m x","cwd":"'"$T"'"}'
-assert "Cursor before-shell(deny の設定): 先頭の合図は allow" has_out '"permission":"allow"'
+assert "Cursor before-shell(deny の設定): 先頭に合図があっても commit は deny" has_out '"permission":"deny"'
+COMPANY_GUARD_CURSOR_MODE=deny run cursor-before-shell.sh '{"command":"APPROVE_GIT=1 git push origin main","cwd":"'"$T"'"}'
+assert "Cursor before-shell(deny の設定): 先頭に合図があっても push は deny" has_out '"permission":"deny"'
+COMPANY_GUARD_CURSOR_MODE=deny run cursor-before-shell.sh '{"command":"git status","cwd":"'"$T"'"}'
+assert "Cursor before-shell(deny の設定): 読むだけは allow" has_out '"permission":"allow"'
+mkdir -p "$T/.cursor"
+COMPANY_GUARD_CURSOR_MODE='' HOME="$T" run cursor-before-shell.sh '{"command":"git commit -m x","cwd":"'"$T"'"}'
+assert "Cursor before-shell(mode のファイルが無い): 既定の ask" has_out '"permission":"ask"'
+printf 'deny\n' > "$T/.cursor/company-guard.mode"
+COMPANY_GUARD_CURSOR_MODE='' HOME="$T" run cursor-before-shell.sh '{"command":"git commit -m x","cwd":"'"$T"'"}'
+assert "Cursor before-shell(mode のファイルが deny): commit は deny" has_out '"permission":"deny"'
+COMPANY_GUARD_CURSOR_MODE='' HOME="$T" run cursor-before-shell.sh '{"command":"APPROVE_GIT=1 git commit -m x","cwd":"'"$T"'"}'
+assert "Cursor before-shell(mode のファイルが deny): 先頭に合図があっても deny" has_out '"permission":"deny"'
+rm -rf "$T/.cursor"
 run cursor-before-shell.sh '{"cwd":"'"$T"'"}'
 assert "Cursor before-shell: command が無ければ allow の JSON" has_out '"permission":"allow"'
 mkdir -p "$T/.cursor" && printf '{"version":1,"hooks":{"beforeShellExecution":[{"command":"hooks/cursor-before-shell.sh"}]}}' > "$T/.cursor/hooks.json"

@@ -52,7 +52,7 @@
 | `git reset --hard`、`clean -f`、`stash drop`、ブランチの削除、`--ours` と `--theirs` | 確認 |
 | 読むだけの操作 | 許可 |
 
-合図の語 `APPROVE_GIT=1` は社長が自分で付けるもので、AI が付けることは最も重い違反である。判定の本体は `hooks/guard-core.sh`、自己試験は `bash hooks/selftest.sh`。
+合図の語 `APPROVE_GIT=1` が付いたコマンドは、Claude Code でも Cursor でも、設定によらず拒否する。AI が付けることは最も重い違反である。判定の本体は `hooks/guard-core.sh`、自己試験は `bash hooks/selftest.sh`。
 
 ## 検証（自動で走る）
 
