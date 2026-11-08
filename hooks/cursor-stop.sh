@@ -28,10 +28,11 @@ changed_since_pass "$root" || done_quiet
 
 out="$(cd "$root" && eval "$cmd" 2>&1)"; rc=$?
 log "cursor stop rc=$rc ($cmd)"
-[ "$rc" -eq 0 ] && done_quiet
+[ "$rc" -eq 3 ] && log "cursor stop: 回す検証の命令が無い（WARN）。止めずに伝える"
+{ [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]; } && done_quiet
 summary="$(printf '%s\n' "$out" | grep -E '^(FAIL|RESULT:)' | head -20)"
 [ -n "$summary" ] || summary="$(printf '%s\n' "$out" | tail -20)"
-msg="作業を終える前の検証（$cmd）が FAIL です。次を直してから、もう一度終えてください。FAIL のあいだは「完了」と書きません。
+msg="作業を終える前の検証（${cmd}）が FAIL です。次を直してから、もう一度終えてください。FAIL のあいだは「完了」と書きません。
 $summary"
 printf '{"followup_message":%s}\n' "$(json_str "$msg")"
 exit 0

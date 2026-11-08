@@ -33,16 +33,16 @@ judge "templates/self-check.md（雛形は落ちる）" FAIL "$(verdict self-che
 
 # 2) 負例
 for rule in 構成 状態 データ取得 性能予算 テスト 横断事項 雛形の穴; do
-  judge "fixtures/bad-plan.md が「$rule」で落ちる" PASS "$(has frontend-plan-check "\\[$rule\\]" "$FX/bad-plan.md")"
+  judge "fixtures/bad-plan.md が「${rule}」で落ちる" PASS "$(has frontend-plan-check "\\[$rule\\]" "$FX/bad-plan.md")"
 done
 for rule in 判定 結果 推測 ゲートの出力 節; do
-  judge "fixtures/bad-self-check.md が「$rule」で落ちる" PASS "$(has self-check "\\[$rule\\]" "$FX/bad-self-check.md")"
+  judge "fixtures/bad-self-check.md が「${rule}」で落ちる" PASS "$(has self-check "\\[$rule\\]" "$FX/bad-self-check.md")"
 done
 for rule in 生の色 "生の px" 生の書体; do
-  judge "fixtures/bad-app が「$rule」で落ちる" PASS "$(has token-lint "\\[$rule\\]" "$FX/bad-app")"
+  judge "fixtures/bad-app が「${rule}」で落ちる" PASS "$(has token-lint "\\[$rule\\]" "$FX/bad-app")"
 done
 for rule in 動き 縮小版; do
-  judge "fixtures/bad-app が「$rule」で落ちる" PASS "$(has motion-lint "\\[$rule\\]" "$FX/bad-app")"
+  judge "fixtures/bad-app が「${rule}」で落ちる" PASS "$(has motion-lint "\\[$rule\\]" "$FX/bad-app")"
 done
 judge "fixtures/bad-app で gate が FAIL" PASS "$(has frontend-gate '^RESULT: FAIL frontend-gate' "$FX/bad-app")"
 

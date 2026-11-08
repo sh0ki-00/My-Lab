@@ -57,5 +57,5 @@ rate=0; [ "$n" -gt 0 ] && rate=$((correct * 100 / n))
 if [ "$n" -gt 0 ] && [ $((correct * 20)) -ge $((n * 19)) ]; then got=PASS; else got=FAIL; fi
 judge "振り分け $n 件の正答率 95% 以上（$correct/$n = $rate%）" PASS "$got"
 
-if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals secretary ($pass/$total、振り分け $correct/$n)"; exit 0; fi
-echo "RESULT: FAIL evals secretary ($pass/$total、振り分け $correct/$n)"; exit 1
+if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals secretary ($pass/${total}、振り分け $correct/$n)"; exit 0; fi
+echo "RESULT: FAIL evals secretary ($pass/${total}、振り分け $correct/$n)"; exit 1

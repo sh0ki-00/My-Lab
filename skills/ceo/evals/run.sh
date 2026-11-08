@@ -30,7 +30,7 @@ done
 out="$(bash "$CHECK" "$HERE/cases/bad-judgment.md" 2>&1)"
 for rule in 目的 判定 判断 KPI やらないこと 収益性; do
   if printf '%s\n' "$out" | grep -q "\[$rule\]"; then got=PASS; else got=FAIL; fi
-  judge "cases/bad-judgment.md が「$rule」で落ちる" PASS "$got"
+  judge "cases/bad-judgment.md が「${rule}」で落ちる" PASS "$got"
 done
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals ceo ($pass/$total)"; exit 0; fi
 echo "RESULT: FAIL evals ceo ($pass/$total)"; exit 1

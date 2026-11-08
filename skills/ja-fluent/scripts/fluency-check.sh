@@ -240,7 +240,7 @@ selftest() {
   run "$t/good.md" | grep -q '^RESULT: PASS' || { echo "FAIL selftest: 正例が落ちた"; rc=1; }
   for pair in "ten:読点" "no:助詞の連続" "redundant:冗長" "passive:受身" "dneg:二重否定" "suru:冗長" "ga:接続助詞" "trans:翻訳調"; do
     f="${pair%%:*}"; rule="${pair#*:}"
-    run "$t/$f.md" | grep -q "^FAIL .*\[$rule\]" || { echo "FAIL selftest: 負例「$rule」（$f）が通った"; rc=1; }
+    run "$t/$f.md" | grep -q "^FAIL .*\[$rule\]" || { echo "FAIL selftest: 負例「${rule}」（${f}）が通った"; rc=1; }
   done
   run "$t/kata.md" | grep -q '^WARN .*\[カタカナ語\]' || { echo "FAIL selftest: カタカナ語の WARN が出ない"; rc=1; }
   rm -rf "$t"

@@ -2,7 +2,7 @@
 # tools/check-file.sh <ファイル>... — 直したファイルの検査を、種類で選んで回す。hooks が編集の直後に呼ぶ。
 #   .md .mdc : check-ja（文体）。資料（docs/、tmp/flow/、tmp/ISSUE_*、tmp/PR_*、README.md、skills/*/references|examples）なら check-doc。
 #              図（```mermaid）があれば check-mermaid。ja-fluent のスキルがあれば fluency-check（文の運び）
-#   .sh      : bash -n と shellcheck
+#   .sh      : bash -n と shellcheck と、全角の字の直前の変数の波括弧
 #   .py      : 構文（ast）
 #   .mjs .js : node --check
 #   .json    : jq
@@ -54,6 +54,8 @@ for f in "$@"; do
     *.sh)
       run bash-n "$f" bash -n "$f"
       if need shellcheck "$f"; then run shellcheck "$f" shellcheck -x -P "$ROOT" "$f"; else fail=$((fail + 1)); fi
+      # 全角の字の直前の変数は、UTF-8 の設定の bash が字の一部まで名前と読む（set -u なら落ちる）。${名前} と書く
+      run var-brace "$f" python3 -I "$TOOLS/lib/check_var_brace.py" "$f"
       ;;
     *.py)
       run python-syntax "$f" python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1], encoding="utf-8").read(), sys.argv[1])' "$f"

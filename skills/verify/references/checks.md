@@ -27,10 +27,10 @@
 | 3 | 図の実描画 | Mermaid（文字で図を描く記法）をブラウザで描き、崩れを見る | 引用符、予約語 `end`、ラベルの括弧を直す。`check-mermaid` を先に通す |
 | 4 | 固有の検査の自己試験 | `tools/lib/check_*.py --selftest` と各スキルの `scripts/*.sh --selftest` | 正例が落ちるなら検査を直す。負例が通るなら検査を厳しくする |
 | 5 | 試験ケース | 各スキルの `evals/run.sh` | スキルの出力が条件を満たすように、SKILL.md か雛形を直す |
-| 6 | hooks（コマンドの直前と編集の直後に走る検査）の自己試験 | 判定本体の判定表と、両ツールの接続口の端から端 | `hooks/guard-core.sh` の判定表か、接続口の入出力を直す。`hooks/` は社長に差分を示してから直す |
+| 6 | hooks（コマンドの直前と編集の直後に走る検査）の自己試験 | 判定本体の判定表と、両ツールの接続口の端から端。C と、社長の端末と同じ UTF-8（`ja_JP.UTF-8`）の 2 つの文字の設定で回す | `hooks/guard-core.sh` の判定表か、接続口の入出力を直す。`hooks/` は社長に差分を示してから直す。UTF-8 だけで落ちるなら、全角の字の直前の変数のような、文字の設定で変わる書き方を疑う |
 | 7 | 配置の試験 | `deploy.sh` と `install.sh` を使い捨ての場所で回す | `deploy.sh`・`install.sh`・`router/cursor-user-rule.md` が指すパスを直す |
 | 8 | 参照の実在 | 文書が指すパス | パスを直すか、後の段階のものなら `tools/planned-paths.txt` に書く |
-| 9 | スクリプトの静的検査 | `shellcheck` | 指摘のコード（SC 番号）どおりに直す。無視は `# shellcheck disable=` に理由を添える |
+| 9 | スクリプトの静的検査 | `shellcheck` と、全角の字の直前の変数（`[変数の波括弧]`、本体は `tools/lib/check_var_brace.py`）。直したファイル 1 つ分の `check-file.sh` でも両方を見る | SC 番号の指摘は、そのとおりに直す。無視は `# shellcheck disable=` に理由を添える。`[変数の波括弧]` は `${名前}` と囲む。UTF-8 の設定の bash は、全角の字の一部まで名前と読むため |
 | 10 | 見本アプリの実測 | 単体テスト、axe（アクセシビリティ検査）の違反 0、Lighthouse（Google の性能測定）の性能 90 以上 | `samples/app/` を直す。`tmp/.verify/lighthouse.json` に詳細がある |
 | 11 | 秘密と依存 | `gitleaks`（秘密の混入）、`trivy`（依存の既知の穴）、`semgrep`（自前の規則） | 秘密は消して鍵を無効にする。依存は版を上げる。規則の指摘はコードを直す |
 

@@ -42,12 +42,12 @@ judge "templates/detection-matrix.md（雛形は落ちる）" FAIL "$(verdict re
 
 # 2) RoE の負例
 for rule in 所有の確認 範囲外の宛先 許可 連絡先 期間 止める条件 やらないこと; do
-  judge "fixtures/bad-roe.md が「$rule」で落ちる" PASS "$(has roe-check "\\[$rule\\]" "$FX/bad-roe.md")"
+  judge "fixtures/bad-roe.md が「${rule}」で落ちる" PASS "$(has roe-check "\\[$rule\\]" "$FX/bad-roe.md")"
 done
 
 # 3) 報告の負例
 for rule in 何ができてしまうか 直し方 再検証 重さと採点の根拠 採点の根拠 範囲外の宛先 攻撃コード; do
-  judge "fixtures/bad-report.md が「$rule」で落ちる" PASS "$(has report-check "\\[$rule\\]" "$FX/bad-report.md")"
+  judge "fixtures/bad-report.md が「${rule}」で落ちる" PASS "$(has report-check "\\[$rule\\]" "$FX/bad-report.md")"
 done
 
 # 4) 点数の食い違い
@@ -59,7 +59,7 @@ judge "F-3 の文字列は 5.3 Medium" PASS "$(has cvss4 '^5.3 Medium ' 'CVSS:4.
 
 # 5) 検知の行列の負例
 for rule in 行列 通知 検知 検証; do
-  judge "fixtures/bad-matrix.md が「$rule」で落ちる" PASS "$(has report-check "\\[$rule\\]" --matrix "$FX/bad-matrix.md")"
+  judge "fixtures/bad-matrix.md が「${rule}」で落ちる" PASS "$(has report-check "\\[$rule\\]" --matrix "$FX/bad-matrix.md")"
 done
 
 # 6) 報告が指す見本の試験
@@ -72,7 +72,7 @@ done
 judge "fixtures/bad-copy-report.md は --roe なしでは通る（突き合わせが要る理由）" PASS "$(cd "$ROOT" && verdict report-check "$FX/bad-copy-report.md")"
 copy_rules=("RoE の範囲外" 再検証の写し 試験の置き場 立てる写し)
 for rule in "${copy_rules[@]}"; do
-  judge "fixtures/bad-copy-report.md が --roe で「$rule」で落ちる" PASS "$(cd "$ROOT" && has report-check "\\[$rule\\]" --roe "$FX/bad-copy-roe.md" "$FX/bad-copy-report.md")"
+  judge "fixtures/bad-copy-report.md が --roe で「${rule}」で落ちる" PASS "$(cd "$ROOT" && has report-check "\\[$rule\\]" --roe "$FX/bad-copy-roe.md" "$FX/bad-copy-report.md")"
 done
 
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals security ($pass/$total)"; exit 0; fi

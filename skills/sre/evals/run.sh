@@ -34,7 +34,7 @@ judge "templates/slo.md が「穴埋め」で落ちる" PASS "$(has slo-doc-chec
 
 # 2) 負例
 for rule in 承認者 測り点 エラーバジェットの扱い Runbook; do
-  judge "fixtures/bad-slo.md が「$rule」で落ちる" PASS "$(has slo-doc-check "\\[$rule\\]" "$FX/bad-slo.md")"
+  judge "fixtures/bad-slo.md が「${rule}」で落ちる" PASS "$(has slo-doc-check "\\[$rule\\]" "$FX/bad-slo.md")"
 done
 judge "fixtures/bad-slo.md が burn-rate の「食い違い」で落ちる" PASS "$(has burn-rate '\[食い違い\]' "$FX/bad-slo.md")"
 

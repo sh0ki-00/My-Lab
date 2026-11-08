@@ -105,14 +105,24 @@ v_evals() {  # 5 試験ケース
   [ "$n" -gt 0 ] || echo "RESULT: PASS evals (スキルが 0 本)"
   return $rc
 }
-v_hooks()     { bash hooks/selftest.sh; }                 # 6 hooks の自己試験
+v_hooks() {  # 6 hooks の自己試験。C と、社長の端末と同じ UTF-8 の文字の設定の 2 つで回す（AI の道具は C なので、C だけでは落ちる所が隠れる）
+  local rc=0
+  if ! locale -a 2>/dev/null | grep -qx 'ja_JP.UTF-8'; then printf 'FAIL [道具が無い] 文字の設定 ja_JP.UTF-8 が無い（SKIP は FAIL と同じ）\n'; return 1; fi
+  bash hooks/selftest.sh || rc=1
+  echo "（UTF-8 の文字の設定で、もう一度）"
+  LC_ALL=ja_JP.UTF-8 bash hooks/selftest.sh || rc=1
+  return $rc
+}
 v_placement() { bash "$TOOLS/placement-test.sh"; }         # 7 配置の試験
 v_refs()      { bash "$TOOLS/check-refs.sh"; }             # 8 参照の実在
-v_shellcheck() {  # 9 スクリプトの静的検査
-  local files; files="$(sh_files)"
+v_shellcheck() {  # 9 スクリプトの静的検査: shellcheck と、全角の字の直前の変数（tools/lib/check_var_brace.py）
+  local files n rc=0; files="$(sh_files)"; n="$(printf '%s\n' "$files" | wc -l | tr -d ' ')"
   need shellcheck || return 1
   # shellcheck disable=SC2086
-  shellcheck -x -P "$ROOT" $files && echo "RESULT: PASS shellcheck ($(printf '%s\n' "$files" | wc -l | tr -d ' ') 本)"
+  if shellcheck -x -P "$ROOT" $files; then echo "RESULT: PASS shellcheck ($n 本)"; else rc=1; fi
+  # shellcheck disable=SC2086
+  if python3 -I "$TOOLS/lib/check_var_brace.py" $files; then echo "RESULT: PASS var-brace ($n 本)"; else rc=1; fi
+  return $rc
 }
 v_sample() {  # 10 見本アプリの実測
   need node || return 1

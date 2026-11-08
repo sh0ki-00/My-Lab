@@ -35,15 +35,15 @@ judge "templates/openapi-contract.json（契約の雛形）" PASS "$(verdict con
 
 # 2) 計画の負例
 for rule in 契約 認可 冪等 エラー 移行 問い合わせ 性能予算 観測 流出経路 テスト 段階 必須の節; do
-  judge "fixtures/bad-plan.md が「$rule」で落ちる" PASS "$(has backend-plan-check "\\[$rule\\]" "$FX/bad-plan.md")"
+  judge "fixtures/bad-plan.md が「${rule}」で落ちる" PASS "$(has backend-plan-check "\\[$rule\\]" "$FX/bad-plan.md")"
 done
 
 # 3) 契約の負例と 2 版の比較
 for rule in "エラーの 4 点" 冪等キー 認可 起点の送り; do
-  judge "fixtures/bad-contract.json が「$rule」で落ちる" PASS "$(has contract-check "\\[$rule\\]" "$FX/bad-contract.json")"
+  judge "fixtures/bad-contract.json が「${rule}」で落ちる" PASS "$(has contract-check "\\[$rule\\]" "$FX/bad-contract.json")"
 done
 for rule in 操作の削除 応答の欄の削除 必須の入力の追加 型の変更 列挙値の削除 状態番号の削除; do
-  judge "壊した 2 版目が「$rule」で落ちる" PASS "$(has contract-check "\\[$rule\\]" "$EX/openapi-order-list.json" "$EX/openapi-order-list-v2-breaking.json")"
+  judge "壊した 2 版目が「${rule}」で落ちる" PASS "$(has contract-check "\\[$rule\\]" "$EX/openapi-order-list.json" "$EX/openapi-order-list-v2-breaking.json")"
 done
 judge "同じ版どうしの比較は通る" PASS "$(verdict contract-check "$EX/openapi-order-list.json" "$EX/openapi-order-list.json")"
 

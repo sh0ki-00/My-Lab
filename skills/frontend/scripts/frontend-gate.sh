@@ -58,7 +58,7 @@ run_gate() {
     if [ -f "$dir/package-lock.json" ]; then stage "依存" npm audit --prefix "$dir" --audit-level=high; else skipit "依存" "package-lock.json が無い"; fi
   else skipit "依存" "--full のときだけ回す"; fi
   local verdict="PASS"; [ "$fail" -eq 0 ] || verdict="FAIL"
-  echo "RESULT: $verdict frontend-gate $dir (PASS $pass、FAIL $fail、SKIP $skip)"
+  echo "RESULT: $verdict frontend-gate $dir (PASS ${pass}、FAIL ${fail}、SKIP $skip)"
   [ "$fail" -eq 0 ]
 }
 

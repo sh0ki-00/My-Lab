@@ -55,7 +55,7 @@ write() {  # write <ファイル> <中身>
   mkdir -p "$(dirname "$f")"
   [ -f "$f" ] && cp "$f" "$f.bak.$STAMP"
   printf '%s\n' "$body" > "$f"
-  echo "install: $f を書いた（退避: $f.bak.$STAMP）"
+  echo "install: $f を書いた（退避: $f.bak.${STAMP}）"
 }
 
 write "$CL" "$(new_claude)"

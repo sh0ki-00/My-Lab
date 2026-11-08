@@ -35,11 +35,11 @@ judge "templates/design-review.md（雛形は落ちる）" FAIL "$(verdict revie
 judge "fixtures/ai-slop が sloppy 以上" PASS "$(has ai-look-check 'sloppy\|terminal' "$FX/ai-slop")"
 judge "fixtures/tokens-drift.css が #F4F1EA で落ちる" PASS "$(has fidelity-check '#F4F1EA' "$EX/design-plan-order-list.md" "$FX/tokens-drift.css")"
 for rule in 色 書体 シグネチャ 動き 既定との差; do
-  judge "fixtures/bad-plan.md が「$rule」で落ちる" PASS "$(has design-plan-check "\\[$rule\\]" "$FX/bad-plan.md")"
+  judge "fixtures/bad-plan.md が「${rule}」で落ちる" PASS "$(has design-plan-check "\\[$rule\\]" "$FX/bad-plan.md")"
 done
 judge "fixtures/bad-plan.md が 2.85 対 1 で落ちる" PASS "$(has contrast-check '2.85' "$FX/bad-plan.md")"
 for rule in 指摘 判定; do
-  judge "fixtures/bad-review.md が「$rule」で落ちる" PASS "$(has review-check "\\[$rule\\]" "$FX/bad-review.md")"
+  judge "fixtures/bad-review.md が「${rule}」で落ちる" PASS "$(has review-check "\\[$rule\\]" "$FX/bad-review.md")"
 done
 
 # 3) 正例

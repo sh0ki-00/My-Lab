@@ -50,7 +50,7 @@ cat > "$DEST/tmp/DEPLOYED.md" <<EOF
 | 項目 | 内容 |
 |---|---|
 | 写した日時 | $NOW |
-| 正本の場所 | \`$LAB\`（$VERSION） |
+| 正本の場所 | \`$LAB\`（${VERSION}） |
 | 写したもの | \`tmp/skills/\`、\`tmp/.company/\`、\`tmp/tools/\`、\`tmp/samples/\`、\`tmp/cursor-user-rule.md\`、\`tmp/claude-code.md\` |
 | git | \`tmp/\` を \`.git/info/exclude\` に足した。commit に入らない |
 
@@ -70,7 +70,7 @@ cat > "$DEST/tmp/DEPLOYED.md" <<EOF
 \`tmp/tools/verify-all.sh\` は My-Lab の一式の検証なので、写した先では回さずに止まります。
 EOF
 
-echo "deploy: $DEST/tmp/ に skills・.company・tools・samples・cursor-user-rule.md・claude-code.md を写した（正本 $LAB、$VERSION）"
+echo "deploy: $DEST/tmp/ に skills・.company・tools・samples・cursor-user-rule.md・claude-code.md を写した（正本 ${LAB}、${VERSION}）"
 if [ -n "$EXCLUDE" ]; then
   echo "deploy: $EXCLUDE に tmp/ を足した"
   if git -C "$DEST" status --porcelain 2>/dev/null | grep -q 'tmp/'; then

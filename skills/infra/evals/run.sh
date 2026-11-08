@@ -33,7 +33,7 @@ has() {  # has <検査> <文言> <引数...> → 出力に文言があれば PAS
 judge "1 examples/infra-design-order-list.md が arch-check を通る" PASS "$(verdict arch-check "$SKILL/examples/infra-design-order-list.md")"
 judge "2 templates/infra-design.md が「雛形の穴」で落ちる" PASS "$(has arch-check '\[雛形の穴\]' "$SKILL/templates/infra-design.md")"
 for rule in "6 本の柱" ネットワーク IAM 秘密情報 暗号化 監査ログ 復元 目標と実測 環境の差 費用の幅 流出経路 信頼の根 攻撃者の目 推測; do
-  judge "3 fixtures/bad-design.md が「$rule」で落ちる" PASS "$(has arch-check "\\[$rule\\]" "$FX/bad-design.md")"
+  judge "3 fixtures/bad-design.md が「${rule}」で落ちる" PASS "$(has arch-check "\\[$rule\\]" "$FX/bad-design.md")"
 done
 
 # 2) 構成コード
