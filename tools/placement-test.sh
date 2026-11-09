@@ -32,10 +32,10 @@ if ! { grep -qF '.claude/CLAUDE.md' "$P/tmp/DEPLOYED.md" && grep -qF 'User Rules
 fi
 out="$(cd "$P" && bash tmp/tools/verify-all.sh --fast 2>&1)"; rc=$?
 { [ "$rc" -eq 2 ] && printf '%s\n' "$out" | grep -q 'project-verify.sh' && [ ! -e "$P/tmp/tmp" ]; } || bad verify-all "写しの verify-all が止まらない（rc=${rc}）"
-grep -qx 'tmp/' "$P/.git/info/exclude" 2>/dev/null || bad exclude ".git/info/exclude に tmp/ が無い"
+grep -qxF '/tmp/' "$P/.git/info/exclude" 2>/dev/null || bad exclude ".git/info/exclude に /tmp/ が無い"
 if git -C "$P" status --porcelain | grep -q 'tmp/'; then bad git "git status に tmp/ が出る"; fi
 out="$(bash "$LAB/deploy.sh" "$P" 2>&1)" || bad deploy "2 回目: $out"
-[ "$(grep -cx 'tmp/' "$P/.git/info/exclude")" -eq 1 ] || bad exclude "2 回目で exclude に tmp/ が重なる"
+[ "$(grep -cxF '/tmp/' "$P/.git/info/exclude")" -eq 1 ] || bad exclude "2 回目で exclude に /tmp/ が重なる"
 
 # 2. User Rules の本文が指す tmp/ のパスが、写しの中に実在する（後の段階で作る予定のものは除く）
 planned="$(grep -v '^#' "$TOOLS/planned-paths.txt" 2>/dev/null | sed '/^$/d')"
@@ -70,6 +70,7 @@ mkdir -p "$Q/tests"
 printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_one(self):\n        self.assertEqual(1, 1)\n' > "$Q/tests/test_app.py"
 out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
 { [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF 'RESULT: PASS python3 -m unittest discover'; } || bad project-verify "tests/test_*.py を unittest で回さない（rc=${rc}）"
+rm -rf "$Q/tests/__pycache__"  # 同じ秒に同じ大きさで書き換えると、Python が前の pyc を使い、落ちるはずの試験が通ることがある
 printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_one(self):\n        self.assertEqual(1, 2)\n' > "$Q/tests/test_app.py"
 (cd "$Q" && bash tmp/tools/project-verify.sh --fast >/dev/null 2>&1); rc=$?
 [ "$rc" -eq 1 ] || bad project-verify "落ちる tests/test_*.py で FAIL（終了コード 1）にならない（rc=${rc}）"
