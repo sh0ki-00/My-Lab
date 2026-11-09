@@ -33,6 +33,7 @@ quotes=$'\'"\\\\'
 flat="$(printf ' %s ' "$CMD" | tr -d "$quotes" | tr '\n\t\r' '   ' | tr -s ' ')"
 
 has() { printf '%s' "$flat" | grep -Eq -- "$1"; }
+raw() { printf '%s' "$CMD"  | grep -Eq -- "$1"; }  # 正規化の前の文字列を見る。逆斜線が消える前の 16 進逃げ文字を拾う
 
 # 2. 合図の語。どこにあっても deny。
 case "$flat" in
@@ -40,6 +41,17 @@ case "$flat" in
     out deny "合図の語 APPROVE_GIT はどの設定でも通さない。AI が付けることは最も重い違反。承認は確認ダイアログで受けるか、社長が自分の端末で実行する。"
     ;;
 esac
+
+# 2b. 守りの設定（mode のファイル）への書き込みと削除は、どの設定でも deny。
+#     正規化で引用符と逆斜線は消えるが、ファイル名 company-guard.mode は残る。これを目印にする。
+#     書き込み（> と >>、tee、cp、mv、truncate、sed、ln、install、dd）と削除（rm、rmdir、unlink）、
+#     台本からの書き込み（python、perl、ruby、node、php）は deny。cat・ls・stat・test・wc・grep・diff の読みは allow。
+if printf '%s' "$flat" | grep -Eq -- 'company-guard\.mode'; then
+  if has '>>? *[^ ]*company-guard\.mode' \
+     || has ' (tee|cp|mv|rm|rmdir|unlink|truncate|install|dd|ln|sed|python[0-9.]*|perl|ruby|node|php) '; then
+    out deny "守りの設定（mode のファイル）は社長が自分の端末で書く。AI は読むだけで、書き換えも削除もしない。"
+  fi
+fi
 
 # 3. 判定表。上から順に見て、最初に当たった行の判定を返す。
 B='(^|[^[:alnum:]_.-])'                          # 語の始まり（/usr/bin/git も git と数える。mygit は数えない）
@@ -107,5 +119,25 @@ has "${G}worktree +remove( +[^ ]+)* +(-f|--force)${A}" \
   && ask_president "作業ツリーの強制削除。社長の承認があれば実行する。"
 has "${B}rm( +-[^ ]+)* +[^ ]*\\.git(/[^ ]*)?${A}" \
   && ask_president "リポジトリの破壊（.git の削除）。社長の承認があれば実行する。"
+
+# 3c. 符号化した命令。復号した結果をシェルに渡す書き方は、中身を照合できないので ask。
+#     復号の目印（base64 の -d/-D、xxd -r、Python の fromhex ほか、正規化の前の 16 進逃げ文字）と、
+#     シェルに渡す目印（| sh、sh -c、eval、os.system ほか）が、同じ命令にそろったときだけ掛ける。
+#     復号だけ（base64 -d file > out、xxd -r）や、eval だけ・python3 -c だけは allow のまま。
+_decode() {
+  has 'base64( +-[^ ]+)* +(--decode|-[a-zA-Z]*[dD])([^a-zA-Z]|$)' \
+    || has '(^| )xxd +(-[^ ]+ +)*-r' \
+    || has 'fromhex|unhexlify|b64decode|codecs\.decode' \
+    || raw '\\x[0-9A-Fa-f][0-9A-Fa-f]'
+}
+_sink() {
+  has '\| *(sh|bash|zsh|dash|ksh|fish)( |$|\|)' \
+    || has '(^| )(sh|bash|zsh|dash|ksh|fish) +-c( |$)' \
+    || has '(^| )eval( |$)' \
+    || has 'os\.system|subprocess|os\.popen|\.popen|(^| )exec\(|(^| )eval\('
+}
+if _decode && _sink; then
+  ask_president "復号した文字列をシェルに渡す書き方は、中身を判定できない。平文で書くか、社長の確認を受ける。"
+fi
 
 out allow "読むだけか、取り消せる操作。"

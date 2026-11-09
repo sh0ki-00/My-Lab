@@ -32,6 +32,7 @@ My-Lab の中では同じ内容を正本の `.cursor/rules/company.mdc` が担�
 - `git commit`、`git push`、Issue と PR の作成は、そのたびに社長の承認を得る。hooks（コマンドの直前に走る検査）が止めたら、成果物のパスを報告して止まる。合図の語 `APPROVE_GIT=1` は社長だけが付ける。AI が付けることは最も重い違反である。
 - ファイルを直したら `tmp/tools/check-file.sh <ファイル>` を、作業を終える前に `tmp/tools/project-verify.sh --fast` を回す。hooks が自動で回すが、回らなかったときは自分で回す。FAIL のあいだは「完了」と書かない。
 - 常時ルール（この User Rules、`~/.claude/CLAUDE.md`）を書き換えない。直す必要があれば、本文を社長に渡す。
+- 守りの設定 `~/.cursor/company-guard.mode` は社長が自分の端末で書き、AI は書き換えない。
 
 ## 貼る本文（ここまで）
 
