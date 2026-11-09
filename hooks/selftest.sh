@@ -268,6 +268,49 @@ assert "Cursor stop: 検証が PASS なら {}" [ "$OUT" = '{}' ]
 run cursor-after-edit.sh '{"file_path":"/nonexistent/x.md","edits":[]}'
 assert "Cursor after-edit: 無いファイルでも終了コード 0" [ "$RC" -eq 0 ]
 
+# 2g. Stop の両接続口: 検証が通ったあと、ファイルを消すだけ・名前を変えるだけでも、次の Stop は検証を回す
+# 印（last-pass）より新しいファイルは 1 本も無い場面なので、一覧（last-pass.list）の比較だけが変更を見つける
+P="$T/proj"; mkdir -p "$P/src" "$P/tmp/.verify"
+printf 'a\n' > "$P/src/a.txt"; printf 'b\n' > "$P/src/b.txt"; printf 'd\n' > "$P/src/d.txt"
+touch -t 202001010000 "$P/src/a.txt" "$P/src/b.txt" "$P/src/d.txt"   # 印より確かに古い時刻にする
+SJP='{"session_id":"selftest-'"$$"'","cwd":"'"$P"'","hook_event_name":"Stop","stop_hook_active":false}'
+CJP='{"status":"completed","loop_count":0,"cwd":"'"$P"'"}'
+# pass_stop: 検証の命令が印を書く（verify-all.sh と project-verify.sh が PASS で touch するのと同じ）。通った直後に接続口が一覧を書く
+pass_stop() { CLAUDE_PROJECT_DIR="$P" CURSOR_PROJECT_DIR="$P" COMPANY_GUARD_VERIFY_CMD='touch tmp/.verify/last-pass' run "$@"; }
+fail_stop() { CLAUDE_PROJECT_DIR="$P" CURSOR_PROJECT_DIR="$P" COMPANY_GUARD_VERIFY_CMD=false run "$@"; }
+absent_line() { ! grep -qx -- "$1" "$2"; }   # absent_line <行> <ファイル> → その行が無ければ 0
+pass_stop claude-stop.sh "$SJP"
+assert "Claude Stop: 検証が通ると一覧 last-pass.list を書く" [ -f "$P/tmp/.verify/last-pass.list" ]
+assert "Claude Stop: 一覧には印より古いファイルも載る" grep -qx './src/a.txt' "$P/tmp/.verify/last-pass.list"
+assert "Claude Stop: 一覧に tmp/.verify の中は載らない" absent_line './tmp/.verify/last-pass' "$P/tmp/.verify/last-pass.list"
+fail_stop claude-stop.sh "$SJP"
+assert "Claude Stop: 何も変えていなければ検証を回さない" no_out
+rm -f "$P/src/a.txt"
+fail_stop claude-stop.sh "$SJP"
+assert "Claude Stop: ファイルを消すだけでも検証を回す（FAIL なら block）" has_out '"decision":"block"'
+pass_stop claude-stop.sh "$SJP"
+mv "$P/src/b.txt" "$P/src/c.txt"
+fail_stop claude-stop.sh "$SJP"
+assert "Claude Stop: 名前を変えるだけでも検証を回す" has_out '"decision":"block"'
+pass_stop claude-stop.sh "$SJP"
+fail_stop claude-stop.sh "$SJP"
+assert "Claude Stop: 一覧を書き直したあと、何も変えなければ回さない" no_out
+rm -f "$P/tmp/.verify/last-pass.list"
+fail_stop claude-stop.sh "$SJP"
+assert "Claude Stop: 一覧が無ければ検証を回す（分からないときは回す）" has_out '"decision":"block"'
+pass_stop cursor-stop.sh "$CJP"
+assert "Cursor stop: 検証が通ると一覧 last-pass.list を書く" [ -f "$P/tmp/.verify/last-pass.list" ]
+fail_stop cursor-stop.sh "$CJP"
+assert "Cursor stop: 何も変えていなければ {}" [ "$OUT" = '{}' ]
+rm -f "$P/src/c.txt"
+fail_stop cursor-stop.sh "$CJP"
+assert "Cursor stop: ファイルを消すだけでも followup_message" has_out 'followup_message'
+pass_stop cursor-stop.sh "$CJP"
+mv "$P/src/d.txt" "$P/src/e.txt"
+fail_stop cursor-stop.sh "$CJP"
+assert "Cursor stop: 名前を変えるだけでも followup_message" has_out 'followup_message'
+rm -f "$LAB_ROOT/tmp/.verify/stop-count-selftest-$$"
+
 if [ "$fail" -eq 0 ]; then verdict=PASS; else verdict=FAIL; fi
 printf 'RESULT: %s hooks の自己試験 %d PASS / %d FAIL\n' "$verdict" "$pass" "$fail"
 [ "$fail" -eq 0 ]

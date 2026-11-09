@@ -148,7 +148,7 @@ EOF
 
 # 2. project-verify.sh: 写した先の PASS でだけ、hooks の印 tmp/.verify/last-pass を更新する（deploy-4 の前半）
 cases_last_pass() {
-  local L="$1" B="$2" s="@$1" P V out rc out2 out3 ran1 ran2 ran3
+  local L="$1" B="$2" s="@$1" P V out rc out2 out3 out4 ran1 ran2 ran3 ran4
   P="$B/verify pass"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
   unit_test "$P" 1
@@ -158,9 +158,13 @@ cases_last_pass() {
   elif [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -qF 'tmp の文書'; then ok "no-docs$s"
   else ng "no-docs$s" "rc=${rc}: $(first_fail "$out")"; fi
   if [ "$rc" -eq 0 ] && [ -f "$P/tmp/.verify/last-pass" ]; then
-    # hooks の判定（hooks/lib.sh の changed_since_pass）でも「直したファイルは無い」になる
+    # ファイルの一覧（tmp/.verify/last-pass.list）は Stop の hook が書く。印だけで一覧が無いうちは、hooks は「変わった」と見る（分からないときは回す）
     # shellcheck disable=SC2016  # $1 と $2 は子の bash が展開する
-    if in_env "$L" /bin/bash -c '. "$1/lib.sh"; changed_since_pass "$2"' lib "$H" "$P"; then
+    if in_env "$L" /bin/bash -c '. "$1/lib.sh"; changed_since_pass "$2"' lib "$H" "$P"; then ok "no-list-runs$s"
+    else ng "no-list-runs$s" "一覧（last-pass.list）が無いのに、hooks は変更なしと見る"; fi
+    # 一覧を書いたあとは、hooks の判定（hooks/lib.sh の changed_since_pass）でも「直したファイルは無い」になる
+    # shellcheck disable=SC2016  # $1 と $2 は子の bash が展開する
+    if in_env "$L" /bin/bash -c '. "$1/lib.sh"; snapshot_tree "$2"; changed_since_pass "$2"' lib "$H" "$P"; then
       ng "last-pass$s" "印のあとに直したファイルは無いのに、hooks は変更ありと見る"
     else ok "last-pass$s"; fi
   else ng "last-pass$s" "rc=${rc}。PASS のあとの tmp/.verify/last-pass が$(exists "$P/tmp/.verify/last-pass")"; fi
@@ -190,6 +194,12 @@ cases_last_pass() {
   ran3=no; [ -f "$V/last-fast.txt" ] && ran3=yes
   if [ "$ran3" = yes ] && [ -z "$out3" ]; then ok "stop-runs-after-edit$s"
   else ng "stop-runs-after-edit$s" "直したあとの Stop で回った=${ran3}（yes のはず）$(printf '%s' "$out3" | head -c 120)"; fi
+  # ファイルを消すだけ（印より新しいファイルは無い）でも、次の Stop は一覧の違いで回る
+  rm -f "$V/last-fast.txt" "$P/src/app.py"
+  out4="$(stop_hook "$L" "$P")"
+  ran4=no; [ -f "$V/last-fast.txt" ] && ran4=yes
+  if [ "$ran4" = yes ] && [ -z "$out4" ]; then ok "stop-runs-after-delete$s"
+  else ng "stop-runs-after-delete$s" "消したあとの Stop で回った=${ran4}（yes のはず）$(printf '%s' "$out4" | head -c 120)"; fi
 
   # FAIL と WARN と、My-Lab の中で回したときは、印を書かない
   P="$B/verify fail"
