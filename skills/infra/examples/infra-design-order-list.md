@@ -135,8 +135,8 @@ flowchart LR
 | API の押し込みの役割（iam.tf の ci_push の api） | イメージを押し込む | 注文 API のリポジトリ 1 つ | OIDC。環境の承認を通った main の image-push.yml だけ |
 | データベースの作業の押し込みの役割（iam.tf の ci_push の db-jobs） | イメージを押し込む | 移行と利用者づくりのリポジトリ 2 つ | OIDC。-guarded の環境を通った main の db-image-push.yml だけ |
 | 計画の役割（foundation/iam.tf） | 設定を読む。データの中身と WAF の見本の要求を読む操作は拒む | この口座の資源と、状態のバケット | OIDC。main にある infra-plan-run.yml だけ。PR から借りられるのは検証環境の口座だけ |
-| 適用の役割（foundation/iam.tf） | plan-gate の一覧と同じ操作だけ。API の作業の定義の登録、API のサービスの更新、数の増減、データベースの大きさ | API のサービスと作業の定義、注文のデータベース、待ち先 1 つ。渡せる役割は API の 2 つ | OIDC。承認 1 人の環境を通った main の infra-apply.yml だけ |
-| 守りの適用の役割（foundation/iam.tf） | 一覧の外の操作。作る操作、境界つきの役割、資源の方針、配信と WAF、監査と検出、作業の起動、パラメータグループ、守りの関数 | この口座の資源。役割は名前の頭 orders-admin-環境- で、境界つきだけ | OIDC。セキュリティのチームだけが承認する -guarded の環境を通った main の infra-apply.yml だけ |
+| 適用の役割（foundation/iam.tf） | plan-gate の一覧と同じ操作だけ。API の作業の定義の登録、API のサービスの更新、数の増減、待ち先の設定。データベースは変えられない | API のサービスと作業の定義、待ち先 1 つ。渡せる役割は API の 2 つ | OIDC。承認 1 人の環境を通った main の infra-apply.yml だけ |
+| 守りの適用の役割（foundation/iam.tf） | 一覧の外の操作。作る操作、境界つきの役割、資源の方針、配信と WAF、監査と検出、作業の起動、データベースの変更（大きさを含む）、パラメータグループ、守りの関数 | この口座の資源。役割は名前の頭 orders-admin-環境- で、境界つきだけ | OIDC。セキュリティのチームだけが承認する -guarded の環境を通った main の infra-apply.yml だけ |
 | 復元の役割（foundation/iam.tf） | 時点復元とスナップショットからの復元、訓練の写しを消す。付けられる札は purpose と drill_id だけ | データの層のサブネットの組と、名前が -restore- の資源 | OIDC。環境の承認を通った main の restore-drill.yml だけ |
 | 利用者づくりの作業（foundation/iam.tf） | 管理者の合言葉を読む、専用のイメージを引く | 管理者の秘密 1 つ、利用者づくりのイメージ 1 つ | 守りの適用の役割が ecs:RunTask で 1 回だけ起動する |
 | 移行の作業 | rds-db:connect。移行専用のイメージを引き、移行のロググループに書く。DB の中で流せる文は CREATE TABLE・CREATE INDEX・ALTER TABLE だけで、行は書けない | データベースの利用者 orders_migrate の 1 人 | 守りの適用の役割が、スキーマを変えるリリースで起動する。一覧の外の文は、利用者づくりの作業が承認 2 人の経路で流す |
@@ -166,7 +166,7 @@ GitHub の資格の sub（誰の要求かを示す欄）は、org/ で「リポ�
 
 main へ入る PR は、別の 2 人の承認が要ります（org/github.tf）。構成コード（/infra/）は丸ごとセキュリティが持ち主なので、2 人のうち 1 人はセキュリティです。守りの差分は、この 2 人に加えて -guarded の環境でもセキュリティの承認を通ります。file を 1 つずつ持ち主に並べると、並べ忘れた file が配備の側の承認だけで入るため、丸ごと並べました。
 
-承認 1 人で通す変更は、許す物の一覧で決めました。一覧は plan-gate の中にあり、型ごとに変えてよい属性を並べます。載っているのは API のサービスの数と版、API のイメージのダイジェスト、データベースの大きさ、待ち先の設定です。ダイジェストは、CI が来歴を確かめた物に限ります。一覧に無い型と属性と、新しく作る資源は、全部が守りの経路へ回ります。
+承認 1 人で通す変更は、許す物の一覧で決めました。一覧は plan-gate の中にあり、型ごとに変えてよい属性を並べます。載っているのは API のサービスの数と版、API のイメージのダイジェスト、待ち先の設定です。データベースの変更は、大きさも含めて守りの経路へ回します。rds:ModifyDBInstance は合言葉や公開の設定も同じ 1 回の操作で変え、IAM の条件キーで大きさだけに絞れないからです。ダイジェストは、CI が来歴を確かめた物に限ります。一覧に無い型と属性と、新しく作る資源は、全部が守りの経路へ回ります。
 
 属性の値の形も一覧で決めます。サービスに付けてよい作業の定義は、API の family の版だけです（APPLY_VALUES）。移行や利用者づくりの版をサービスに付ける差分は、守りの経路へ回ります。SCP の ServicesRunApiFamilyOnly も、同じ範囲を AWS の側で強制します。
 
@@ -283,8 +283,8 @@ orders、customers、idempotency、users は shop_id の列を持ちます。こ
 | 手で取るスナップショットと、手で始めるバックアップ（StartBackupJob） | バックアップの役割 | 同上と、複製の棚卸し（全部の保管庫を見る） |
 | 復元 | 復元の役割と、バックアップの役割 | copy-share-restore のアラーム |
 | インターネットゲートウェイ、NAT、VPC の接続、既定の VPC、EC2、作業の中への入り込み | なし | 拒否が先に効く |
-| 作業の定義の登録、サービスの作成と更新、役割の受け渡し、データベースの大きさの変更（path_guard）。サービスに付ける版は API の family だけ | 適用の役割と、守りの適用の役割 | human-write、task-def-db-family、service-family のアラーム |
-| 作業の起動、移行と利用者づくりの役割の受け渡し、パラメータグループ、秘密の値と鍵の別名、リポジトリの寿命、守りの関数（path_guard） | 守りの適用の役割と、土台の役割 | task-run、db-settings-change、guard-change のアラーム |
+| 作業の定義の登録、サービスの作成と更新、役割の受け渡し（path_guard）。サービスに付ける版は API の family だけ | 適用の役割と、守りの適用の役割 | human-write、task-def-db-family、service-family のアラーム |
+| 作業の起動、移行と利用者づくりの役割の受け渡し、データベースの作成と変更（大きさを含む）、パラメータグループ、秘密の値と鍵の別名、リポジトリの寿命、守りの関数（path_guard） | 守りの適用の役割と、土台の役割 | task-run、db-settings-change、guard-change のアラーム |
 | 合言葉を RDS の管理から外す変更（path_guard） | なし | db-settings-change のアラーム |
 | イメージのリポジトリを外へ開く方針、複製、外のイメージの取り込み（path_guard） | 土台の役割だけ | log-and-image-policy のアラーム |
 | 鍵の消す予約と無効化 | なし | key-and-secret-policy のアラーム |
@@ -462,7 +462,7 @@ flowchart LR
 | 放置された複製（札と地域） | 訓練の写しに managed_by=terraform を付けて残す。自動バックアップを us-east-1 へ複製する | 復元の役割が付けられる札は purpose と drill_id だけ。棚卸しは札を見ず、名前と時間で 2 つの地域を見る。別の地域への複製は SCP が拒む | foundation/iam.tf、functions/copy_inventory.py、org/scp.tf |
 | 公開設定（イメージのリポジトリ） | 緊急の管理で ecr:SetRepositoryPolicy を使い、API と移行のリポジトリを外の口座に開く | リポジトリの方針、レジストリの方針、複製、外のイメージの取り込みは、SCP で土台のほかに拒む。試みは記録に残り、log-and-image-policy が鳴る | org/scp.tf の NoImageSharing、guardrails.tf |
 | 権限の持たせすぎ（承認 1 人で移行を書き換える） | 悪い PR で移行の作業の定義の命令と環境変数を書き換え、新しい版を登録して上書きなしで起動する | 承認 1 人で通る作業の定義は API の family のイメージだけ。移行の版は守りの経路へ回る。移行の役割を渡す操作と作業の起動は、SCP で守りの適用のほかに拒む | skills/infra/scripts/infra_check.py の APPLY_ALLOW、org/scp.tf の DbJobRolesOnlyFromGuarded と GuardedDataSettings、guardrails.tf の task-run |
-| 権限の持たせすぎ（承認 1 人でデータベースを変える） | 適用の役割でパラメータグループを既定に付け替える。合言葉を既知の値に上書きする。保持の日数を 0 にして時点復元の履歴を消す | 承認 1 人で変えられるのは大きさと保守の時刻だけ。パラメータグループは SCP でも守りの適用だけ。合言葉を RDS の管理から外す変更は誰にも許さない。保持を縮める変更は plan-gate がどの経路でも止める | skills/infra/scripts/infra_check.py の STOP_ATTRS、org/scp.tf の DbParameterGroupOnlyFromGuarded と KeepManagedMasterPassword、guardrails.tf の db-settings-change |
+| 権限の持たせすぎ（承認 1 人でデータベースを変える） | 大きさの変更に見せた 1 回の ModifyDBInstance で、公開・網・合言葉・削除の保護・保持の日数まで変える。パラメータグループを既定に付け替える。保持の日数を 0 にして時点復元の履歴を消す | 適用の役割は rds:ModifyDBInstance を持たない。大きさの変更も守りの適用だけ（この操作に効く条件キーは rds:ManageMasterUserPassword だけで、大きさだけに絞れない）。SCP でもデータベースの作成と変更は守りの適用だけ。合言葉を RDS の管理から外す変更は誰にも許さない。保持を縮める変更は plan-gate がどの経路でも止める | foundation/iam.tf の DataAndAlarms、skills/infra/scripts/infra_check.py の APPLY_ALLOW と STOP_ATTRS、org/scp.tf の GuardedDataSettings と KeepManagedMasterPassword、guardrails.tf の db-settings-change |
 | 権限の持たせすぎ（緊急の管理で古い版を動かす） | 緊急の管理で、移行や古い API の版をサービスか作業として動かす | 緊急の管理は復旧の一覧だけで、サービスも作業も触れない。サービスの作成と更新は適用の役割だけ、作業の起動は守りの適用だけ（SCP）。古いイメージは寿命の規則で消える | org/scp.tf の BreakglassRecoveryOnly と TasksAndServicesOnlyFromApply、app.tf の keep_recent、guardrails.tf の task-run |
 | 権限の持たせすぎ（承認 1 人でサービスに移行の版を付ける） | 乗っ取った PR で、サービスの task_definition を移行か利用者づくりの既存の版の ARN に書き換える。API のサービスが表の持ち主の役割で動く | plan-gate は属性の値も一覧で見て、API の family の外の版を守りの経路へ回す。SCP もサービスに付ける版を API の family に限る（承認 2 人のほかは拒む）。付け替えの試みは service-family が鳴る | skills/infra/scripts/infra_check.py の APPLY_VALUES、org/scp.tf の ServicesRunApiFamilyOnly、guardrails.tf の service-family |
 | 権限の持たせすぎ（緊急の管理という起点） | 緊急の管理を借り、表に無い操作を探す。購読の絞り込み、ログの変換、口座単位の方針、入口の規則、DB の削除など、SCP の拒否の名簿の漏れを突く。置き場の地域で役割の path に地域の段が入らず、SCP の型から外れるのを狙う | 道を 1 本ずつ拒まず、起点を型で縛る。緊急の管理は、許可セットの方針と SCP の 2 段で、復旧の一覧（設定を読む、DB の再起動、作業の停止）だけを許す。SCP の型は path の段の数に頼らない。ほかの許可セットの役割は何もできない。借りた瞬間に、守りの口座が組織の CloudTrail から拾い、メールと呼び出しの窓口へ鳴らす。作業の口座の管理者は、この見張りを止めも変えもできない | org/scp.tf の breakglass_actions・BreakglassRecoveryOnly・OnlyTwoHumanSets、org/sso.tf の RecoveryListOnly、security/watch.tf の breakglass-used |

@@ -918,11 +918,9 @@ APPLY_ALLOW = {
     "aws_ecs_task_definition": {"container_definitions"},
     "aws_appautoscaling_target": {"min_capacity", "max_capacity"},
     "aws_appautoscaling_policy": {"target_tracking_scaling_policy_configuration"},
-    # データベースは大きさと保守の時刻だけ。パラメータグループ、保持の日数、合言葉、網、鍵、ログの書き出しは一覧の外。
-    "aws_db_instance": {
-        "instance_class", "allocated_storage", "max_allocated_storage", "multi_az", "engine_version", "maintenance_window",
-        "auto_minor_version_upgrade", "apply_immediately",
-    },
+    # データベース（aws_db_instance）は一覧に入れない。大きさの変更も rds:ModifyDBInstance で、同じ 1 回の操作が合言葉・公開・網・
+    # パラメータグループ・削除の保護・保持の日数まで変える。この操作に効く IAM の条件キーは rds:ManageMasterUserPassword だけで、
+    # 大きさだけに絞れない（aws-facts の 47〜52）。適用の役割にも持たせず（foundation/iam.tf）、全部を守りの経路へ回す。
     "aws_lb_target_group": {"health_check", "deregistration_delay"},
 }
 # 一覧の属性のうち、値の形まで決める物。属性の名前だけでなく、指す先も一覧の内側に限る（値が計画の時点で決まらないときは、
@@ -1213,10 +1211,10 @@ def selftest(kind):
                 ("データベースの置き換えで止まらない", [("aws_db_instance", rep, {}, {})], 1, "[置き換えか削除]", False, None),
                 ("バケットの削除で止まらない", [("aws_s3_bucket", ["delete"], {}, {})], 1, "[置き換えか削除]", False, None),
                 ("前提の検査の不成立で止まらない", [("aws_ecs_service", ["update"], {}, {})], 1, "[前提の検査]", False, "check-fail"),
-                ("一覧の型（データベースの大きさ）が適用の経路にならない",
-                 [("aws_db_instance", ["update"], {"instance_class": "db.t4g.micro"}, {"instance_class": "db.t4g.medium"})], 0, "ROUTE: apply", False, None),
+                ("データベースの大きさの変更が守りの経路にならない（rds:ModifyDBInstance は守りの適用だけ）",
+                 [("aws_db_instance", ["update"], {"instance_class": "db.t4g.micro"}, {"instance_class": "db.t4g.medium"})], 3, "aws_db_instance", False, None),
                 ("パラメータグループの付け替えが守りの経路にならない",
-                 [("aws_db_instance", ["update"], {"parameter_group_name": "a"}, {"parameter_group_name": "default.postgres16"})], 3, "parameter_group_name", False, None),
+                 [("aws_db_instance", ["update"], {"parameter_group_name": "a"}, {"parameter_group_name": "default.postgres16"})], 3, "aws_db_instance", False, None),
                 ("合言葉の管理を外す変更が守りの経路にならない",
                  [("aws_db_instance", ["update"], {"manage_master_user_password": True}, {"manage_master_user_password": False})], 3, "ROUTE: guarded", False, None),
                 ("保持の日数を 0 にする変更で止まらない",
