@@ -50,8 +50,8 @@ My-Lab の中では、開くだけで動きます。他のプロジェクトで�
 | 場面 | 手順 |
 |---|---|
 | My-Lab を Claude Code で開く | `CLAUDE.md` が `AGENTS.md` を読み、`.claude/settings.json` が承認の規則と hooks を登録する。`/verify` が候補に出る |
-| My-Lab を Cursor で開く | `.cursor/rules/company.mdc` が常時ルール、`.cursor/hooks.json` が hooks。スキルは `.cursor/skills`（`skills/` へのリンク） |
-| 他のプロジェクトで使う | `./deploy.sh <プロジェクト>` で `tmp/` に写す（手でコピーしても同じ）。Cursor の User Rules に `tmp/cursor-user-rule.md` の本文を 1 回貼る。検証は `bash tmp/tools/project-verify.sh --fast` |
+| My-Lab を Cursor で開く | `.cursor/rules/company.mdc` が常時ルール。スキルは `.cursor/skills`（`skills/` へのリンク）。Cursor の hooks は 2026-11-10 に社長の指示で外した（`.cursor/hooks.json` と Mac 全体の登録は空）。戻すときは `./install.sh` と、`.cursor/hooks.json` の登録の復元 |
+| 他のプロジェクトで使う | `./deploy.sh <プロジェクト>` で `tmp/` に写す（手でコピーしても同じ）。Cursor の User Rules に `tmp/cursor-user-rule.md` の本文を 1 回貼る。検証は `bash tmp/tools/project-verify.sh --fast`（既定は AI が書いた `tmp/` の文書だけ。プロジェクトの試験は `tmp/verify-commands.txt` に 1 行 1 命令で書いたときだけ回す） |
 | この Mac に hooks を登録する（1 回） | `./install.sh --dry-run` で中身を見てから `./install.sh`。Claude Code の `PreToolUse` には Bash の判定と Write・Edit の門の 2 本が入る。旧 cradle のリンクを外すときは `--remove-old-links`。常時ルールには書き込まない |
 
 ## 5. 守り

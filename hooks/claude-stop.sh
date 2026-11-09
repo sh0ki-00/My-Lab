@@ -37,7 +37,7 @@ fi
 stop_count "$sid" bump >/dev/null
 summary="$(printf '%s\n' "$out" | grep -E '^(FAIL|RESULT:)' | head -20)"
 [ -n "$summary" ] || summary="$(printf '%s\n' "$out" | tail -20)"
-reason="作業を終える前の検証（${cmd}）が FAIL。直してから終える。FAIL のあいだは「完了」と書かない。
+reason="作業を終える前の検証（${cmd}）が FAIL。直すのは、この依頼で自分が変えたファイルだけ。範囲外の FAIL（前から落ちている試験、触っていないファイル）は直さず、報告に書いて終える。指示されていないファイルは変えない。FAIL のあいだは「完了」と書かない。
 $summary"
 printf '{"decision":"block","reason":%s}\n' "$(json_str "$reason")"
 exit 0

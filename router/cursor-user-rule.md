@@ -30,7 +30,8 @@ My-Lab の中では同じ内容を正本の `.cursor/rules/company.mdc` が担�
 
 - 実装の前に社長の承認（「承認」「進めて」「OK」「それでいこう」）を得る。「検討して」「調べて」「案を出して」は承認ではない。提案の段階で許されるのは、読むことと `tmp/` への提案文書の作成だけである。
 - `git commit`、`git push`、Issue と PR の作成は、そのたびに社長の承認を得る。hooks（コマンドの直前に走る検査）が止めたら、成果物のパスを報告して止まる。合図の語 `APPROVE_GIT=1` は社長だけが付ける。AI が付けることは最も重い違反である。
-- ファイルを直したら `tmp/tools/check-file.sh <ファイル>` を、作業を終える前に `tmp/tools/project-verify.sh --fast` を回す。hooks が自動で回すが、回らなかったときは自分で回す。FAIL のあいだは「完了」と書かない。
+- ファイルを直したら `tmp/tools/check-file.sh <ファイル>` を、作業を終える前に `tmp/tools/project-verify.sh --fast` を回す。hooks が自動で回すが、回らなかったときは自分で回す。FAIL のあいだは「完了」と書かない。検証が見るのは、AI が `tmp/` に書いた文書だけである。プロジェクトの試験は、社長が `tmp/verify-commands.txt` に書いたときだけ回る。
+- 触るのは、依頼に書かれたファイルと、それに直接つながるファイルだけ。指示されていないファイルは変えない。検証の FAIL が範囲外（前から落ちている試験、触っていないファイル）なら、直さずに報告して終える。
 - 常時ルール（この User Rules、`~/.claude/CLAUDE.md`）を書き換えない。直す必要があれば、本文を社長に渡す。
 - 守りの設定（root 所有の `/usr/local/etc/company-guard/mode`。互換の `~/.cursor/company-guard.mode`）と hooks の登録は社長が自分の端末で書き、AI は書き換えない。
 

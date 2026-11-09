@@ -137,6 +137,7 @@ cat > "$DEST/tmp/DEPLOYED.md" <<EOF
 
 更新するときは、正本で \`./deploy.sh $DEST\` を回すか、同じものを手でコピーし直します。
 作業を終える前の検証は \`bash tmp/tools/project-verify.sh --fast\` です。結果は \`tmp/.verify/last-fast.txt\` に残ります。hooks（Mac 全体に 1 回登録）が自動で回します。
+作業の終わりの検証は、AI が \`tmp/\` に書いた文書だけを見ます。プロジェクトの lint や試験も回すなら、\`tmp/verify-commands.txt\` に 1 行 1 命令で書きます（例: \`pnpm run lint\`）。
 \`tmp/tools/verify-all.sh\` は My-Lab の一式の検証なので、写した先では回さずに止まります。
 EOF
 

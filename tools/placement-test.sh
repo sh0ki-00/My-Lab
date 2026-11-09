@@ -2,7 +2,8 @@
 # tools/placement-test.sh — 配置の試験（仕様書 9.4 節の 7）。
 #   使い捨てのリポジトリに deploy.sh を流し、tmp/ に skills・.company・tools が揃う、git status に tmp/ が出ない、
 #   User Rules の本文が指す tmp/ のパスが写しの中に実在する、写しの project-verify.sh が動く、を確かめる。
-#   検証の命令が無い置き場では project-verify が WARN（終了コード 3）を返し、tests/ の test_*.py は unittest で回すことも確かめる。
+#   命令のファイル（tmp/verify-commands.txt）が無い置き場では project-verify が PASS を返し、プロジェクトの試験は回らないことも確かめる。
+#   命令を書けばその命令が回り、落ちる命令と違反のある文書では FAIL になることも確かめる。
 #   写した説明の文書（tmp/claude-code.md、tmp/cursor-user-rule.md）に、写した先の check-refs が FAIL を出さないことも確かめる。
 #   さらに HOME を使い捨ての場所に向けて install.sh を回し、hooks が登録され、旧 cradle の登録が外れ、他の設定が残り、
 #   常時ルール（~/.claude/CLAUDE.md、~/.cursor/rules）に何も書かれないことを確かめる。本物の HOME には触れない。
@@ -42,6 +43,7 @@ planned="$(grep -v '^#' "$TOOLS/planned-paths.txt" 2>/dev/null | sed '/^$/d')"
 bt='`'
 for p in $(grep -oE "${bt}tmp/[^${bt}<*{ ]+${bt}" "$LAB/router/cursor-user-rule.md" | tr -d "$bt" | sort -u); do
   rel="${p#tmp/}"
+  case "$rel" in verify-commands.txt) continue ;; esac  # 社長が任意で書く検証の命令のファイル。deploy は写さない
   if printf '%s\n' "$planned" | grep -qx "${rel%/}" || printf '%s\n' "$planned" | grep -qx "$rel"; then continue; fi
   [ -e "$P/${p%/}" ] || bad 参照 "User Rules が指す $p が写しに無い"
 done
@@ -50,30 +52,42 @@ out="$(cd "$P" && bash tmp/tools/check-refs.sh tmp/claude-code.md tmp/cursor-use
 # DEPLOYED.md の変更の数は、ファイルの本数で書く（git status の行の数ではない）
 grep -q 'git status で [0-9]* 行' "$P/tmp/DEPLOYED.md" && bad 版 "DEPLOYED.md が git status の行の数を書く"
 
-# 3. 写しの project-verify.sh が、そのプロジェクトの命令を見つけて回す
+# 3. 写しの project-verify.sh が、tmp/ の文書を検査する。package.json の scripts は、命令のファイルが無ければ回さない
 printf '{"name":"t","private":true,"scripts":{"lint":"echo lint ok","test":"echo test ok"}}\n' > "$P/package.json"
 mkdir -p "$P/tmp/flow/sample"
 printf '# 調査の覚え書き\n\n> **3 行でわかる要約**\n> 1. これは配置の試験で使う見本の文書です。\n> 2. 文体と資料の型の検査を通ることを確かめます。\n> 3. 次に、検査の結果を見ます。\n\n## 1. 目的\n\n写した道具が文書を検査できることを確かめます。短い文書なので、図と表は要りません。\n' > "$P/tmp/flow/sample/note.md"
 out="$(cd "$P" && bash tmp/tools/project-verify.sh --fast 2>&1)" || bad project-verify "$(printf '%s\n' "$out" | grep -E '^FAIL' | head -3)"
-printf '%s\n' "$out" | grep -q 'npm run lint' || bad project-verify "package.json の lint を見つけない"
+printf '%s\n' "$out" | grep -q 'npm run' && bad project-verify "命令のファイルが無いのに package.json の scripts を回す"
+printf '%s\n' "$out" | grep -q 'RESULT: PASS check-file' || bad project-verify "文書に check-file を回さない"
 printf '%s\n' "$out" | grep -q 'RESULT: PASS check-refs' || bad project-verify "文書に check-refs を回さない"
 grep -q '^RESULT: PASS project-verify --fast' "$P/tmp/.verify/last-fast.txt" 2>/dev/null || bad project-verify "tmp/.verify/last-fast.txt に RESULT 行が無い"
-# 3b. 検証の命令が無い置き場では PASS にしない。tests/ の test_*.py は unittest で回す（Makefile も package.json も無い）
+# 3b. 命令のファイル（tmp/verify-commands.txt）が無い置き場は PASS（終了コード 0）で、プロジェクトの試験は回らない
+#     tests/ には落ちる試験を置く。自動で回れば FAIL になるので、回っていないことが分かる
 Q="$T/bare"
-mkdir -p "$Q/src"
+mkdir -p "$Q/src" "$Q/tests"
 git -C "$Q" init -q
 printf 'x = 1\n' > "$Q/src/app.py"
+printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_one(self):\n        self.assertEqual(1, 2)\n' > "$Q/tests/test_app.py"
 bash "$LAB/deploy.sh" "$Q" >/dev/null 2>&1 || bad deploy "bare への deploy が落ちた"
 out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
-{ [ "$rc" -eq 3 ] && printf '%s\n' "$out" | grep -q '^RESULT: WARN project-verify --fast (回す検証の命令が無い'; } || bad project-verify "命令の無い置き場で WARN（終了コード 3）にならない（rc=${rc}）"
-mkdir -p "$Q/tests"
-printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_one(self):\n        self.assertEqual(1, 1)\n' > "$Q/tests/test_app.py"
+{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^RESULT: PASS project-verify --fast' && ! printf '%s\n' "$out" | grep -q 'unittest'; } \
+  || bad project-verify "命令のファイルが無い置き場で PASS（終了コード 0）にならないか、プロジェクトの試験を自動で回す（rc=${rc}）"
+[ -f "$Q/tmp/.verify/last-pass" ] || bad project-verify "命令のファイルが無い置き場の PASS で、tmp/.verify/last-pass を書かない"
+# 通る命令を書くと、その命令が回って PASS。# で始まる行と空行は飛ばす
+printf '# 検証の命令\n\necho lint ok\n' > "$Q/tmp/verify-commands.txt"
 out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
-{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF 'RESULT: PASS python3 -m unittest discover'; } || bad project-verify "tests/test_*.py を unittest で回さない（rc=${rc}）"
-rm -rf "$Q/tests/__pycache__"  # 同じ秒に同じ大きさで書き換えると、Python が前の pyc を使い、落ちるはずの試験が通ることがある
-printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_one(self):\n        self.assertEqual(1, 2)\n' > "$Q/tests/test_app.py"
-(cd "$Q" && bash tmp/tools/project-verify.sh --fast >/dev/null 2>&1); rc=$?
-[ "$rc" -eq 1 ] || bad project-verify "落ちる tests/test_*.py で FAIL（終了コード 1）にならない（rc=${rc}）"
+{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qxF 'RESULT: PASS echo lint ok'; } || bad project-verify "tmp/verify-commands.txt の通る命令で PASS（終了コード 0）にならない（rc=${rc}）"
+printf '%s\n' "$out" | grep '^RESULT:' | grep -qF '# 検証の命令' && bad project-verify "# で始まる行を命令として回す"
+# 落ちる命令（落ちる試験を回す）を書くと FAIL（終了コード 1）
+printf 'echo lint ok\npython3 -m unittest discover -s tests\n' > "$Q/tmp/verify-commands.txt"
+out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL python3 -m unittest discover -s tests'; } || bad project-verify "落ちる命令で FAIL（終了コード 1）にならない（rc=${rc}）"
+# 文書に違反があれば、命令が通っても FAIL（終了コード 1）
+printf 'echo lint ok\n' > "$Q/tmp/verify-commands.txt"
+mkdir -p "$Q/tmp/flow/bad"
+printf '# Note\n\nThis service handles order intake for the shop and stores every order in PostgreSQL for later reporting.\n' > "$Q/tmp/flow/bad/note.md"
+out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file'; } || bad project-verify "違反のある文書で FAIL（終了コード 1）にならない（rc=${rc}）"
 
 # 4. hooks の部品が写しの中の道具を見つける
 # shellcheck source=hooks/lib.sh
