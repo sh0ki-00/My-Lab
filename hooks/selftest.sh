@@ -175,6 +175,42 @@ expect allow deny 'cat ~/.cursor/company-guard.mode'
 expect allow deny 'ls -l ~/.cursor/company-guard.mode'
 expect allow deny 'test -f ~/.cursor/company-guard.mode'
 expect allow deny 'grep deny ~/.cursor/company-guard.mode'
+# 1e-2. 名前と命令を崩した書き方（>|・&>、パス付きの命令名、グロブ、$ に入れた場所、; & ( の直後、親フォルダごと、root の置き場）→ deny
+expect deny deny 'printf ask >| ~/.cursor/company-guard.mode'
+expect deny deny 'printf ask &> ~/.cursor/company-guard.mode'
+expect deny deny '/bin/rm ~/.cursor/company-guard.mode'
+expect deny deny 'rm -rf ~/.cursor/company-guard.*'
+expect deny deny 'rm ~/.cursor/company-guard.mod?'
+# shellcheck disable=SC2016  # $f は判定本体に渡す文字列。わざと展開しない
+expect deny deny 'f=~/.cursor/company-guard.mode; printf ask > $f'
+# shellcheck disable=SC2016  # 同上
+expect deny deny 'echo ask > $HOME/.cursor/company-guard.mode'
+expect deny deny 'true;rm ~/.cursor/company-guard.mode'
+expect deny deny 'true &rm ~/.cursor/company-guard.mode'
+expect deny deny '(rm ~/.cursor/company-guard.mode)'
+expect deny deny 'rm -rf ~/.cursor'
+expect deny deny 'mv ~/.cursor ~/.cursor.bak'
+expect deny deny 'chmod -R a+w ~/.cursor'
+expect deny deny 'chown -R s-furutani /Users/s-furutani/.cursor'
+expect deny deny 'chflags nouchg ~/.cursor/company-guard.mode'
+expect deny deny 'cp /tmp/hooks.json ~/.cursor/hooks.json'
+expect deny deny 'echo ask > /usr/local/etc/company-guard/mode'
+expect deny deny 'sudo tee /usr/local/etc/company-guard/mode'
+expect deny deny 'rm -rf /usr/local/etc/company-guard'
+expect deny deny 'sudo chmod 777 /usr/local/etc/company-guard'
+# 読みと、日常の命令は allow のまま（プロジェクトの中の .cursor/hooks.json は家のパスでないので対象外）
+expect allow deny 'cat /usr/local/etc/company-guard/mode'
+expect allow deny 'ls -l /usr/local/etc/company-guard/'
+expect allow deny 'ls ~/.cursor'
+expect allow deny 'cat ~/.cursor/hooks.json'
+expect allow deny 'cat .cursor/hooks.json'
+expect allow deny 'jq . .cursor/hooks.json'
+expect allow deny 'cp .cursor/hooks.json /tmp/hooks.json.bak'
+expect allow deny 'rm -rf /Users/s-furutani/My-Lab/.cursor/tmp'
+expect allow deny 'grep -n company-guard hooks/lib.sh'
+expect allow deny 'echo hi > tmp/out.txt'
+expect allow deny 'sed -n 1,20p hooks/cursor-before-shell.sh'
+expect allow deny 'rm -f /tmp/x/.cursor-cache'
 
 # 1f. 符号化した命令。復号した結果をシェルに渡す 5 つの書き方 → ask
 expect ask deny 'echo Z2l0IHB1c2g= | base64 -d | sh'
@@ -190,12 +226,51 @@ expect allow deny 'xxd -r payload.hex > out.bin'
 expect allow deny 'python3 -c "print(1)"'
 # shellcheck disable=SC2016  # eval だけ（復号なし）の確認。$(...) は文字列のまま渡す
 expect allow deny 'eval "$(cat vars.sh)"'
+# 1f-2. 広げた目印。シェルに渡す側（パス付きのシェル、env sh、$( )、` `、<( )、source、. file、xargs）と、
+#       復号の側（base32、openssl -d、uudecode、8 進と \u と $'…' の逃げ文字）→ ask
+expect ask deny 'echo Z2l0IHB1c2g= | base64 -d | /bin/sh'
+expect ask deny 'echo Z2l0IHB1c2g= | base64 -d | env sh'
+# shellcheck disable=SC2016  # $(...) と ` ` は判定本体に渡す文字列。わざと展開しない
+expect ask deny '/bin/bash -c "$(echo Z2l0IHB1c2g= | base64 -d)"'
+# shellcheck disable=SC2016  # 同上
+expect ask deny '$(echo Z2l0IHB1c2g= | base64 -D)'
+# shellcheck disable=SC2016  # 同上
+expect ask deny 'echo "$(echo Z2l0IHB1c2g= | base64 -d)" | sh'
+# shellcheck disable=SC2016  # 同上
+expect ask deny '`echo Z2l0IHB1c2g= | base64 -d`'
+expect ask deny 'bash <(echo Z2l0IHB1c2g= | base64 -d)'
+expect ask deny 'base64 -d p.b64 > /tmp/r && source /tmp/r'
+expect ask deny 'base64 -d p.b64 > /tmp/r; . /tmp/r'
+expect ask deny 'echo Z2l0IHB1c2g= | base64 -d | xargs'
+expect ask deny 'echo NRUXIIDQOVZWQ=== | base32 -d | sh'
+expect ask deny 'echo U2FsdGVk | openssl enc -aes-256-cbc -d -k x | sh'
+expect ask deny 'echo U2FsdGVk | openssl base64 -d | sh'
+expect ask deny 'uudecode -p f.uu | sh'
+expect ask deny "printf '\\147it push' | sh"
+expect ask deny "printf '\\u0067it push' | sh"
+expect ask deny "printf \$'\\147it push' | sh"
+# 片方だけの日常の命令は allow のまま
+# shellcheck disable=SC2016  # $(...) は文字列のまま渡す
+expect allow deny 'echo "$(git status)"'
+expect allow deny 'source ~/.zshrc'
+expect allow deny '. ./env.sh'
+expect allow deny 'git add . && git status'
+expect allow deny 'find . -name "*.md" | xargs grep -l x'
+expect allow deny '/bin/sh -c "ls -la"'
+expect allow deny 'openssl rand -hex 16'
+expect allow deny 'base32 -d x.b32 > out.bin'
+expect allow deny 'uudecode -o out.bin in.uu'
+expect allow deny "printf '\\u00e9\\n'"
+expect allow deny "printf '\\033[1mx\\033[0m\\n'"
+# shellcheck disable=SC2016  # $'\n' と $(...) は文字列のまま渡す
+expect allow deny 'IFS=$'"'"'\n'"'"'; for f in $(ls); do echo $f; done'
 
 # ---- 2. 接続口（端から端）
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export CLAUDE_PROJECT_DIR="$T" CURSOR_PROJECT_DIR="$T"
 export COMPANY_GUARD_VERIFY_CMD="false"
 export COMPANY_GUARD_CURSOR_MODE=ask  # この Mac の ~/.cursor/company-guard.mode に左右されない。ファイルを読む道は 2d で HOME を差し替えて試す
+export COMPANY_GUARD_MODE_FILE="$T/no-root/mode"  # この Mac の root の置き場（/usr/local/etc/company-guard）にも左右されない。置き場のある道は 2d-2 で差し替えて試す
 OUT=""; RC=0
 run() {  # run <接続口> <stdin の JSON> [引数...] → OUT と RC
   local script="$1" json="$2"; shift 2
@@ -227,6 +302,41 @@ run claude-pretooluse.sh "$(cj 'git commit -m x')" --global
 assert "Claude PreToolUse --global: 判定は残す" has_out '"permissionDecision":"ask"'
 assert "Claude PreToolUse --global: 理由は省く" lacks_out permissionDecisionReason
 rm -rf "$T/.claude"
+
+# 2a-2. Claude Code PreToolUse（Write・Edit の門）。HOME を一時の場所に差し替え、守りの設定の置き場も差し替えて試す
+pj() { printf '{"session_id":"selftest-%s","cwd":"%s","hook_event_name":"PreToolUse","tool_name":"%s","tool_input":{"%s":"%s"}}' "$$" "$T" "$1" "${3:-file_path}" "$2"; }
+MF="$T/etc/company-guard/mode"
+mkdir -p "$T/.cursor" "$T/.claude/hooks" "$T/proj2"
+edit() { HOME="$T" COMPANY_GUARD_MODE_FILE="$MF" run claude-preedit.sh "$(pj "$@")"; }
+edit Write "$T/.cursor/company-guard.mode";        assert "preedit: ~/.cursor の mode のファイルは deny" has_out '"permissionDecision":"deny"'
+assert "preedit: 理由が付く" has_out 'permissionDecisionReason'
+assert "preedit: 出力は JSON" is_json
+edit Edit "$T/.cursor/hooks.json";                  assert "preedit: ~/.cursor/hooks.json は deny" has_out '"permissionDecision":"deny"'
+edit Write "$T/.claude/settings.json";              assert "preedit: ~/.claude/settings.json は deny" has_out '"permissionDecision":"deny"'
+edit Write "$T/.claude/hooks/x.sh";                 assert "preedit: ~/.claude/hooks の下は deny" has_out '"permissionDecision":"deny"'
+edit Write "$T/.claude/CLAUDE.md";                  assert "preedit: ~/.claude/CLAUDE.md（常時ルール）は deny" has_out '"permissionDecision":"deny"'
+edit Write "$MF";                                   assert "preedit: root の置き場（まだ無くても）は deny" has_out '"permissionDecision":"deny"'
+edit MultiEdit "$HOOKS_DIR/guard-core.sh";          assert "preedit: My-Lab の hooks/ は deny" has_out '"permissionDecision":"deny"'
+edit Edit "$LAB_ROOT/.claude/settings.json";        assert "preedit: My-Lab の .claude/settings.json は deny" has_out '"permissionDecision":"deny"'
+edit Edit "$LAB_ROOT/.cursor/hooks.json";           assert "preedit: My-Lab の .cursor/hooks.json は deny" has_out '"permissionDecision":"deny"'
+edit NotebookEdit "$T/.cursor/x.ipynb" notebook_path; assert "preedit: NotebookEdit の notebook_path も見る" has_out '"permissionDecision":"deny"'
+ln -s "$T/.cursor/company-guard.mode" "$T/proj2/link"
+edit Write "$T/proj2/link";                         assert "preedit: mode のファイルを指すリンク（先がまだ無い）は deny" has_out '"permissionDecision":"deny"'
+edit Write "$T/proj2/../.cursor/company-guard.mode"; assert "preedit: .. で隠したパスは deny" has_out '"permissionDecision":"deny"'
+edit Write ".cursor/company-guard.mode";            assert "preedit: 相対パス（cwd が HOME）は deny" has_out '"permissionDecision":"deny"'
+edit Write "$T/.CURSOR/company-guard.mode";         assert "preedit: 大文字小文字を変えたパス（APFS）は deny" has_out '"permissionDecision":"deny"'
+edit Write "$T/proj2/README.md";                    assert "preedit: ふつうのファイルは何も出さない" no_out
+edit Write "$LAB_ROOT/tmp/flow/x/design.md";        assert "preedit: My-Lab の tmp/flow は何も出さない" no_out
+edit Edit "$LAB_ROOT/README.md";                    assert "preedit: My-Lab の README は何も出さない" no_out
+edit Write "$T/.claude/agents/x.md";                assert "preedit: ~/.claude の下でも hooks と settings 以外は何も出さない" no_out
+edit Write "$T/proj2/.cursor/hooks.json";           assert "preedit: 他のプロジェクトの .cursor/hooks.json は何も出さない" no_out
+HOME="$T" run claude-preedit.sh '{"tool_name":"Read","tool_input":{"file_path":"'"$T"'/.cursor/company-guard.mode"}}'
+assert "preedit: Read は何も出さない" no_out
+printf '{"hooks":{"PreToolUse":[{"hooks":[{"command":"hooks/claude-preedit.sh"}]}]}}' > "$T/.claude/settings.json"
+HOME="$T" run claude-preedit.sh "$(pj Write "$T/.cursor/company-guard.mode")" --global
+assert "preedit --global: 判定は残す" has_out '"permissionDecision":"deny"'
+assert "preedit --global: 理由は省く" lacks_out permissionDecisionReason
+rm -rf "$T/.claude" "$T/.cursor" "$T/proj2"
 
 # 2b. Claude Code Stop
 SJ='{"session_id":"selftest-'"$$"'","cwd":"'"$T"'","hook_event_name":"Stop","stop_hook_active":false}'
@@ -287,6 +397,34 @@ COMPANY_GUARD_CURSOR_MODE='' HOME="$T" run cursor-before-shell.sh '{"command":"g
 assert "Cursor before-shell(mode のファイルが deny): commit は deny" has_out '"permission":"deny"'
 COMPANY_GUARD_CURSOR_MODE='' HOME="$T" run cursor-before-shell.sh '{"command":"APPROVE_GIT=1 git commit -m x","cwd":"'"$T"'"}'
 assert "Cursor before-shell(mode のファイルが deny): 先頭に合図があっても deny" has_out '"permission":"deny"'
+# 2d-2. root 所有の置き場（COMPANY_GUARD_MODE_FILE で差し替え）。あればそれだけを使い、壊れていれば deny に倒す（fail-closed）
+MF="$T/etc/company-guard/mode"; MD="$T/etc/company-guard"
+cmt() { COMPANY_GUARD_CURSOR_MODE='' HOME="$T" COMPANY_GUARD_MODE_FILE="$MF" run cursor-before-shell.sh '{"command":"git commit -m x","cwd":"'"$T"'"}'; }
+lock()   { chmod 444 "$MF" 2>/dev/null; chmod 555 "$MD"; }   # root 所有と同じく、自分の権限では書けない形にする
+unlock() { chmod 755 "$MD"; chmod 644 "$MF" 2>/dev/null; }
+printf 'ask\n' > "$T/.cursor/company-guard.mode"            # 互換の側は ask と言わせておく
+mkdir -p "$MD"
+cmt; assert "Cursor(root の置き場: フォルダだけでファイルが無い): deny に倒す" has_out '"permission":"deny"'
+assert "Cursor(root の置き場: ファイルが無い): 理由を言う" has_out 'ファイルが無い'
+printf 'ask\n' > "$MF"
+cmt; assert "Cursor(root の置き場: 自分の権限で書ける): deny に倒す" has_out '"permission":"deny"'
+assert "Cursor(root の置き場: 自分の権限で書ける): 理由を言う" has_out '自分の権限で書ける'
+lock
+cmt; assert "Cursor(root の置き場: ask で書けない): ask。互換の側は読まない" has_out '"permission":"ask"'
+unlock; printf 'deny\n' > "$MF"; printf 'ask\n' > "$T/.cursor/company-guard.mode"; lock
+cmt; assert "Cursor(root の置き場: deny): 互換の側が ask でも deny" has_out '"permission":"deny"'
+assert "Cursor(root の置き場: deny): 壊れた理由は付かない" lacks_out 'に倒す'
+COMPANY_GUARD_CURSOR_MODE='' HOME="$T" COMPANY_GUARD_MODE_FILE="$MF" run cursor-before-shell.sh '{"command":"git status","cwd":"'"$T"'"}'
+assert "Cursor(root の置き場: deny): 読むだけは allow のまま" has_out '"permission":"allow"'
+unlock; printf 'maybe\n' > "$MF"; lock
+cmt; assert "Cursor(root の置き場: 中身が deny でも ask でもない): deny に倒す" has_out '"permission":"deny"'
+unlock; printf 'ask\n' > "$MF"; chmod 000 "$MF"; chmod 555 "$MD"
+cmt; assert "Cursor(root の置き場: 読めない): deny に倒す" has_out '"permission":"deny"'
+unlock; rm -f "$MF"; ln -s "$T/.cursor/company-guard.mode" "$MF"; chmod 555 "$MD"
+cmt; assert "Cursor(root の置き場: リンク): deny に倒す" has_out '"permission":"deny"'
+unlock; rm -rf "${T:?}/etc"
+printf 'deny\n' > "$T/.cursor/company-guard.mode"
+cmt; assert "Cursor(root の置き場が無い): 互換の ~/.cursor（deny）を読む" has_out '"permission":"deny"'
 rm -rf "$T/.cursor"
 run cursor-before-shell.sh '{"cwd":"'"$T"'"}'
 assert "Cursor before-shell: command が無ければ allow の JSON" has_out '"permission":"allow"'

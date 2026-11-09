@@ -42,14 +42,20 @@ case "$flat" in
     ;;
 esac
 
-# 2b. 守りの設定（mode のファイル）への書き込みと削除は、どの設定でも deny。
-#     正規化で引用符と逆斜線は消えるが、ファイル名 company-guard.mode は残る。これを目印にする。
-#     書き込み（> と >>、tee、cp、mv、truncate、sed、ln、install、dd）と削除（rm、rmdir、unlink）、
-#     台本からの書き込み（python、perl、ruby、node、php）は deny。cat・ls・stat・test・wc・grep・diff の読みは allow。
-if printf '%s' "$flat" | grep -Eq -- 'company-guard\.mode'; then
-  if has '>>? *[^ ]*company-guard\.mode' \
-     || has ' (tee|cp|mv|rm|rmdir|unlink|truncate|install|dd|ln|sed|python[0-9.]*|perl|ruby|node|php) '; then
-    out deny "守りの設定（mode のファイル）は社長が自分の端末で書く。AI は読むだけで、書き換えも削除もしない。"
+# 2b. 守りの設定（mode のファイル）と、その置き場への書き込み・削除・権限の変更は、どの設定でも deny。
+#     置き場は 2 つ。root 所有の /usr/local/etc/company-guard/（名前 company-guard が目印）と、互換の ~/.cursor/（親フォルダごと目印）。
+#     正規化で引用符と逆斜線は消えるが、名前は残る。命令がどちらかに触れ、かつ次のどれかがあれば deny:
+#       書き込みのリダイレクト（>、>>、>|、&>。先が company-guard か、$ で隠した名前か、~/.cursor の下）、
+#       書き換え・削除・権限の命令（tee、cp、mv、rm、rmdir、unlink、truncate、install、dd、ln、sed、chmod、chown、chflags、
+#       台本の python・perl・ruby・node・php）。/bin/rm のようなパス付きと、; & ( | の直後の命令名も見る。
+#     cat・ls・stat・test・wc・grep・diff の読みは allow。プロジェクトの中の .cursor/（hooks.json）は、家のパスでないので見ない。
+#     芯の守りは文字列ではなく置き場の所有者（root）にあり、ここは AI の手元で早く止めるための網。
+# shellcheck disable=SC2016  # $HOME は正規表現の字面。展開しない
+HC='(~|/Users/[^ /]+|/home/[^ /]+|\$HOME|\$\{HOME\})/\.cursor'
+WR='(^|[ /;&(|])(tee|cp|mv|rm|rmdir|unlink|truncate|install|dd|ln|sed|chmod|chown|chflags|python[0-9.]*|perl|ruby|node|php)( |$)'
+if has 'company-guard' || has "$HC"; then
+  if has '>>?\|? *[^ ]*(company-guard|\$)' || has ">>?\\|? *[^ ]*${HC}" || has "$WR"; then
+    out deny "守りの設定（mode のファイル）と hooks の登録は社長が自分の端末で書く。AI は読むだけで、書き換えも削除もしない。"
   fi
 fi
 
@@ -121,19 +127,26 @@ has "${B}rm( +-[^ ]+)* +[^ ]*\\.git(/[^ ]*)?${A}" \
   && ask_president "リポジトリの破壊（.git の削除）。社長の承認があれば実行する。"
 
 # 3c. 符号化した命令。復号した結果をシェルに渡す書き方は、中身を照合できないので ask。
-#     復号の目印（base64 の -d/-D、xxd -r、Python の fromhex ほか、正規化の前の 16 進逃げ文字）と、
-#     シェルに渡す目印（| sh、sh -c、eval、os.system ほか）が、同じ命令にそろったときだけ掛ける。
-#     復号だけ（base64 -d file > out、xxd -r）や、eval だけ・python3 -c だけは allow のまま。
+#     復号の目印（base64・base32 の -d/-D、xxd -r、openssl の -d、uudecode、Python の fromhex ほか、
+#     正規化の前の逃げ文字: 16 進 \x67、8 進 \147、g、$'…' の中の n と t 以外の逃げ文字）と、
+#     シェルに渡す目印（| sh、sh -c、/bin/sh、env sh、eval、source、. file、xargs、$( )、` `、<( )、os.system ほか）が、
+#     同じ命令にそろったときだけ掛ける。復号だけ（base64 -d file > out）や、eval だけ・source だけ・python3 -c だけは allow のまま。
 _decode() {
-  has 'base64( +-[^ ]+)* +(--decode|-[a-zA-Z]*[dD])([^a-zA-Z]|$)' \
+  has 'base(64|32)( +-[^ ]+)* +(--decode|-[a-zA-Z]*[dD])([^a-zA-Z]|$)' \
     || has '(^| )xxd +(-[^ ]+ +)*-r' \
-    || has 'fromhex|unhexlify|b64decode|codecs\.decode' \
-    || raw '\\x[0-9A-Fa-f][0-9A-Fa-f]'
+    || has '(^| |/)openssl +(enc|base64|aes[^ ]*|des[^ ]*|bf[^ ]*|rc[24][^ ]*|camellia[^ ]*)( +[^ ]+)* +-d( |$)' \
+    || has '(^| |/)uudecode( |$)' \
+    || has 'fromhex|unhexlify|b64decode|b32decode|codecs\.decode' \
+    || raw '\\x[0-9A-Fa-f][0-9A-Fa-f]|\\[0-7][0-7][0-7]|\\u[0-9A-Fa-f]{4}' \
+    || raw "\\\$'([^'\\\\]|\\\\[nt])*\\\\[^nt']"
 }
 _sink() {
-  has '\| *(sh|bash|zsh|dash|ksh|fish)( |$|\|)' \
-    || has '(^| )(sh|bash|zsh|dash|ksh|fish) +-c( |$)' \
-    || has '(^| )eval( |$)' \
+  has '\| *([^ ]*/)?(sh|bash|zsh|dash|ksh|fish)( |$|\|)' \
+    || has '(^| |/)(sh|bash|zsh|dash|ksh|fish) +-c( |$)' \
+    || has '(^| )env( +-[^ ]+)* +([^ ]*/)?(sh|bash|zsh|dash|ksh|fish)( |$)' \
+    || has '(^| )(eval|source|xargs)( |$)' \
+    || has '(^ *|[;&|(] *)\. +[^ ;&|]' \
+    || has '\$\(|`|<\(' \
     || has 'os\.system|subprocess|os\.popen|\.popen|(^| )exec\(|(^| )eval\('
 }
 if _decode && _sink; then

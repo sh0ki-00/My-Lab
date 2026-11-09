@@ -147,6 +147,72 @@ stop_count() {
   printf '%s' "$n"
 }
 
+# guard_mode_file → 守りの設定（mode のファイル）の root 所有の置き場。自己試験だけが COMPANY_GUARD_MODE_FILE で差し替える
+guard_mode_file() { printf '%s' "${COMPANY_GUARD_MODE_FILE:-/usr/local/etc/company-guard/mode}"; }
+
+# guard_mode → 守りの設定を GUARD_MODE（deny か ask）と GUARD_MODE_WHY（deny に倒した理由。無ければ空）に入れる。常に 0
+# 読む順:
+#   1. 環境変数 COMPANY_GUARD_CURSOR_MODE（自己試験の差し替え）。
+#   2. root 所有の置き場 /usr/local/etc/company-guard/mode（社長が sudo で 1 回作る。AI の利用者権限では書けない）。
+#      置き場のフォルダがあれば、これだけを使い、~/.cursor は見ない。ファイルが無い・リンク・読めない・中身が deny と ask 以外・
+#      自分の権限で書ける（AI が置けた物）なら、deny に倒す（fail-closed）。
+#   3. 置き場が無いときだけ、今までどおり ~/.cursor/company-guard.mode を読む（移行期の互換。無ければ ask）。
+# shellcheck disable=SC2034  # GUARD_MODE と GUARD_MODE_WHY は呼んだ接続口が読む
+guard_mode() {
+  local f d v
+  f="$(guard_mode_file)"; d="$(dirname "$f")"
+  GUARD_MODE="ask"; GUARD_MODE_WHY=""
+  if [ -n "${COMPANY_GUARD_CURSOR_MODE:-}" ]; then
+    [ "$COMPANY_GUARD_CURSOR_MODE" = "deny" ] && GUARD_MODE="deny"
+    return 0
+  fi
+  if [ -d "$d" ] || [ -e "$f" ] || [ -L "$f" ]; then
+    GUARD_MODE="deny"
+    if [ -L "$f" ]; then GUARD_MODE_WHY="守りの設定（${f}）がリンクなので deny に倒す。"
+    elif [ ! -f "$f" ]; then GUARD_MODE_WHY="守りの設定の置き場（${d}）はあるが、ファイルが無いので deny に倒す。"
+    elif [ -w "$f" ] || [ -w "$d" ]; then GUARD_MODE_WHY="守りの設定（${f}）が自分の権限で書けるので deny に倒す。root 所有にする。"
+    elif ! v="$(tr -d '[:space:]' < "$f" 2>/dev/null)"; then GUARD_MODE_WHY="守りの設定（${f}）を読めないので deny に倒す。"
+    else
+      case "$v" in
+        deny) ;;
+        ask)  GUARD_MODE="ask" ;;
+        *)    GUARD_MODE_WHY="守りの設定（${f}）の中身が deny でも ask でもないので deny に倒す。" ;;
+      esac
+    fi
+    return 0
+  fi
+  v="$(tr -d '[:space:]' < "$HOME/.cursor/company-guard.mode" 2>/dev/null || true)"
+  [ "$v" = "deny" ] && GUARD_MODE="deny"
+  return 0
+}
+
+# real_path <パス> → リンクをたどった実体の絶対パス。まだ無いファイルは、ある所までたどり、残りをそのまま付ける。解けなければ 1
+# /bin/pwd -P を使うのは、bash 3.2 の組み込みの pwd -P が大文字小文字の違う綴りをそのまま返すため（APFS では同じ場所）
+real_path() {
+  local f="$1" rest="" d t n=0 m=0
+  while [ "$n" -lt 64 ]; do
+    n=$((n + 1))
+    if [ -L "$f" ]; then                 # リンクなら 1 段たどる（指す先がまだ無くても）
+      m=$((m + 1)); [ "$m" -le 20 ] || return 1
+      d="$(CDPATH='' cd "$(dirname "$f")" 2>/dev/null && { /bin/pwd -P 2>/dev/null || pwd -P; })" || d="$(dirname "$f")"
+      t="$(readlink "$f")" || return 1
+      case "$t" in /*) f="$t" ;; *) f="$d/$t" ;; esac
+      continue
+    fi
+    if [ -d "$f" ]; then
+      d="$(CDPATH='' cd "$f" && { /bin/pwd -P 2>/dev/null || pwd -P; })" || return 1
+      printf '%s%s\n' "${d%/}" "$rest"; return 0
+    fi
+    if [ -e "$f" ]; then
+      d="$(CDPATH='' cd "$(dirname "$f")" && { /bin/pwd -P 2>/dev/null || pwd -P; })" || return 1
+      printf '%s/%s%s\n' "${d%/}" "$(basename "$f")" "$rest"; return 0
+    fi
+    case "$f" in /|.|"") return 1 ;; esac   # 根まで何も無い
+    rest="/$(basename "$f")$rest"; f="$(dirname "$f")"   # 無い部分を 1 段はがす
+  done
+  return 1
+}
+
 # log <文> → tmp/.verify/hooks.log に 1 行。コマンドの本文は書かない（秘密が混ざるため）
 log() {
   mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || return 0
