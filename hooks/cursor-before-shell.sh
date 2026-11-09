@@ -16,17 +16,18 @@ input="$(cat)"
 cmd="$(json_get command "$input")"
 root="$(project_root "$input")"
 
-mode="${COMPANY_GUARD_CURSOR_MODE:-}"
-[ -n "$mode" ] || mode="$(tr -d '[:space:]' < "$HOME/.cursor/company-guard.mode" 2>/dev/null || true)"
-[ "$mode" = "deny" ] || mode="ask"
+# 設定の読み方は lib.sh の guard_mode。root 所有の置き場があればそれだけを使い、壊れていれば deny に倒す。無ければ ~/.cursor を読む
+guard_mode
+mode="$GUARD_MODE"
 
 if [ -z "$cmd" ]; then printf '{"permission":"allow"}\n'; exit 0; fi
 
+export COMPANY_GUARD_PROJECT_ROOT="$root"   # 判定本体が、My-Lab の中の相対パス（hooks/ ほか）を見分けるのに使う
 line="$(bash "$HOOKS_DIR/guard-core.sh" --signal deny -- "$cmd")"
 decision="${line%%$'\t'*}"; reason="${line#*$'\t'}"
 if [ "$decision" = "ask" ] && [ "$mode" = "deny" ]; then
   decision="deny"
-  reason="$reason この Cursor では確認が効かないため拒否する。社長が自分の端末で実行する。"
+  reason="$reason この Cursor では確認が効かないため拒否する。${GUARD_MODE_WHY:+$GUARD_MODE_WHY }社長が自分の端末で実行する。"
 fi
 log "cursor before-shell $decision $reason"
 

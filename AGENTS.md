@@ -50,7 +50,8 @@
 |---|---|
 | `git commit`、`git push`、`gh pr create`、`gh issue create` ほか外に出る操作 | 確認（ask）。社長の承認なしには通らない |
 | `git reset --hard`、`clean -f`、`stash drop`、ブランチの削除、`--ours` と `--theirs` | 確認 |
-| 守りの設定（`~/.cursor/company-guard.mode`）への書き込みと削除 | 拒否（deny）。社長が自分の端末で書く |
+| 守りの設定（root 所有の `/usr/local/etc/company-guard/mode`。無いときは互換の `~/.cursor/company-guard.mode`）と `~/.cursor` への書き込み・削除・権限の変更 | 拒否（deny）。社長が `sudo` で書く |
+| Write・Edit で `~/.cursor/`、`~/.claude/settings.json`、`~/.claude/hooks/`、`~/.claude/CLAUDE.md`、守りの設定の置き場、My-Lab の `hooks/`・`.claude/settings.json`・`.cursor/hooks.json` を書く | 拒否（deny） |
 | 符号化した命令を復号してシェルに渡す書き方 | 確認（ask）。中身を照合できない |
 | 読むだけの操作 | 許可 |
 

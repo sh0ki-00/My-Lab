@@ -28,6 +28,16 @@
             "timeout": 20
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/hooks/claude-preedit.sh",
+            "timeout": 20
+          }
+        ]
       }
     ],
     "PostToolUse": [

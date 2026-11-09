@@ -52,7 +52,7 @@ My-Lab の中では、開くだけで動きます。他のプロジェクトで�
 | My-Lab を Claude Code で開く | `CLAUDE.md` が `AGENTS.md` を読み、`.claude/settings.json` が承認の規則と hooks を登録する。`/verify` が候補に出る |
 | My-Lab を Cursor で開く | `.cursor/rules/company.mdc` が常時ルール、`.cursor/hooks.json` が hooks。スキルは `.cursor/skills`（`skills/` へのリンク） |
 | 他のプロジェクトで使う | `./deploy.sh <プロジェクト>` で `tmp/` に写す（手でコピーしても同じ）。Cursor の User Rules に `tmp/cursor-user-rule.md` の本文を 1 回貼る。検証は `bash tmp/tools/project-verify.sh --fast` |
-| この Mac に hooks を登録する（1 回） | `./install.sh --dry-run` で中身を見てから `./install.sh`。旧 cradle のリンクを外すときは `--remove-old-links`。常時ルールには書き込まない |
+| この Mac に hooks を登録する（1 回） | `./install.sh --dry-run` で中身を見てから `./install.sh`。Claude Code の `PreToolUse` には Bash の判定と Write・Edit の門の 2 本が入る。旧 cradle のリンクを外すときは `--remove-old-links`。常時ルールには書き込まない |
 
 ## 5. 守り
 
@@ -62,11 +62,12 @@ hooks の判定本体が、コマンドの文字列を見て 3 つの判定を�
 |---|---|
 | `git commit`、`git push`、Issue と PR の作成、`npm publish`、`docker push` ほか外に出る操作 | 確認（ask）。社長の承認なしには通らない |
 | `git reset --hard`、`clean -f`、`stash drop`、ブランチの削除、`--ours`・`--theirs`、`rebase` ほか取り消せない操作 | 確認 |
-| 守りの設定（`~/.cursor/company-guard.mode`）への書き込みと削除 | 拒否（deny）。社長が自分の端末で書く |
+| 守りの設定（root 所有の `/usr/local/etc/company-guard/mode`。無いときは互換の `~/.cursor/company-guard.mode`）と `~/.cursor` への書き込み・削除・権限の変更 | 拒否（deny）。社長が `sudo` で書く |
+| Write・Edit で `~/.cursor/`、`~/.claude/settings.json`、`~/.claude/hooks/`、`~/.claude/CLAUDE.md`、守りの設定の置き場、My-Lab の `hooks/`・`.claude/settings.json`・`.cursor/hooks.json` を書く | 拒否（deny）。シェルを通らない道も閉じる |
 | 符号化した命令を復号してシェルに渡す書き方 | 確認（ask）。中身を照合できない |
 | 読むだけか、取り消せる操作 | 許可 |
 
-守りは命令の文字列の照合なので、隠し方のすべては見つけられません。
+命令の文字列の照合は隠し方のすべてを見つけられないので、芯は置き場の所有者で守ります。守りの設定は root 所有の `/usr/local/etc/company-guard/mode` に置き、AI の利用者権限では書けません。置き場があるのにファイルが無い・読めない・中身が壊れているときは、拒否に倒します（fail-closed）。
 
 ## 6. 検証
 
@@ -97,6 +98,6 @@ hooks の判定本体が、コマンドの文字列を見て 3 つの判定を�
 
 | 確かめること | 手順 | 結果 |
 |---|---|---|
-| Cursor で `ask` と `stop` が効く | My-Lab を Cursor で開き、「`git status` を実行して」と「commit して」を頼む。前者は止まらず、後者で確認が出れば `ask` が効く。文書を 1 つ直して終え、`verify-all.sh --fast` が走れば `stop` が効く | 未確認。効かなければ `~/.cursor/company-guard.mode` に `deny` と書く。このファイルは社長が自分の端末で書き、AI は書き換えない。deny では承認が要る操作をすべて拒否し、合図の語が付いていても通さない。commit や push は、社長が hooks の掛からない自分の端末で実行する |
+| Cursor で `ask` と `stop` が効く | My-Lab を Cursor で開き、「`git status` を実行して」と「commit して」を頼む。前者は止まらず、後者で確認が出れば `ask` が効く。文書を 1 つ直して終え、`verify-all.sh --fast` が走れば `stop` が効く | 未確認。効かなければ、社長が自分の端末で `sudo install -d -o root -g wheel -m 755 /usr/local/etc/company-guard && printf 'deny\n' \| sudo tee /usr/local/etc/company-guard/mode` を回す。root 所有なので AI は書き換えられず、互換の `~/.cursor/company-guard.mode` は root の置き場が無いときだけ読む。deny では承認が要る操作をすべて拒否し、合図の語が付いていても通さない。commit や push は、社長が hooks の掛からない自分の端末で実行する |
 | Claude Code で commit が確認で止まり、承認で通る | 社長が commit を承認する最初の機会に見る。`PostToolUse`（直したファイルの検査）と `Stop` は、段階 0 の作業中に実際に動いた | 確認済み（2026-11-08。AI の commit の直前に確認が出て、承認で通った。hooks の記録 `tmp/.verify/hooks.log` に 22:54 の ask が残る） |
 | 両ツールでサブエージェントが呼べる | Claude Code のサブエージェントの一覧に ceo・designer・frontend・backend・infra・security・sre が出るか見る。Cursor では `/ceo` を呼び、`.company/ceo/CLAUDE.md` を読んで答えるか見る | Claude Code は確認済み（2026-11-06。作った会話の途中で 7 本が一覧に出た）。Cursor は未確認 |

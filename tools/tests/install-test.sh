@@ -2,7 +2,7 @@
 # shellcheck disable=SC2329  # 場面の関数は、名前を組み立てて呼ぶ（下の「実行」）
 # tools/tests/install-test.sh [<install.sh>] — install.sh の試験。偽の HOME で回し、本物の HOME には触れない。
 #   引数で試す install.sh を選べる（既定は My-Lab の install.sh）。直す前の版と比べるときに使う。
-#   置き場ごとに install.sh の写しと、身代わりの hooks 6 本（呼ばれた名前と引数を出すだけ）を置く。試すのは install.sh だけ。
+#   置き場ごとに install.sh の写しと、身代わりの hooks 7 本（呼ばれた名前と引数を出すだけ）を置く。試すのは install.sh だけ。
 #   場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。bash は社長の機械と同じ /bin/bash（3.2）を使う。
 # 出力: 場面ごとに PASS <場面> [<LANG>] か FAIL <場面> [<LANG>] <理由>。最後に RESULT 行。1 件でも FAIL なら終了コード 1。
 set -u
@@ -30,10 +30,10 @@ T="$(cd -- "$T" && pwd -P)" || abort "一時ディレクトリに入れない"  
 if printf '%s' "$T" | LC_ALL=C grep -q '[^A-Za-z0-9_./@%+=:,-]'; then abort "一時ディレクトリのパスに空白か記号がある（${T}）。TMPDIR を変えて回す"; fi
 
 # ---- 部品
-mklab() {  # mklab <置き場> → install.sh の写しと、身代わりの hooks 6 本を置く
+mklab() {  # mklab <置き場> → install.sh の写しと、身代わりの hooks 7 本を置く
   local d="$1" n
   mkdir -p "$d/hooks" && cp "$SUT" "$d/install.sh" || return 1
-  for n in claude-pretooluse claude-postedit claude-stop cursor-before-shell cursor-after-edit cursor-stop; do
+  for n in claude-pretooluse claude-preedit claude-postedit claude-stop cursor-before-shell cursor-after-edit cursor-stop; do
     cat > "$d/hooks/$n.sh" <<'EOF'
 #!/bin/bash
 echo "ran $(basename "$0") $*"
@@ -51,27 +51,29 @@ run() {  # run <偽の HOME> <作業ディレクトリ> <env に渡す残り...>
 last() { printf '%s\n' "$OUT" | tail -n 1; }
 has() { printf '%s\n' "$OUT" | grep -qF -- "$1"; }
 
-cmds() {  # cmds <ファイル> <イベント> → そのイベントに登録された命令を 1 行に 1 つ
-  jq -r --arg e "$2" '(.hooks[$e] // [])[] | if (type == "object" and has("hooks")) then .hooks[].command else .command end' "$1" 2>/dev/null
+cmds() {  # cmds <ファイル> <イベント> [<matcher>] → そのイベント（matcher を指せばその組だけ）に登録された命令を 1 行に 1 つ
+  jq -r --arg e "$2" --arg m "${3:-}" '(.hooks[$e] // [])[] | if (type == "object" and has("hooks")) then (select($m == "" or .matcher == $m) | .hooks[].command) else .command end' "$1" 2>/dev/null
 }
 
-EVENTS="claude:PreToolUse:claude-pretooluse claude:PostToolUse:claude-postedit claude:Stop:claude-stop cursor:beforeShellExecution:cursor-before-shell cursor:afterFileEdit:cursor-after-edit cursor:stop:cursor-stop"
+# <ツール>:<イベント>:<matcher（無ければ空）>:<接続口の名前>。Claude の PreToolUse は Bash と Edit の 2 組
+EVENTS="claude:PreToolUse:Bash:claude-pretooluse claude:PreToolUse:Edit|Write|MultiEdit|NotebookEdit:claude-preedit claude:PostToolUse::claude-postedit claude:Stop::claude-stop cursor:beforeShellExecution::cursor-before-shell cursor:afterFileEdit::cursor-after-edit cursor:stop::cursor-stop"
+split_spec() { tool="${1%%:*}"; rest="${1#*:}"; e="${rest%%:*}"; rest="${rest#*:}"; m="${rest%%:*}"; n="${rest#*:}"; }   # split_spec <spec> → tool e m n
 file_of() { case "$1" in claude) printf '%s\n' "$2/.claude/settings.json" ;; *) printf '%s\n' "$2/.cursor/hooks.json" ;; esac; }
 
-one_each() {  # one_each <偽の HOME> <hooks の置き場> → 6 つのイベントに命令が 1 本ずつあり、字面が「bash <置き場>/<名前>.sh --global」
-  local fh="$1" h="$2" spec tool rest e n got
+one_each() {  # one_each <偽の HOME> <hooks の置き場> → 7 つの組に命令が 1 本ずつあり、字面が「bash <置き場>/<名前>.sh --global」
+  local fh="$1" h="$2" spec tool rest e m n got
   for spec in $EVENTS; do
-    tool="${spec%%:*}"; rest="${spec#*:}"; e="${rest%%:*}"; n="${rest#*:}"
-    got="$(cmds "$(file_of "$tool" "$fh")" "$e")"
+    split_spec "$spec"
+    got="$(cmds "$(file_of "$tool" "$fh")" "$e" "$m")"
     [ "$got" = "bash $h/$n.sh --global" ] || { REASON="${e} の登録が想定と違う: $(printf '%s' "$got" | tr '\n' '|')"; return 1; }
   done
 }
 
-runs_each() {  # runs_each <偽の HOME> → 6 つのイベントに命令が 1 本ずつあり、sh -c で走らせると身代わりが名前と --global を受け取る
-  local fh="$1" spec tool rest e n got out
+runs_each() {  # runs_each <偽の HOME> → 7 つの組に命令が 1 本ずつあり、sh -c で走らせると身代わりが名前と --global を受け取る
+  local fh="$1" spec tool rest e m n got out
   for spec in $EVENTS; do
-    tool="${spec%%:*}"; rest="${spec#*:}"; e="${rest%%:*}"; n="${rest#*:}"
-    got="$(cmds "$(file_of "$tool" "$fh")" "$e")"
+    split_spec "$spec"
+    got="$(cmds "$(file_of "$tool" "$fh")" "$e" "$m")"
     [ "$(printf '%s\n' "$got" | grep -c .)" -eq 1 ] || { REASON="${e} の登録が 1 本でない: $(printf '%s' "$got" | tr '\n' '|')"; return 1; }
     out="$(cd -- "$T" && env -i HOME="$fh" PATH="$RUN_PATH" LANG="$L" /bin/sh -c "$got" </dev/null 2>&1)"
     [ "$out" = "ran $n.sh --global" ] || { REASON="${e} の命令が走らない（${got}）: ${out}"; return 1; }
@@ -119,8 +121,9 @@ case_basic() {  # 登録の中身（字面・timeout・failClosed・loop_limit�
   run "$FH" "$W" /bin/bash "$lab/install.sh"
   [ "$RC" -eq 0 ] || { REASON="終了コード ${RC}: $(last)"; return 1; }
   jq -e --arg h "$lab/hooks" '.model == "keep" and .permissions.allow == ["Bash(ls:*)"]
-    and ([.hooks.PreToolUse[].hooks[].command] == ["/opt/tool/hooks/claude-stop.sh", "bash /opt/tool/hooks/claude-stop-helper.sh --global", "bash \($h)/claude-pretooluse.sh --global"])
-    and (.hooks.PreToolUse[-1] == {matcher: "Bash", hooks: [{type: "command", command: "bash \($h)/claude-pretooluse.sh --global", timeout: 20}]})
+    and ([.hooks.PreToolUse[].hooks[].command] == ["/opt/tool/hooks/claude-stop.sh", "bash /opt/tool/hooks/claude-stop-helper.sh --global", "bash \($h)/claude-pretooluse.sh --global", "bash \($h)/claude-preedit.sh --global"])
+    and (.hooks.PreToolUse[-2] == {matcher: "Bash", hooks: [{type: "command", command: "bash \($h)/claude-pretooluse.sh --global", timeout: 20}]})
+    and (.hooks.PreToolUse[-1] == {matcher: "Edit|Write|MultiEdit|NotebookEdit", hooks: [{type: "command", command: "bash \($h)/claude-preedit.sh --global", timeout: 20}]})
     and (.hooks.PostToolUse == [{matcher: "Edit|Write|MultiEdit|NotebookEdit", hooks: [{type: "command", command: "bash \($h)/claude-postedit.sh --global", timeout: 120}]}])
     and (.hooks.Stop == [{hooks: [{type: "command", command: "bash \($h)/claude-stop.sh --global", timeout: 600}]}])' \
     "$FH/.claude/settings.json" >/dev/null 2>&1 || { REASON="Claude の登録か、他の設定が想定と違う"; return 1; }
@@ -342,7 +345,8 @@ case_no_cursor_dir() {  # ~/.cursor が無ければ作らず、Cursor の登録�
   [ "$RC" -eq 0 ] || { REASON="終了コード ${RC}: $(last)"; return 1; }
   [ ! -e "$FH/.cursor" ] || { REASON="偽の HOME に .cursor を作った"; return 1; }
   has "Cursor の登録は飛ばした" || { REASON="Cursor を飛ばしたと言わない"; return 1; }
-  [ "$(cmds "$FH/.claude/settings.json" PreToolUse)" = "bash $lab/hooks/claude-pretooluse.sh --global" ] || { REASON="Claude の登録が無い"; return 1; }
+  [ "$(cmds "$FH/.claude/settings.json" PreToolUse Bash)" = "bash $lab/hooks/claude-pretooluse.sh --global" ] || { REASON="Claude の登録が無い"; return 1; }
+  [ "$(cmds "$FH/.claude/settings.json" PreToolUse 'Edit|Write|MultiEdit|NotebookEdit')" = "bash $lab/hooks/claude-preedit.sh --global" ] || { REASON="Claude の Write・Edit の門の登録が無い"; return 1; }
 }
 
 case_cdpath() {  # CDPATH があっても、回した install.sh の置き場を登録する

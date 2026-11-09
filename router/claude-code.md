@@ -10,7 +10,7 @@ Claude Code は、My-Lab の中では `CLAUDE.md`（`AGENTS.md` を取り込む 
 |---|---|---|
 | 常時ルール | `CLAUDE.md` → `AGENTS.md` | 秘書の起動、読む順、返答の書き方、守りの表 |
 | 承認の規則 | `.claude/settings.json` の `permissions.ask` | `git commit`・`git push`・Issue と PR の作成を確認ダイアログにする（2 重の守りの 1 つ目） |
-| hooks | `.claude/settings.json` の `hooks` | `PreToolUse`（判定本体で ask/deny）、`PostToolUse`（直したファイルの検査）、`Stop`（`verify-all.sh --fast`。FAIL なら終われない） |
+| hooks | `.claude/settings.json` の `hooks` | `PreToolUse`（Bash は判定本体で ask/deny。Write・Edit は守りの設定と hooks の登録なら deny）、`PostToolUse`（直したファイルの検査）、`Stop`（`verify-all.sh --fast`。FAIL なら終われない） |
 | スキル | `.claude/skills` → `../skills` | `/名前` で呼べる |
 | サブエージェント | `.claude/agents/` | 役割の仕事と、別コンテキストの添削（`editor`） |
 
@@ -23,6 +23,7 @@ Claude Code は、My-Lab の中では `CLAUDE.md`（`AGENTS.md` を取り込む 
 | 接続口 | 他のプロジェクトでの働き |
 |---|---|
 | `hooks/claude-pretooluse.sh --global` | どのプロジェクトでも `git commit` などを ask にする。プロジェクト自身の登録があるときは、理由を省いて判定だけ返す（確認の文が 2 回出ない） |
+| `hooks/claude-preedit.sh --global` | どのプロジェクトでも、Write・Edit で `~/.cursor/`・`~/.claude/settings.json`・`~/.claude/hooks/`・`~/.claude/CLAUDE.md`・守りの設定の置き場（`/usr/local/etc/company-guard/`）・My-Lab の `hooks/` と登録を書かせない（deny） |
 | `hooks/claude-postedit.sh --global` | `tmp/tools/check-file.sh` があれば、直したファイルを検査する |
 | `hooks/claude-stop.sh --global` | `tmp/tools/project-verify.sh --fast` があれば、作業を終える前に回す |
 
@@ -31,7 +32,7 @@ Claude Code は、My-Lab の中では `CLAUDE.md`（`AGENTS.md` を取り込む 
 ## 3. 確かめ方
 
 1. `bash hooks/selftest.sh` が `RESULT: PASS` を出す（判定表と、両ツールの接続口の端から端）。
-2. Claude Code で `/hooks` を開き、`PreToolUse`・`PostToolUse`・`Stop` に `hooks/claude-*.sh` が見える。
+2. Claude Code で `/hooks` を開き、`PreToolUse`（Bash と Edit の 2 本）・`PostToolUse`・`Stop` に `hooks/claude-*.sh` が見える。
 3. Claude Code に「`git status` を実行して」と頼むと止まらず、「`git commit` して」と頼むと確認ダイアログが出る。承認しなければ実行されない。
 4. 文書を 1 つ直して終えると、`verify-all.sh --fast` が自動で回る。FAIL を仕込めば、Claude Code が「直してから終える」と続ける。
 
