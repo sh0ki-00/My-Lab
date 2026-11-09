@@ -5,9 +5,10 @@
 #   主体の一覧: 名指しの役割と、2 つの許可セット（当番と緊急の管理）のほかの主体は、何もできない（root、管理の口座から借りる役割を含む）。
 #   データへの入口の一覧: DB への IAM の接続、秘密の読み出し、データの鍵の直の復号は、それを使う役割だけ。
 # 例外にする主体は、環境ごとの役割の名前で 1 つずつ名指しする（名前の型「*-apply」では名指ししない）。
-#   適用の役割（承認 1 人）: 作業の定義の登録、サービスの更新、データベースの大きさの変更だけ（plan-gate の一覧と同じ範囲）。
+#   適用の役割（承認 1 人）: 作業の定義の登録、サービスの更新だけ（plan-gate の一覧と同じ範囲）。データベースの変更は持たない。
 #   守りの適用の役割（承認 2 人）と土台: 権限、方針、配信、WAF、監査と検出、作業の起動、移行と利用者づくりの役割の受け渡し、
-#     データベースのパラメータグループ、秘密と鍵の別名、リポジトリの寿命、守りの関数（Lambda）、VPC に入口を置く操作を変えられる。
+#     データベースの作成と変更（大きさを含む）とパラメータグループ、秘密と鍵の別名、リポジトリの寿命、守りの関数（Lambda）、
+#     VPC に入口を置く操作を変えられる。
 #   土台（platform-foundation）だけ: 例外の名を持つ役割と、権限の境界と、口座の公開のブロックを変えられる。
 # 例外の名を持つ役割は foundation/ が作り、SCP がそれ以外の主体に作らせない・変えさせない。同じ名の役割を作って例外に入る道は無い。
 # この file を変えられるのは、組織の管理の口座だけ（信頼の根）。付け外しと書き換えは、守りの口座の org-guard-change が鳴らす。
@@ -257,8 +258,9 @@ resource "aws_organizations_policy" "control_guard" {
 }
 
 # データへ届く操作は、名指しの役割のほかに拒む（4 枚目）。plan-gate の「承認 1 人の一覧」と同じ範囲だけを適用の役割に残す。
-#   適用の役割（承認 1 人）: 作業の定義の登録、サービスの作成と更新、役割の受け渡し（API の役割だけ）、データベースの大きさの変更。
-#   守りの適用の役割（承認 2 人）: 作業の起動、移行と利用者づくりの役割の受け渡し、パラメータグループ、秘密と鍵の別名、
+#   適用の役割（承認 1 人）: 作業の定義の登録、サービスの作成と更新、役割の受け渡し（API の役割だけ）。
+#   守りの適用の役割（承認 2 人）: データベースの作成と変更（rds:ModifyDBInstance。大きさの変更も。IAM の条件キーで大きさだけに絞れない）、
+#     作業の起動、移行と利用者づくりの役割の受け渡し、パラメータグループ、秘密と鍵の別名、
 #     リポジトリの寿命と削除、守りの関数（棚卸しの Lambda）。リポジトリを外へ開く方針と複製は、土台のほかに誰にも許さない。
 resource "aws_organizations_policy" "path_guard" {
   name        = "orders-admin-path-guard"
@@ -272,8 +274,7 @@ resource "aws_organizations_policy" "path_guard" {
         Effect = "Deny"
         Action = [
           "ecs:RegisterTaskDefinition", "ecs:DeregisterTaskDefinition", "ecs:CreateService", "ecs:UpdateService", "ecs:DeleteService",
-          "ecs:CreateTaskSet", "ecs:UpdateTaskSet", "ecs:UpdateServicePrimaryTaskSet", "rds:ModifyDBInstance", "rds:CreateDBInstance",
-          "rds:CreateDBCluster", "rds:ModifyDBCluster", "rds:CreateDBInstanceReadReplica",
+          "ecs:CreateTaskSet", "ecs:UpdateTaskSet", "ecs:UpdateServicePrimaryTaskSet",
         ]
         Resource  = "*"
         Condition = { ArnNotLike = { "aws:PrincipalArn" = local.apply_roles } }
@@ -303,12 +304,15 @@ resource "aws_organizations_policy" "path_guard" {
         Condition = { ArnNotLike = { "aws:PrincipalArn" = local.guard_roles } }
       },
       {
-        # パラメータグループを作る・変える・付け替える（ログの設定を既定に戻す道）、秘密の値と鍵の別名、リポジトリの寿命と削除、
-        # 守りの関数、作業の起動、DB に役割を付ける操作（aws_s3 と aws_lambda の拡張から外へ出す道。第 15 回）。どれも守りの適用の役割だけ。
+        # データベースを作る・変える（rds:ModifyDBInstance は大きさのつもりの 1 回で合言葉・公開・網・削除の保護・保持の日数まで変わり、
+        # IAM の条件キーで大きさだけに絞れない。aws-facts の 47〜52）、パラメータグループを作る・変える・付け替える（ログの設定を既定に戻す道）、
+        # 秘密の値と鍵の別名、リポジトリの寿命と削除、守りの関数、作業の起動、DB に役割を付ける操作（aws_s3 と aws_lambda の拡張から
+        # 外へ出す道。第 15 回）。どれも守りの適用の役割だけ。
         Sid    = "GuardedDataSettings"
         Effect = "Deny"
         Action = [
-          "ecs:RunTask", "ecs:StartTask", "rds:CreateDBParameterGroup", "rds:ModifyDBParameterGroup", "rds:ResetDBParameterGroup",
+          "ecs:RunTask", "ecs:StartTask", "rds:CreateDBInstance", "rds:ModifyDBInstance", "rds:CreateDBCluster", "rds:ModifyDBCluster",
+          "rds:CreateDBInstanceReadReplica", "rds:CreateDBParameterGroup", "rds:ModifyDBParameterGroup", "rds:ResetDBParameterGroup",
           "secretsmanager:CreateSecret", "secretsmanager:PutSecretValue", "secretsmanager:UpdateSecret", "secretsmanager:RotateSecret",
           "secretsmanager:CancelRotateSecret", "secretsmanager:DeleteSecret", "secretsmanager:UpdateSecretVersionStage",
           "kms:CreateAlias", "kms:UpdateAlias", "kms:DeleteAlias", "ecr:PutLifecyclePolicy", "ecr:DeleteLifecyclePolicy",
@@ -321,7 +325,7 @@ resource "aws_organizations_policy" "path_guard" {
         Condition = { ArnNotLike = { "aws:PrincipalArn" = local.guard_roles } }
       },
       {
-        # 承認 1 人の適用がデータベースを変えるときは、パラメータグループを名指しできない（付け替えは守りの適用だけ）。
+        # パラメータグループの名指し（付け替え）は守りの適用だけ。データベースの変更そのものも上で守りの適用だけにしたので、2 重の錠。
         Sid       = "DbParameterGroupOnlyFromGuarded"
         Effect    = "Deny"
         Action    = ["rds:ModifyDBInstance", "rds:CreateDBInstance"]

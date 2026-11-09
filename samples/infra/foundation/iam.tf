@@ -5,7 +5,8 @@
 #     部品の指紋（.terraform.lock.hcl）は main の版を使い、init -lockfile=readonly で回す。PR で足した部品は読み込まれない。
 #   適用（apply）: 承認 1 人の環境（var.env）を通った main の infra-apply.yml。plan-gate の「承認 1 人の一覧」と同じ操作だけ。
 #   守りの適用（apply-guarded）: 承認 2 人（うち 1 人はセキュリティ）の環境（var.env-guarded）を通った main の infra-apply.yml。
-#     権限・信頼・資源の方針・配信・WAF・監査の設定を変えられるのは、この役割だけ。作る役割には必ず権限の境界を付ける。
+#     権限・信頼・資源の方針・配信・WAF・監査の設定と、データベースの設定（大きさを含む）を変えられるのは、この役割だけ。
+#     作る役割には必ず権限の境界を付ける。
 #   復元、バックアップ、利用者づくりの起動の役割: 口座の上限（SCP）が名前で例外にする役割なので、ここで作る。
 #     SCP が、これらの役割と境界の方針を platform-foundation のほかに誰にも変えさせない。
 # データを持つ資源（データベース、バケット、保管庫、鍵、秘密、ロググループ）を消す操作は、どの役割にも持たせない。
@@ -43,33 +44,27 @@ locals {
   }
 
   # 適用（承認 1 人）が持つ操作。plan-gate の「承認 1 人の一覧」と同じ範囲だけにする（AWS の側でも一覧の外は通らない）。
-  #   API の作業の定義の登録とサービスの更新、API の数の自動の増減、データベースの大きさ、ロードバランサーの待ち先の設定。
-  #   作る操作、ネットワーク、作業の起動、移行の役割の受け渡し、パラメータグループ、秘密と鍵、Lambda は持たない（守りの適用だけ）。
+  #   API の作業の定義の登録とサービスの更新、API の数の自動の増減、ロードバランサーの待ち先の設定。
+  #   データベースの変更（rds:ModifyDBInstance）は持たない。大きさのつもりの 1 回の操作で、合言葉・公開・網・パラメータグループ・
+  #   削除の保護・保持の日数まで変わる。この操作に効く条件キーは rds:ManageMasterUserPassword だけで、IAM では大きさだけに絞れない
+  #   （aws-facts の 47〜52）。守りの適用（承認 2 人）だけが持つ。
+  #   作る操作、ネットワーク、作業の起動、移行の役割の受け渡し、パラメータグループ、秘密と鍵、Lambda も持たない（守りの適用だけ）。
   apply_statements = [
     local.deny_data_reads,
     {
-      Sid    = "ReleaseAndResize"
+      # データベース（rds:*）は対象にも操作にも入れない。RDS を通してデータの鍵を使う許し（旧 DataKeyThroughRds）も、大きさの変更と
+      # 一緒に守りの適用へ移した（DataAndAlarms の kms:CreateGrant などが受ける）。
+      Sid    = "ReleaseAndTargetGroup"
       Effect = "Allow"
       Action = [
-        "ecs:UpdateService", "ecs:TagResource", "rds:ModifyDBInstance", "rds:AddTagsToResource",
+        "ecs:UpdateService", "ecs:TagResource",
         "elasticloadbalancing:ModifyTargetGroup", "elasticloadbalancing:ModifyTargetGroupAttributes", "elasticloadbalancing:AddTags",
       ]
       Resource = [
         "arn:${local.p}:ecs:${local.r}:${local.acct}:service/${local.name}/orders-api",
         "arn:${local.p}:ecs:${local.r}:${local.acct}:task-definition/${local.name}-orders-api:*",
-        "arn:${local.p}:rds:${local.r}:${local.acct}:db:${local.name}-orders",
         "arn:${local.p}:elasticloadbalancing:${local.r}:${local.acct}:targetgroup/${local.name}-api/*",
       ]
-    },
-    {
-      # データベースの大きさを変えるときに、RDS がデータの鍵を使う。RDS を通すときだけ。
-      Sid      = "DataKeyThroughRds"
-      Effect   = "Allow"
-      Action   = ["kms:CreateGrant", "kms:DescribeKey", "kms:Decrypt", "kms:GenerateDataKey"]
-      Resource = "arn:${local.p}:kms:${local.r}:${local.acct}:key/*"
-      Condition = merge(local.data_key_by_alias, {
-        StringEquals = { "kms:ViaService" = "rds.${local.r}.amazonaws.com" }
-      })
     },
     {
       # 役割を渡す相手のサービスを ECS に決める。渡せるのは API の 2 つの役割だけ（移行と利用者づくりは守りの適用だけ）。
@@ -131,10 +126,13 @@ locals {
       }
     },
     {
+      # データベースの変更（rds:ModifyDBInstance）はここだけ。大きさの変更も、合言葉・公開・網・削除の保護・保持の日数と同じ 1 回の
+      # 操作で、IAM の条件キーでは分けられない（効く条件キーは rds:ManageMasterUserPassword だけ。aws-facts の 47〜52）。
+      # 大きさを変えるときに RDS がデータの鍵を使う分は、この文の kms:CreateGrant などが受ける。
       Sid    = "DataAndAlarms"
       Effect = "Allow"
       Action = [
-        "rds:CreateDBInstance", "rds:CreateDBSubnetGroup", "rds:ModifyDBSubnetGroup",
+        "rds:CreateDBInstance", "rds:ModifyDBInstance", "rds:AddTagsToResource", "rds:CreateDBSubnetGroup", "rds:ModifyDBSubnetGroup",
         "kms:CreateAlias", "kms:UpdateAlias", "kms:EnableKeyRotation", "kms:TagResource", "kms:UpdateKeyDescription",
         "kms:CreateGrant", "kms:DescribeKey", "kms:GenerateDataKey", "kms:Decrypt",
         "secretsmanager:CreateSecret", "secretsmanager:UpdateSecret", "secretsmanager:TagResource",

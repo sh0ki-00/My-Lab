@@ -68,6 +68,12 @@ TF
     if printf '%s\n' "$broken" | grep -q "\[IAC-$n "; then got=PASS; else got=FAIL; fi
     judge "7 見本を壊した写しが IAC-$n で落ちる" PASS "$got"
   done
+  # 承認 1 人の適用の方針に、データベースの変更（rds:ModifyDBInstance）が無い。大きさの変更も守りの適用だけ（2026-11-09 の審査の MEDIUM）。
+  iam="$ROOT/samples/infra/foundation/iam.tf"
+  if LC_ALL=C awk '/^  apply_statements = \[/,/^  \]$/' "$iam" | grep -q 'rds:ModifyDBInstance'; then got=FAIL; else got=PASS; fi
+  judge "17 見本の承認 1 人の適用（apply_statements）に rds:ModifyDBInstance が無い" PASS "$got"
+  if LC_ALL=C awk '/^  guarded_statements = \[/,/^  \]$/' "$iam" | grep -q 'rds:ModifyDBInstance'; then got=PASS; else got=FAIL; fi
+  judge "17 見本の守りの適用（guarded_statements）に rds:ModifyDBInstance がある" PASS "$got"
 fi
 
 # 2b) 計画の関所
