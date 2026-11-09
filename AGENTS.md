@@ -50,6 +50,8 @@
 |---|---|
 | `git commit`、`git push`、`gh pr create`、`gh issue create` ほか外に出る操作 | 確認（ask）。社長の承認なしには通らない |
 | `git reset --hard`、`clean -f`、`stash drop`、ブランチの削除、`--ours` と `--theirs` | 確認 |
+| 守りの設定（`~/.cursor/company-guard.mode`）への書き込みと削除 | 拒否（deny）。社長が自分の端末で書く |
+| 符号化した命令を復号してシェルに渡す書き方 | 確認（ask）。中身を照合できない |
 | 読むだけの操作 | 許可 |
 
 合図の語 `APPROVE_GIT=1` が付いたコマンドは、Claude Code でも Cursor でも、設定によらず拒否する。AI が付けることは最も重い違反である。判定の本体は `hooks/guard-core.sh`、自己試験は `bash hooks/selftest.sh`。

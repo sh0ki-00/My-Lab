@@ -156,6 +156,41 @@ expect ask honor 'git commit -m x'
 expect allow honor 'git status'
 if [ "$(bash "$CORE" -- 'APPROVE_GIT=1 git push' | cut -f1)" = deny ]; then ok; else bad "判定: --signal を省いても、先頭の合図つきの push は deny"; fi
 
+# 1e. 守りの設定（mode のファイル）への書き込みと削除 → deny。--signal の値（deny でも honor でも）は判定を変えない
+expect deny deny 'printf ask > ~/.cursor/company-guard.mode'
+expect deny deny 'echo deny > /Users/s-furutani/.cursor/company-guard.mode'
+expect deny deny 'echo ask >> ~/.cursor/company-guard.mode'
+expect deny deny 'tee ~/.cursor/company-guard.mode'
+expect deny deny 'cp /tmp/x ~/.cursor/company-guard.mode'
+expect deny deny 'mv /tmp/x ~/.cursor/company-guard.mode'
+expect deny deny 'rm ~/.cursor/company-guard.mode'
+expect deny deny 'rm -f /Users/s-furutani/.cursor/company-guard.mode'
+expect deny deny 'sed -i "" s/deny/ask/ ~/.cursor/company-guard.mode'
+expect deny deny 'truncate -s 0 ~/.cursor/company-guard.mode'
+expect deny deny 'python3 -c "open(\"/Users/s-furutani/.cursor/company-guard.mode\",\"w\").write(\"ask\")"'
+expect deny honor 'printf ask > ~/.cursor/company-guard.mode'
+expect deny honor 'rm ~/.cursor/company-guard.mode'
+# 読むだけは allow のまま
+expect allow deny 'cat ~/.cursor/company-guard.mode'
+expect allow deny 'ls -l ~/.cursor/company-guard.mode'
+expect allow deny 'test -f ~/.cursor/company-guard.mode'
+expect allow deny 'grep deny ~/.cursor/company-guard.mode'
+
+# 1f. 符号化した命令。復号した結果をシェルに渡す 5 つの書き方 → ask
+expect ask deny 'echo Z2l0IHB1c2g= | base64 -d | sh'
+# shellcheck disable=SC2016  # $(...) は判定本体に渡す文字列。わざと展開しない
+expect ask deny 'eval "$(echo Z2l0IHB1c2g= | base64 -d)"'
+expect ask deny 'printf "\x67it push" | sh'
+# shellcheck disable=SC2016  # 同上。符号化した命令を文字列のまま渡す
+expect ask deny 'bash -c "$(printf %s Z2l0IHB1c2g= | base64 -D)"'
+expect ask deny "python3 -c \"import os;os.system(bytes.fromhex('6769742070757368').decode())\""
+# 復号だけ・eval だけ・python3 -c だけは allow のまま（平文の git push は上の 1a で ask を確かめている）
+expect allow deny 'base64 -d payload.b64 > out.sh'
+expect allow deny 'xxd -r payload.hex > out.bin'
+expect allow deny 'python3 -c "print(1)"'
+# shellcheck disable=SC2016  # eval だけ（復号なし）の確認。$(...) は文字列のまま渡す
+expect allow deny 'eval "$(cat vars.sh)"'
+
 # ---- 2. 接続口（端から端）
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export CLAUDE_PROJECT_DIR="$T" CURSOR_PROJECT_DIR="$T"
@@ -237,6 +272,13 @@ COMPANY_GUARD_CURSOR_MODE=deny run cursor-before-shell.sh '{"command":"APPROVE_G
 assert "Cursor before-shell(deny の設定): 先頭に合図があっても push は deny" has_out '"permission":"deny"'
 COMPANY_GUARD_CURSOR_MODE=deny run cursor-before-shell.sh '{"command":"git status","cwd":"'"$T"'"}'
 assert "Cursor before-shell(deny の設定): 読むだけは allow" has_out '"permission":"allow"'
+# mode のファイルへの書き込みは、設定が ask でも deny でも deny（判定本体が deny を返すため）
+COMPANY_GUARD_CURSOR_MODE=ask  run cursor-before-shell.sh '{"command":"printf ask > ~/.cursor/company-guard.mode","cwd":"'"$T"'"}'
+assert "Cursor before-shell(ask の設定): mode のファイルへの書き込みは deny" has_out '"permission":"deny"'
+COMPANY_GUARD_CURSOR_MODE=deny run cursor-before-shell.sh '{"command":"rm ~/.cursor/company-guard.mode","cwd":"'"$T"'"}'
+assert "Cursor before-shell(deny の設定): mode のファイルの削除は deny" has_out '"permission":"deny"'
+COMPANY_GUARD_CURSOR_MODE=ask  run cursor-before-shell.sh '{"command":"cat ~/.cursor/company-guard.mode","cwd":"'"$T"'"}'
+assert "Cursor before-shell(ask の設定): mode のファイルの読みは allow" has_out '"permission":"allow"'
 mkdir -p "$T/.cursor"
 COMPANY_GUARD_CURSOR_MODE='' HOME="$T" run cursor-before-shell.sh '{"command":"git commit -m x","cwd":"'"$T"'"}'
 assert "Cursor before-shell(mode のファイルが無い): 既定の ask" has_out '"permission":"ask"'
