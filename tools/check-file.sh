@@ -7,12 +7,29 @@
 #   .mjs .js : node --check
 #   .json    : jq
 #   .yml .yaml : YAML の構文（ruby）。.github/ISSUE_TEMPLATE なら Issue フォームの検査も
+# 写した先（<プロジェクト>/tmp/tools にあり、tmp/DEPLOYED.md がある）では、tmp/ の外のファイルは検査しない。
+#   プロジェクト自身のファイル（英語の README、コメント入りの tsconfig.json、既存の台本）を、頼まれずに直させないため。
 # 1 つでも FAIL なら終了コード 1。道具が無いことによる SKIP は FAIL と同じに扱う。
 set -u
-TOOLS="$(cd "$(dirname "$0")" && pwd -P)"
-ROOT="$(cd "$TOOLS/.." && pwd -P)"
+TOOLS="$(cd "$(dirname "$0")" && { /bin/pwd -P 2>/dev/null || pwd -P; })"
+ROOT="$(cd "$TOOLS/.." && { /bin/pwd -P 2>/dev/null || pwd -P; })"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 fail=0
+DEPLOYED=0
+if [ "$(basename "$ROOT")" = "tmp" ] && [ -f "$ROOT/DEPLOYED.md" ]; then DEPLOYED=1; fi
+
+real_path() {  # real_path <ファイル> → リンクをたどった実体の絶対パス（/tmp と /private/tmp のような別名もそろえる）
+  # /bin/pwd -P を使うのは、bash 3.2 の組み込みの pwd -P が大文字小文字の違う綴りをそのまま返すため（APFS では同じ場所）
+  local f="$1" d n=0
+  while [ -L "$f" ] && [ "$n" -lt 20 ]; do
+    n=$((n + 1))
+    d="$(CDPATH='' cd "$(dirname "$f")" && { /bin/pwd -P 2>/dev/null || pwd -P; })" || return 1
+    f="$(readlink "$f")" || return 1
+    case "$f" in /*) ;; *) f="$d/$f" ;; esac
+  done
+  d="$(CDPATH='' cd "$(dirname "$f")" 2>/dev/null && { /bin/pwd -P 2>/dev/null || pwd -P; })" || return 1
+  printf '%s/%s\n' "$d" "$(basename "$f")"
+}
 
 is_doc() {
   case "$1" in
@@ -43,6 +60,12 @@ run() {  # run <名前> <ファイル> <コマンド...> → FAIL なら fail �
 
 for f in "$@"; do
   [ -f "$f" ] || { printf 'FAIL %s [無い] ファイルが無い\n' "$f"; fail=$((fail + 1)); continue; }
+  if [ "$DEPLOYED" -eq 1 ]; then
+    case "$(real_path "$f")" in
+      "$ROOT"/*) ;;
+      *) printf 'RESULT: PASS check-file %s（写した先のプロジェクト自身のファイルは検査の対象外）\n' "$f"; continue ;;
+    esac
+  fi
   case "$f" in
     *.md|*.mdc)
       run check-ja "$f" python3 -I "$TOOLS/lib/check_ja.py" "$f"

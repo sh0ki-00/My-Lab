@@ -10,6 +10,8 @@
 #   RESULT: WARN project-verify（回す検証の命令が無い）を出して終了コード 3 にする。
 # 記録: <root>/tmp/.verify/last-fast.txt（--full なら last-full.txt）に、日時と命令ごとの RESULT 行と最後の RESULT 行を書く。
 #       My-Lab の中で回したときは、verify-all.sh の記録を上書きしないよう project-verify-last-<mode>.txt に書く。
+#       写した先で PASS なら、tmp/.verify/last-pass も更新する。hooks は、これより新しいファイルがあるときだけ検証を回す。
+#       WARN と FAIL と、My-Lab の中で回したときは更新しない。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
 if [ "$(basename "$(dirname "$HERE")")" = "tmp" ]; then ROOT="$(cd "$HERE/../.." && pwd -P)"; RECORD_PREFIX="last"; else ROOT="$(cd "$HERE/.." && pwd -P)"; RECORD_PREFIX="project-verify-last"; fi
@@ -44,6 +46,8 @@ finish() {  # finish <最後の RESULT 行> <終了コード> → 出力し、tm
       printf '命令: bash tmp/tools/project-verify.sh --%s\n' "$MODE"
       printf '%s' "$SUMMARY"
       printf '%s\n' "$1"; } > "$ROOT/tmp/.verify/$RECORD_PREFIX-$MODE.txt"
+    # 写した先の PASS だけ、hooks の印（hooks/lib.sh の changed_since_pass が読む）を更新する
+    if [ "$2" -eq 0 ] && [ "$RECORD_PREFIX" = "last" ]; then touch "$ROOT/tmp/.verify/last-pass"; fi
   fi
   exit "$2"
 }
@@ -83,13 +87,19 @@ if [ -f Cargo.toml ] && command -v cargo >/dev/null 2>&1; then
   run "cargo test" cargo test --quiet
 fi
 proj_ran=$ran  # ここまでがプロジェクト自身の検証の命令。0 なら最後に WARN にする
-# 6. AI が書いた文書
-docs="$( { find tmp/flow -name '*.md' -type f 2>/dev/null; ls tmp/ISSUE_*.md tmp/PR_*.md 2>/dev/null; } | sort -u)"
-if [ -n "$docs" ]; then
-  # shellcheck disable=SC2086
-  run "check-file（tmp の文書 $(printf '%s\n' "$docs" | wc -l | tr -d ' ') 本）" bash "$HERE/check-file.sh" $docs
-  # shellcheck disable=SC2086
-  run "check-refs（tmp の文書 $(printf '%s\n' "$docs" | wc -l | tr -d ' ') 本）" bash "$HERE/check-refs.sh" $docs
+# 6. AI が書いた文書。1 行 1 本で配列に入れ、空白を含むパスも 1 本のまま渡す
+#    （bash 3.2 は空の配列の "${docs[@]}" を set -u で落とすので、本数を先に見る）
+#    一覧は変数に受けてヒアドキュメントで読む。プロセス置換 <( ) は、sh（POSIX の形の bash）で動かすと構文エラーになる
+docs=()
+doclist="$({ find tmp/flow -name '*.md' -type f 2>/dev/null; ls tmp/ISSUE_*.md tmp/PR_*.md 2>/dev/null; } | LC_ALL=C sort -u)"
+while IFS= read -r doc; do
+  [ -n "$doc" ] && docs+=("$doc")
+done <<EOF
+$doclist
+EOF
+if [ "${#docs[@]}" -gt 0 ]; then
+  run "check-file（tmp の文書 ${#docs[@]} 本）" bash "$HERE/check-file.sh" "${docs[@]}"
+  run "check-refs（tmp の文書 ${#docs[@]} 本）" bash "$HERE/check-refs.sh" "${docs[@]}"
 fi
 # 7. 秘密と依存（full。入っていれば）
 if [ "$MODE" = "full" ]; then
