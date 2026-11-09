@@ -15,6 +15,7 @@ tool="$(json_get tool_name "$input")"
 cmd="$(json_get tool_input.command "$input")"
 [ -n "$cmd" ] || exit 0
 root="$(project_root "$input")"
+export COMPANY_GUARD_PROJECT_ROOT="$root"   # 判定本体が、My-Lab の中の相対パス（hooks/ ほか）を見分けるのに使う
 
 line="$(bash "$HOOKS_DIR/guard-core.sh" --signal deny -- "$cmd")"
 decision="${line%%$'\t'*}"; reason="${line#*$'\t'}"

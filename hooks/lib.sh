@@ -155,12 +155,13 @@ guard_mode_file() { printf '%s' "${COMPANY_GUARD_MODE_FILE:-/usr/local/etc/compa
 #   1. 環境変数 COMPANY_GUARD_CURSOR_MODE（自己試験の差し替え）。
 #   2. root 所有の置き場 /usr/local/etc/company-guard/mode（社長が sudo で 1 回作る。AI の利用者権限では書けない）。
 #      置き場のフォルダがあれば、これだけを使い、~/.cursor は見ない。ファイルが無い・リンク・読めない・中身が deny と ask 以外・
-#      自分の権限で書ける（AI が置けた物）なら、deny に倒す（fail-closed）。
+#      自分の権限で書ける（ファイル・置き場のフォルダ・その親のどれか。AI が置けた物か、置き場ごと移せる物）なら、deny に倒す（fail-closed）。
 #   3. 置き場が無いときだけ、今までどおり ~/.cursor/company-guard.mode を読む（移行期の互換。無ければ ask）。
+#      置き場を「作る前」と「消された」は見分けられない。この Mac では親の /usr/local/etc と /usr/local が root 所有なので消せない。
 # shellcheck disable=SC2034  # GUARD_MODE と GUARD_MODE_WHY は呼んだ接続口が読む
 guard_mode() {
-  local f d v
-  f="$(guard_mode_file)"; d="$(dirname "$f")"
+  local f d p v
+  f="$(guard_mode_file)"; d="$(dirname "$f")"; p="$(dirname "$d")"
   GUARD_MODE="ask"; GUARD_MODE_WHY=""
   if [ -n "${COMPANY_GUARD_CURSOR_MODE:-}" ]; then
     [ "$COMPANY_GUARD_CURSOR_MODE" = "deny" ] && GUARD_MODE="deny"
@@ -171,6 +172,7 @@ guard_mode() {
     if [ -L "$f" ]; then GUARD_MODE_WHY="守りの設定（${f}）がリンクなので deny に倒す。"
     elif [ ! -f "$f" ]; then GUARD_MODE_WHY="守りの設定の置き場（${d}）はあるが、ファイルが無いので deny に倒す。"
     elif [ -w "$f" ] || [ -w "$d" ]; then GUARD_MODE_WHY="守りの設定（${f}）が自分の権限で書けるので deny に倒す。root 所有にする。"
+    elif [ -w "$p" ]; then GUARD_MODE_WHY="守りの設定の置き場の親（${p}）が自分の権限で書けるので deny に倒す。置き場ごと移せるため、親も root 所有にする。"
     elif ! v="$(tr -d '[:space:]' < "$f" 2>/dev/null)"; then GUARD_MODE_WHY="守りの設定（${f}）を読めないので deny に倒す。"
     else
       case "$v" in
@@ -212,6 +214,18 @@ real_path() {
   done
   return 1
 }
+
+# link_count <パス> → そのファイルが持つ名前の数（ハードリンクの数）。macOS と BSD は stat -f %l、Linux は stat -c %h。取れなければ空
+# Linux の stat -f はファイルシステムの情報で、%l は名前の長さの上限を返してしまうので、OS で分ける
+link_count() {
+  case "$(uname -s 2>/dev/null)" in
+    Darwin|*BSD*) stat -f %l "$1" 2>/dev/null || : ;;
+    *)            stat -c %h "$1" 2>/dev/null || : ;;
+  esac
+}
+
+# lower <文字列> → ASCII の大文字を小文字にした文字列。APFS は大文字小文字を区別しないので、パスの比較の前に両側をそろえる
+lower() { printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]'; }
 
 # log <文> → tmp/.verify/hooks.log に 1 行。コマンドの本文は書かない（秘密が混ざるため）
 log() {

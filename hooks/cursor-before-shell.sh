@@ -22,6 +22,7 @@ mode="$GUARD_MODE"
 
 if [ -z "$cmd" ]; then printf '{"permission":"allow"}\n'; exit 0; fi
 
+export COMPANY_GUARD_PROJECT_ROOT="$root"   # 判定本体が、My-Lab の中の相対パス（hooks/ ほか）を見分けるのに使う
 line="$(bash "$HOOKS_DIR/guard-core.sh" --signal deny -- "$cmd")"
 decision="${line%%$'\t'*}"; reason="${line#*$'\t'}"
 if [ "$decision" = "ask" ] && [ "$mode" = "deny" ]; then

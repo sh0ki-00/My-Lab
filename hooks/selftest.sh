@@ -17,6 +17,19 @@ expect() {
   got="$(bash "$CORE" --signal "$mode" -- "$cmd" | cut -f1)"
   if [ "$got" = "$want" ]; then ok; else bad "判定: 期待 $want / 実際 $got : $cmd"; fi
 }
+# expect_at <root> <期待> <コマンド> → プロジェクトの root を渡して判定を見る。My-Lab の中の相対パス（hooks/ ほか）の判定は root で変わる
+expect_at() {
+  local root="$1" want="$2" cmd="$3" got
+  got="$(COMPANY_GUARD_PROJECT_ROOT="$root" bash "$CORE" -- "$cmd" | cut -f1)"
+  if [ "$got" = "$want" ]; then ok; else bad "判定(root=$root): 期待 $want / 実際 $got : $cmd"; fi
+}
+# expect_fake_lab <期待> <コマンド> → My-Lab が家の下（~/my-lab-selftest）にあるものとして判定を見る。~ と $HOME からの書き方を試すため
+expect_fake_lab() {
+  local want="$1" cmd="$2" got
+  got="$(LAB_ROOT="$HOME/my-lab-selftest" COMPANY_GUARD_PROJECT_ROOT="$HOME/my-lab-selftest" bash "$CORE" -- "$cmd" | cut -f1)"
+  if [ "$got" = "$want" ]; then ok; else bad "判定(家の下の My-Lab): 期待 $want / 実際 $got : $cmd"; fi
+}
+export COMPANY_GUARD_PROJECT_ROOT="$LAB_ROOT"   # 1 の判定は My-Lab の中で動いているものとして見る（接続口は自分の root で上書きする）
 
 # ---- 1. 判定表
 # 1a. 関所 2（外に出る操作）→ ask
@@ -211,6 +224,153 @@ expect allow deny 'grep -n company-guard hooks/lib.sh'
 expect allow deny 'echo hi > tmp/out.txt'
 expect allow deny 'sed -n 1,20p hooks/cursor-before-shell.sh'
 expect allow deny 'rm -f /tmp/x/.cursor-cache'
+# 1e-3. 大文字小文字（APFS では RM も /bin/rm、~/.Cursor も同じ場所）とグロブ（* ? [ {）で崩した書き方 → deny。読みと他の名前の下は allow
+expect deny deny 'RM ~/.cursor/company-guard.mode'
+expect deny deny 'rm ~/.Cursor/company-guard.mode'
+expect deny deny 'Rm -rf /Users/s-furutani/.CURSOR'
+expect deny deny 'rm ~/.c*/company-g*'
+expect deny deny 'rm -rf ~/.[c]ursor/hooks.js*n'
+expect deny deny 'rm ~/.?ursor/company-g*'
+expect deny deny 'rm -rf ~/{.cursor,.claude}/hooks.js*n'
+expect deny deny 'cp /tmp/x /Users/*/.c*/hooks.json'
+expect deny deny 'rm -rf /U*/s-furutani/.cursor/hooks.json'
+# shellcheck disable=SC2016  # $HOME は判定本体に渡す文字列。わざと展開しない
+expect deny deny 'mv $HOME/.c*/hooks.json /tmp/'
+expect deny deny 'rm ~/.claude/sett*'
+expect deny deny 'rm -rf ~/.claude/h*/'
+expect deny deny 'chmod -R a+w ~/.[c]laude'
+expect deny deny 'printf ask > ~/.c*/company-g*'
+expect deny deny 'rm -rf /usr/local/etc/company-g*'
+expect deny deny 'echo ask > /usr/local/etc/comp*/mode'
+expect allow deny 'ls ~/.c*/'
+expect allow deny 'cat ~/.c*/company-guard.mode'
+expect allow deny 'ls /usr/local/etc/*'
+expect allow deny 'rm -rf ~/.cache/*'
+expect allow deny 'rm -rf ~/Downloads/*.tmp'
+expect allow deny 'chmod 600 ~/.ssh/*'
+expect allow deny 'rm ~/*.log'
+expect allow deny 'rm -rf tmp/.verify/*'
+expect allow deny 'cp tmp/flow/*/design.md /tmp/'
+
+# 1g. hooks の登録と本体への Bash の書き込み・削除・移動・権限の変更 → deny（Write・Edit の門と同じ場所）。読みと検査は allow
+#     1 の判定は My-Lab の中（COMPANY_GUARD_PROJECT_ROOT=LAB_ROOT）として見るので、hooks/ の相対パスも対象
+expect deny deny 'cp x hooks/guard-core.sh'
+expect deny deny 'cp x ./hooks/guard-core.sh'
+expect deny deny 'cp x ../hooks/guard-core.sh'
+expect deny deny 'cp x tmp/../hooks/guard-core.sh'
+expect deny deny "cp x $LAB_ROOT/hooks/guard-core.sh"
+expect deny deny "cp x $(printf '%s' "$LAB_ROOT/hooks/guard-core.sh" | tr '[:lower:]' '[:upper:]')"
+expect deny deny 'cp -r /tmp/hooks-new/ hooks/'
+expect deny deny 'cp x hooks/lib.sh && echo done'
+expect deny deny 'echo x > hooks/lib.sh'
+expect deny deny 'echo x >> hooks/lib.sh'
+expect deny deny 'echo x >| hooks/lib.sh'
+expect deny deny 'echo x &> hooks/lib.sh'
+expect deny deny 'echo x >hooks/lib.sh'
+expect deny deny 'cat /tmp/x | tee hooks/lib.sh'
+expect deny deny 'tee -a hooks/lib.sh < /tmp/x'
+expect deny deny 'mv hooks/lib.sh /tmp/'
+expect deny deny 'mv hooks/a.sh hooks/b.sh'
+expect deny deny 'mv hooks hooks2'
+expect deny deny 'rm hooks/claude-preedit.sh'
+expect deny deny 'rm -rf hooks'
+expect deny deny 'RM -RF HOOKS'
+expect deny deny '/bin/rm hooks/lib.sh'
+expect deny deny 'true;rm hooks/lib.sh'
+expect deny deny 'true && rm -f hooks/lib.sh'
+expect deny deny '(rm hooks/lib.sh)'
+expect deny deny 'ln hooks/guard-core.sh /tmp/x'
+expect deny deny 'ln ~/.claude/settings.json /tmp/x'
+expect deny deny 'ln -s ~/.claude/settings.json /tmp/x'
+expect deny deny 'sed -i "" s/a/b/ hooks/lib.sh'
+expect deny deny 'sed -i.bak s/a/b/ ~/.claude/settings.json'
+expect deny deny 'sed -E -i s/a/b/ hooks/lib.sh'
+expect deny deny 'sed s/a/b/ -i hooks/lib.sh'
+expect deny deny 'perl -pi -e s/a/b/ hooks/lib.sh'
+expect deny deny 'install -m 755 x hooks/x.sh'
+expect deny deny 'dd if=/dev/zero of=hooks/lib.sh'
+expect deny deny 'chmod 777 hooks/lib.sh'
+expect deny deny 'chmod +x hooks/*.sh'
+expect deny deny 'chmod -R a+w hooks'
+expect deny deny 'chflags uchg hooks/lib.sh'
+expect deny deny 'truncate -s 0 hooks/lib.sh'
+expect deny deny 'patch hooks/lib.sh < /tmp/d'
+expect deny deny 'echo {} > ~/.claude/settings.json'
+expect deny deny 'echo x >> ~/.claude/CLAUDE.md'
+expect deny deny 'echo x >> ~/.claude/claude.md'
+expect deny deny 'cp x ~/.claude/hooks/y.sh'
+expect deny deny 'rm -rf ~/.claude/hooks'
+expect deny deny 'rm /Users/s-furutani/.claude/settings.json'
+# shellcheck disable=SC2016  # $HOME と ${HOME} は判定本体に渡す文字列。わざと展開しない
+expect deny deny 'cp x $HOME/.claude/CLAUDE.md'
+# shellcheck disable=SC2016  # 同上
+expect deny deny 'cp x ${HOME}/.claude/settings.json'
+expect deny deny 'cp /tmp/s.json .claude/settings.json'
+expect deny deny 'cp /tmp/h.json .cursor/hooks.json'
+expect deny deny 'mv /tmp/h.json .cursor/hooks.json'
+expect deny deny 'python3 -c "open(\"hooks/lib.sh\",\"w\").write(\"x\")"'
+expect deny deny 'python3 -c "import os; open(\"hooks/lib.sh\",\"w\")"'
+expect deny deny 'perl -e "open(F,\">hooks/lib.sh\")"'
+expect deny deny 'node -e "require(\"fs\").writeFileSync(\"hooks/lib.sh\",\"x\")"'
+expect deny deny 'git checkout main -- hooks/guard-core.sh'
+expect deny deny 'git restore hooks/lib.sh'
+# shellcheck disable=SC2016  # $f と $F は判定本体に渡す文字列。わざと展開しない
+expect deny deny 'f=hooks/lib.sh; echo x > $f'
+# shellcheck disable=SC2016  # 同上
+expect deny deny 'f=~/.claude/settings.json; cp /tmp/x $f'
+# shellcheck disable=SC2016  # 同上
+expect deny deny "F=$LAB_ROOT/hooks/lib.sh; rm \$F"
+# 家の下にある My-Lab（~/my-lab-selftest と見立てる）への、~ と $HOME からの書き方
+expect_fake_lab deny 'cp x ~/my-lab-selftest/hooks/x.sh'
+# shellcheck disable=SC2016  # $HOME は判定本体に渡す文字列。わざと展開しない
+expect_fake_lab deny 'cp x $HOME/my-lab-selftest/hooks/x.sh'
+expect_fake_lab deny 'cp x ~/My-Lab-Selftest/.claude/settings.json'
+expect_fake_lab deny 'cp x hooks/x.sh'
+expect_fake_lab allow 'cat ~/my-lab-selftest/hooks/x.sh'
+# 読みと検査、写す元が hooks/、他の場所への書き込みは allow のまま
+expect allow deny 'cat ~/.claude/settings.json'
+expect allow deny 'git diff hooks/'
+expect allow deny 'git diff -U3 -- hooks'
+expect allow deny 'git log --oneline -- hooks/'
+expect allow deny 'git add hooks/lib.sh'
+expect allow deny 'ls ~/.claude/hooks'
+expect allow deny 'ls -la ~/.claude/'
+expect allow deny 'cp .cursor/hooks.json /tmp/'
+expect allow deny 'cp .claude/settings.json /tmp/'
+expect allow deny 'cp hooks/lib.sh /tmp/lib.sh'
+expect allow deny 'cp -r hooks /tmp/hooks-backup'
+expect allow deny 'cp -r hooks/ tmp/hooks-copy/'
+expect allow deny 'echo x > tmp/hooks.log'
+expect allow deny 'rm -f tmp/.verify/hooks.log'
+expect allow deny 'rm -rf tmp/hooks'
+expect allow deny 'ln -s ../skills .cursor/skills'
+expect allow deny 'sed -n "/^if/p" hooks/lib.sh'
+expect allow deny 'sed -E "s/(x)/\1/" hooks/lib.sh'
+expect allow deny 'LC_ALL=C bash hooks/selftest.sh > tmp/out.txt 2>&1'
+expect allow deny 'shellcheck -x -P . hooks/*.sh'
+expect allow deny 'python3 -I tools/lib/check_var_brace.py hooks/*.sh'
+expect allow deny 'bash tools/check-file.sh hooks/lib.sh'
+expect allow deny 'grep -rn hooks docs/'
+expect allow deny 'diff hooks/lib.sh /tmp/lib.sh'
+expect allow deny 'wc -l hooks/*.sh'
+expect allow deny 'jq . .claude/settings.json'
+expect allow deny 'cat .cursor/hooks.json'
+expect allow deny 'tar czf /tmp/h.tgz hooks'
+expect allow deny 'rm -rf tmp/.verify && bash hooks/selftest.sh'
+expect allow deny 'mkdir -p tmp/.verify; rm -f tmp/.verify/hooks.log; bash hooks/selftest.sh'
+expect allow deny 'chmod +x .git/hooks/pre-commit'
+expect allow deny 'chmod +x .husky/pre-commit'
+expect allow deny 'git checkout -b fix/hooks-x'
+# shellcheck disable=SC2016  # $OUT は判定本体に渡す文字列。わざと展開しない
+expect allow deny 'cat hooks/lib.sh > $OUT'
+# 他のプロジェクト（root が My-Lab の外）では、hooks/ と .claude/settings.json の相対パスは見ない。家と My-Lab の絶対パスは見る
+expect_at / allow 'cp x hooks/guard-core.sh'
+expect_at / allow 'mv hooks/useFoo.ts hooks/useBar.ts'
+expect_at / allow 'rm -rf hooks'
+expect_at / allow 'cp /tmp/s.json .claude/settings.json'
+expect_at / deny "cp x $LAB_ROOT/hooks/guard-core.sh"
+expect_at / deny 'echo {} > ~/.claude/settings.json'
+expect_at / deny 'rm -rf ~/.claude/hooks'
 
 # 1f. 符号化した命令。復号した結果をシェルに渡す 5 つの書き方 → ask
 expect ask deny 'echo Z2l0IHB1c2g= | base64 -d | sh'
@@ -297,6 +457,12 @@ run claude-pretooluse.sh "$(cj 'APPROVE_GIT=1 git commit -m x')"
 assert "Claude PreToolUse: 合図は deny" has_out '"permissionDecision":"deny"'
 run claude-pretooluse.sh '{"tool_name":"Read","tool_input":{"file_path":"/x"}}'
 assert "Claude PreToolUse: Bash 以外は何も出さない" no_out
+CLAUDE_PROJECT_DIR="$LAB_ROOT" run claude-pretooluse.sh "$(cj 'cp x hooks/guard-core.sh')"
+assert "Claude PreToolUse(My-Lab の中): hooks/ への cp は deny" has_out '"permissionDecision":"deny"'
+run claude-pretooluse.sh "$(cj 'cp x hooks/guard-core.sh')"
+assert "Claude PreToolUse(他のプロジェクト): hooks/ への cp は何も出さない" no_out
+run claude-pretooluse.sh "$(cj 'ln ~/.claude/settings.json /tmp/x')"
+assert "Claude PreToolUse: ~/.claude/settings.json へのハードリンクは deny" has_out '"permissionDecision":"deny"'
 mkdir -p "$T/.claude" && printf '{"hooks":{"PreToolUse":[{"hooks":[{"command":"hooks/claude-pretooluse.sh"}]}]}}' > "$T/.claude/settings.json"
 run claude-pretooluse.sh "$(cj 'git commit -m x')" --global
 assert "Claude PreToolUse --global: 判定は残す" has_out '"permissionDecision":"ask"'
@@ -325,6 +491,26 @@ edit Write "$T/proj2/link";                         assert "preedit: mode のフ
 edit Write "$T/proj2/../.cursor/company-guard.mode"; assert "preedit: .. で隠したパスは deny" has_out '"permissionDecision":"deny"'
 edit Write ".cursor/company-guard.mode";            assert "preedit: 相対パス（cwd が HOME）は deny" has_out '"permissionDecision":"deny"'
 edit Write "$T/.CURSOR/company-guard.mode";         assert "preedit: 大文字小文字を変えたパス（APFS）は deny" has_out '"permissionDecision":"deny"'
+# 最後の名前（basename）だけ大文字にした書き方。real_path はフォルダは本当の綴りに直すが、最後の名前は打たれたまま返すので、比較で小文字にそろえる
+printf '{}\n' > "$T/.claude/settings.json"
+edit Write "$T/.claude/SETTINGS.JSON";              assert "preedit: ある settings.json の最後の名前だけ大文字にしても deny" has_out '"permissionDecision":"deny"'
+edit Edit "$T/.claude/Settings.json";               assert "preedit: Settings.json も deny" has_out '"permissionDecision":"deny"'
+edit Edit "$T/.claude/CLAUDE.MD";                   assert "preedit: CLAUDE.MD は deny" has_out '"permissionDecision":"deny"'
+edit Write "$T/.Claude/Hooks/x.sh";                 assert "preedit: ~/.Claude/Hooks の下は deny" has_out '"permissionDecision":"deny"'
+edit Edit "$LAB_ROOT/.claude/SETTINGS.json";        assert "preedit: My-Lab の .claude/SETTINGS.json は deny" has_out '"permissionDecision":"deny"'
+edit Edit "$LAB_ROOT/.cursor/HOOKS.JSON";           assert "preedit: My-Lab の .cursor/HOOKS.JSON は deny" has_out '"permissionDecision":"deny"'
+edit Write "$(printf '%s' "$HOOKS_DIR/GUARD-CORE.SH" | tr '[:lower:]' '[:upper:]')"; assert "preedit: My-Lab の hooks/ を全部大文字にしても deny" has_out '"permissionDecision":"deny"'
+# ハードリンク。別の名前から同じ中身を書き換える道は、パスの比較では見分けられないので、名前が 2 つ以上のファイルは deny
+ln "$T/.claude/settings.json" "$T/proj2/alias.json"
+edit Edit "$T/proj2/alias.json";                    assert "preedit: ~/.claude/settings.json のハードリンクは deny" has_out '"permissionDecision":"deny"'
+assert "preedit: ハードリンクの理由を言う" has_out 'ハードリンク'
+rm -f "$T/proj2/alias.json"
+printf 'a\n' > "$T/proj2/one.txt"
+edit Edit "$T/proj2/one.txt";                       assert "preedit: 名前が 1 つのふつうのファイルは何も出さない" no_out
+ln "$T/proj2/one.txt" "$T/proj2/two.txt"
+edit Edit "$T/proj2/two.txt";                       assert "preedit: 守りの外でも名前が 2 つあるファイルは deny" has_out '"permissionDecision":"deny"'
+rm -f "$T/proj2/two.txt"
+edit Edit "$T/proj2/one.txt";                       assert "preedit: リンクを外せば書ける" no_out
 edit Write "$T/proj2/README.md";                    assert "preedit: ふつうのファイルは何も出さない" no_out
 edit Write "$LAB_ROOT/tmp/flow/x/design.md";        assert "preedit: My-Lab の tmp/flow は何も出さない" no_out
 edit Edit "$LAB_ROOT/README.md";                    assert "preedit: My-Lab の README は何も出さない" no_out
@@ -400,8 +586,9 @@ assert "Cursor before-shell(mode のファイルが deny): 先頭に合図があ
 # 2d-2. root 所有の置き場（COMPANY_GUARD_MODE_FILE で差し替え）。あればそれだけを使い、壊れていれば deny に倒す（fail-closed）
 MF="$T/etc/company-guard/mode"; MD="$T/etc/company-guard"
 cmt() { COMPANY_GUARD_CURSOR_MODE='' HOME="$T" COMPANY_GUARD_MODE_FILE="$MF" run cursor-before-shell.sh '{"command":"git commit -m x","cwd":"'"$T"'"}'; }
-lock()   { chmod 444 "$MF" 2>/dev/null; chmod 555 "$MD"; }   # root 所有と同じく、自分の権限では書けない形にする
-unlock() { chmod 755 "$MD"; chmod 644 "$MF" 2>/dev/null; }
+MP="$T/etc"   # 置き場の親。root 所有の /usr/local/etc に当たる
+lock()   { chmod 444 "$MF" 2>/dev/null; chmod 555 "$MD" "$MP"; }   # root 所有と同じく、ファイル・置き場・親のどれも自分の権限では書けない形にする
+unlock() { chmod 755 "$MP" "$MD"; chmod 644 "$MF" 2>/dev/null; }
 printf 'ask\n' > "$T/.cursor/company-guard.mode"            # 互換の側は ask と言わせておく
 mkdir -p "$MD"
 cmt; assert "Cursor(root の置き場: フォルダだけでファイルが無い): deny に倒す" has_out '"permission":"deny"'
@@ -409,6 +596,9 @@ assert "Cursor(root の置き場: ファイルが無い): 理由を言う" has_o
 printf 'ask\n' > "$MF"
 cmt; assert "Cursor(root の置き場: 自分の権限で書ける): deny に倒す" has_out '"permission":"deny"'
 assert "Cursor(root の置き場: 自分の権限で書ける): 理由を言う" has_out '自分の権限で書ける'
+chmod 444 "$MF"; chmod 555 "$MD"                            # ファイルと置き場は書けないが、親は書ける（置き場ごと移せる）
+cmt; assert "Cursor(root の置き場: 親フォルダが自分の権限で書ける): deny に倒す" has_out '"permission":"deny"'
+assert "Cursor(root の置き場: 親フォルダが書ける): 理由を言う" has_out '置き場の親'
 lock
 cmt; assert "Cursor(root の置き場: ask で書けない): ask。互換の側は読まない" has_out '"permission":"ask"'
 unlock; printf 'deny\n' > "$MF"; printf 'ask\n' > "$T/.cursor/company-guard.mode"; lock
@@ -418,9 +608,10 @@ COMPANY_GUARD_CURSOR_MODE='' HOME="$T" COMPANY_GUARD_MODE_FILE="$MF" run cursor-
 assert "Cursor(root の置き場: deny): 読むだけは allow のまま" has_out '"permission":"allow"'
 unlock; printf 'maybe\n' > "$MF"; lock
 cmt; assert "Cursor(root の置き場: 中身が deny でも ask でもない): deny に倒す" has_out '"permission":"deny"'
-unlock; printf 'ask\n' > "$MF"; chmod 000 "$MF"; chmod 555 "$MD"
+unlock; printf 'ask\n' > "$MF"; chmod 000 "$MF"; chmod 555 "$MD" "$MP"
 cmt; assert "Cursor(root の置き場: 読めない): deny に倒す" has_out '"permission":"deny"'
-unlock; rm -f "$MF"; ln -s "$T/.cursor/company-guard.mode" "$MF"; chmod 555 "$MD"
+assert "Cursor(root の置き場: 読めない): 理由を言う" has_out '読めない'
+unlock; rm -f "$MF"; ln -s "$T/.cursor/company-guard.mode" "$MF"; chmod 555 "$MD" "$MP"
 cmt; assert "Cursor(root の置き場: リンク): deny に倒す" has_out '"permission":"deny"'
 unlock; rm -rf "${T:?}/etc"
 printf 'deny\n' > "$T/.cursor/company-guard.mode"
