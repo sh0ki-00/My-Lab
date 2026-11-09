@@ -50,10 +50,15 @@ new_project() {
 new_lab() { mkdir -p "$1" && cp -R "$LAB/tools" "$1/tools"; }
 
 # unit_test <プロジェクト> <値> → tests/test_app.py。値が 1 なら通り、それ以外なら落ちる
+#   project-verify.sh は、これを自動では回さない。回すときは commands_file で tmp/verify-commands.txt に書く
 unit_test() {
   mkdir -p "$1/tests"
   printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_one(self):\n        self.assertEqual(1, %s)\n' "$2" > "$1/tests/test_app.py"
 }
+
+# commands_file <プロジェクト> <命令...> → 社長が書く検証の命令のファイル tmp/verify-commands.txt に、1 行 1 命令で書く
+commands_file() { local p="$1"; shift; printf '%s\n' "$@" > "$p/tmp/verify-commands.txt"; }
+UNITTEST_CMD='python3 -m unittest discover -s tests'
 
 # good_doc <ファイル> → 文体と資料の型の検査を通る文書（tools/placement-test.sh の見本と同じ中身）
 good_doc() {
@@ -152,6 +157,7 @@ cases_last_pass() {
   P="$B/verify pass"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
   unit_test "$P" 1
+  commands_file "$P" "$UNITTEST_CMD"
   out="$(verify "$L" "$P")"; rc=$?
   # 文書が 1 本も無い置き場でも、bash 3.2 の set -u で落ちない
   if printf '%s\n' "$out" | grep -q 'unbound variable'; then ng "no-docs$s" "文書が無いと set -u で落ちる"
@@ -174,6 +180,7 @@ cases_last_pass() {
   V="$P/tmp/.verify"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
   unit_test "$P" 1
+  commands_file "$P" "$UNITTEST_CMD"
   mkdir -p "$P/src"
   printf 'x = 1\n' > "$P/src/app.py"
   out="$(stop_hook "$L" "$P")"
@@ -201,20 +208,23 @@ cases_last_pass() {
   if [ "$ran4" = yes ] && [ -z "$out4" ]; then ok "stop-runs-after-delete$s"
   else ng "stop-runs-after-delete$s" "消したあとの Stop で回った=${ran4}（yes のはず）$(printf '%s' "$out4" | head -c 120)"; fi
 
-  # FAIL と WARN と、My-Lab の中で回したときは、印を書かない
+  # FAIL（命令のファイルに書いた試験が落ちる）と、My-Lab の中で回したときは、印を書かない
   P="$B/verify fail"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
   unit_test "$P" 2
+  commands_file "$P" "$UNITTEST_CMD"
   out="$(verify "$L" "$P")"; rc=$?
   if [ "$rc" -eq 1 ] && [ ! -e "$P/tmp/.verify/last-pass" ]; then ok "no-mark-on-fail$s"
   else ng "no-mark-on-fail$s" "rc=${rc}（1 のはず）。印が$(exists "$P/tmp/.verify/last-pass")"; fi
-  P="$B/verify warn"
+  # 命令のファイルが無い置き場では、落ちる試験があっても自動では回さず、PASS（終了コード 0）で印を書く
+  P="$B/verify nocmd"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
+  unit_test "$P" 2
   mkdir -p "$P/src"
   printf 'x = 1\n' > "$P/src/app.py"
   out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 3 ] && [ ! -e "$P/tmp/.verify/last-pass" ]; then ok "no-mark-on-warn$s"
-  else ng "no-mark-on-warn$s" "rc=${rc}（3 のはず）。印が$(exists "$P/tmp/.verify/last-pass")"; fi
+  if [ "$rc" -eq 0 ] && [ -f "$P/tmp/.verify/last-pass" ] && ! printf '%s\n' "$out" | grep -q 'unittest'; then ok "no-commands-pass$s"
+  else ng "no-commands-pass$s" "rc=${rc}（0 のはず）。印が$(exists "$P/tmp/.verify/last-pass")。$(first_fail "$out")"; fi
   P="$B/lab"
   unit_test "$P" 1
   out="$(verify "$L" "$P" tools)"; rc=$?

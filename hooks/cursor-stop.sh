@@ -33,7 +33,7 @@ log "cursor stop rc=$rc ($cmd)"
 if [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]; then snapshot_tree "$root"; done_quiet; fi
 summary="$(printf '%s\n' "$out" | grep -E '^(FAIL|RESULT:)' | head -20)"
 [ -n "$summary" ] || summary="$(printf '%s\n' "$out" | tail -20)"
-msg="作業を終える前の検証（${cmd}）が FAIL です。次を直してから、もう一度終えてください。FAIL のあいだは「完了」と書きません。
+msg="作業を終える前の検証（${cmd}）が FAIL です。直すのは、この依頼で自分が変えたファイルだけです。範囲外の FAIL（前から落ちている試験、触っていないファイル）は直さず、報告に書いて終えてください。指示されていないファイルは変えません。FAIL のあいだは「完了」と書きません。
 $summary"
 printf '{"followup_message":%s}\n' "$(json_str "$msg")"
 exit 0
