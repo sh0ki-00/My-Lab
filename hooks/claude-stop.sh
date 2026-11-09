@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # hooks/claude-stop.sh — Claude Code の Stop 接続口。作業を終える前に検証を回す。
 # FAIL なら {"decision":"block","reason":...} を返し、直すまで終われないようにする。
+# 通ったら、今のファイルの一覧を tmp/.verify/last-pass.list に残す。次の Stop は、消しただけ・名前を変えただけの変更もこれで見つける。
 # 上限: この hook の指示で続けた回数（stop_hook_active が true のとき）が 3 回に達したら、FAIL のままでも止めて記録に残す。
 # 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、重ねて回さない。
 set -u
@@ -29,6 +30,7 @@ out="$(cd "$root" && eval "$cmd" 2>&1)"; rc=$?
 log "claude stop rc=$rc ($cmd)"
 if [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ]; then
   [ "$rc" -eq 3 ] && log "claude stop: 回す検証の命令が無い（WARN）。止めずに伝える"
+  snapshot_tree "$root"
   stop_count "$sid" reset >/dev/null
   exit 0
 fi
