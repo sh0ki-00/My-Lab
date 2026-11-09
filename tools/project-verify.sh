@@ -10,7 +10,7 @@
 #   RESULT: WARN project-verify（回す検証の命令が無い）を出して終了コード 3 にする。
 # 記録: <root>/tmp/.verify/last-fast.txt（--full なら last-full.txt）に、日時と命令ごとの RESULT 行と最後の RESULT 行を書く。
 #       My-Lab の中で回したときは、verify-all.sh の記録を上書きしないよう project-verify-last-<mode>.txt に書く。
-#       写した先で PASS なら、tmp/.verify/last-pass も更新する。hooks は、これより新しいファイルがあるときだけ検証を回す。
+#       写した先で PASS なら、tmp/.verify/last-pass も更新する。hooks は、これより新しいファイルがあるか、通ったときの一覧とファイルの一覧が違うときに検証を回す。
 #       WARN と FAIL と、My-Lab の中で回したときは更新しない。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1

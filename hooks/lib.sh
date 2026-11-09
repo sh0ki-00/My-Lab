@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # hooks/lib.sh — 接続口（claude-*.sh、cursor-*.sh）の共通部品。判定はしない。
-# JSON の読み書き、プロジェクトの root と検証の道具の場所の解決、記録だけを持つ。
+# JSON の読み書き、プロジェクトの root と検証の道具の場所の解決、ファイルの一覧の記録と比較、記録だけを持つ。
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -101,12 +101,37 @@ project_registers() {
   esac
 }
 
-# changed_since_pass <root> → 最後に検証が PASS したあとに直したファイルがあれば 0。印が無ければ 0
+# find_tree <root> <find の式...> → root の下のファイルを find で探す。node_modules、.git、.verify、dist、build、.next、target、vendor は見ない
+find_tree() {
+  local r="$1"; shift
+  find "$r" \( -name node_modules -o -name .git -o -name .verify -o -name dist -o -name build -o -name .next -o -name target -o -name vendor \) -prune -o -type f "$@" 2>/dev/null
+}
+
+# tree_list <root> → root の下のファイルの一覧（root からの相対パス、./ 始まり）を、文字の設定によらない順に並べて標準出力に書く
+tree_list() {
+  (cd "$1" 2>/dev/null && find_tree . -print | LC_ALL=C sort)
+}
+
+# snapshot_tree <root> → 今のファイルの一覧を tmp/.verify/last-pass.list に書く。接続口が、検証が通った直後に呼ぶ。書けなくても 0
+snapshot_tree() {
+  local r="$1"
+  local list="$r/tmp/.verify/last-pass.list"
+  mkdir -p "$(dirname "$list")" 2>/dev/null || return 0
+  if tree_list "$r" > "$list.tmp" 2>/dev/null; then mv -f "$list.tmp" "$list" 2>/dev/null; else rm -f "$list.tmp" 2>/dev/null; fi
+  return 0
+}
+
+# changed_since_pass <root> → 最後に検証が PASS したあとに、ファイルを直した・足した・消した・名前を変えたなら 0
+# 印（tmp/.verify/last-pass）より新しいファイルがあるか、今の一覧が印のときの一覧（last-pass.list）と違えば「変わった」。
+# 印か一覧が無ければ 0（分からないときは、検証を回す側に倒す）
 changed_since_pass() {
   local r="$1"
-  local stamp="$r/tmp/.verify/last-pass"
+  local stamp="$r/tmp/.verify/last-pass" list="$r/tmp/.verify/last-pass.list"
   [ -f "$stamp" ] || return 0
-  [ -n "$(find "$r" \( -name node_modules -o -name .git -o -name .verify -o -name dist -o -name build -o -name .next -o -name target -o -name vendor \) -prune -o -type f -newer "$stamp" -print -quit 2>/dev/null)" ]
+  [ -f "$list" ] || return 0
+  [ -z "$(find_tree "$r" -newer "$stamp" -print -quit)" ] || return 0
+  if tree_list "$r" | cmp -s - "$list"; then return 1; fi
+  return 0
 }
 
 # stop_count <session> [reset|bump] → Stop の指示で続けた回数（セッションごと）。上限は接続口が決める

@@ -4,7 +4,7 @@
 #   --full : fast に加えて 3 図の実描画、5 試験ケース、7 配置の試験、10 見本アプリの実測、11 秘密と依存
 # 出力: 検証ごとの RESULT 行と、最後に RESULT: PASS|FAIL verify-all。1 つでも FAIL なら終了コード 1。
 # 記録: --full は docs/verify/<日付>.md に書く（同じ日は実行の節を足す）。--fast は tmp/.verify/last-fast.txt に書く。
-#       PASS なら tmp/.verify/last-pass を更新し、hooks はこれより新しいファイルがあるときだけ検証を回す。
+#       PASS なら tmp/.verify/last-pass を更新する。hooks は、これより新しいファイルがあるか、通ったときの一覧（last-pass.list）とファイルの一覧が違うときに検証を回す。
 # 道具が無いことによる SKIP は FAIL と同じに扱う。SKIP の行は出さない。
 set -u
 TOOLS="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
@@ -34,11 +34,12 @@ NAMES=(); RESULTS=(); NOTES=(); DURS=()
 T_START=$(date +%s)
 
 # ---- 部品
-md_files()      { find . -path ./node_modules -prune -o -path ./tmp -prune -o -path ./.git -prune -o \( -name '*.md' -o -name '*.mdc' \) -type f -print | sort; }
+# 除外: どの階層の node_modules と .git、tmp/、.claude/worktrees/（アプリが作る別の作業ツリー。中に node_modules も入る）
+md_files()      { find . -name node_modules -prune -o -path ./tmp -prune -o -name .git -prune -o -path ./.claude/worktrees -prune -o \( -name '*.md' -o -name '*.mdc' \) -type f -print | sort; }
 doc_files()     { md_files | grep -E '^\./(docs/|README\.md$|skills/[^/]+/(references|examples)/)' || true; }
 mermaid_files() { md_files | xargs grep -l '^```mermaid' 2>/dev/null || true; }
-sh_files()      { find . -path ./node_modules -prune -o -path ./tmp -prune -o -path ./.git -prune -o -name '*.sh' -type f -print | sort; }
-json_files()    { find . -path ./node_modules -prune -o -path ./tmp -prune -o -path ./.git -prune -o -name '*.json' -type f -print | sort; }
+sh_files()      { find . -name node_modules -prune -o -path ./tmp -prune -o -name .git -prune -o -path ./.claude/worktrees -prune -o -name '*.sh' -type f -print | sort; }
+json_files()    { find . -name node_modules -prune -o -path ./tmp -prune -o -name .git -prune -o -path ./.claude/worktrees -prune -o -name '*.json' -type f -print | sort; }
 need() { command -v "$1" >/dev/null 2>&1 || { printf 'FAIL [道具が無い] %s が入っていない（SKIP は FAIL と同じ。段階 0 で入れた道具が消えている）\n' "$1"; return 1; }; }
 
 step() {  # step <番号> <名前> <コマンド...> → 実行し、結果を記録する
