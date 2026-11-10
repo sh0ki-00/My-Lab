@@ -133,6 +133,10 @@ cat > "$DEST/tmp/DEPLOYED.md" <<EOF
 | Claude Code | \`~/.claude/CLAUDE.md\`（無ければ作る） | 全プロジェクト。接続の全体は \`tmp/claude-code.md\` の 2 節 |
 | Cursor | Cursor Settings → Rules → User Rules | 全プロジェクト |
 
+## ファイルの道具で \`tmp/\` が見えないとき
+
+この \`tmp/\` は git の無視の対象です。Cursor の AI は、git が無視するファイルをファイルを探す道具で読めないことがあります。AI は、無いと言う前にターミナルで \`ls -la tmp/.company\` を回し、あれば \`cat\` で読みます。
+
 ## 更新と検証
 
 更新するときは、正本で \`./deploy.sh $DEST\` を回すか、同じものを手でコピーし直します。
