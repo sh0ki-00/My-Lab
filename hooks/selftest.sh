@@ -536,6 +536,15 @@ COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJA"; COMPANY_GUARD_VERIFY_C
 assert "Claude Stop: 続きの指示は 3 回目まで block" has_out '"decision":"block"'
 COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJA"
 assert "Claude Stop: 4 回目は上限で止める" no_out
+# 印（stop_hook_active）を送らない呼び手（Claude Code 形式の接続口を Cursor が回すとき）でも、回数だけで止まる
+rm -f "$LAB_ROOT/tmp/.verify/stop-count-selftest-$$"
+SJN='{"session_id":"selftest-'"$$"'","cwd":"'"$T"'","hook_event_name":"Stop"}'
+COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJN"; COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJN"; COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJN"
+assert "Claude Stop（印なし）: 続きの指示は 3 回目まで block" has_out '"decision":"block"'
+COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJN"
+assert "Claude Stop（印なし）: 4 回目は上限で止める" no_out
+COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJ"
+assert "Claude Stop: 上限のあとの新しい依頼（印が false）は、また block" has_out '"decision":"block"'
 rm -f "$LAB_ROOT/tmp/.verify/stop-count-selftest-$$"
 
 # 2c. Claude Code PostToolUse
