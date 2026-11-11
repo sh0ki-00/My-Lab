@@ -12,6 +12,7 @@
 | 重さ | 〈通知の名前〉 |
 | 数値 | 〈実測か架空か。計算した値はその元の値〉 |
 | 使った Runbook | `〈runbooks/名前.md〉` の〈C 番号〉 |
+| ポストモーテム | 〈要るか。利用者に影響した障害なら書く。雛形は `skills/documents/templates/postmortem.md`、置き場は `tmp/flow/<件名>/postmortem.md`。この記録は当日の事実、ポストモーテムは事後の学びと対策〉 |
 
 ## 影響
 
