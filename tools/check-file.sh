@@ -9,7 +9,7 @@
 #   .yml .yaml : YAML の構文（ruby）。.github/ISSUE_TEMPLATE なら Issue フォームの検査も
 # 写した先（<プロジェクト>/tmp/tools にあり、tmp/DEPLOYED.md がある）では、tmp/ の外のファイルは検査しない。
 #   プロジェクト自身のファイル（英語の README、コメント入りの tsconfig.json、既存の台本）を、頼まれずに直させないため。
-# 1 つでも FAIL なら終了コード 1。道具が無いことによる SKIP は FAIL と同じに扱う。
+# 1 つでも FAIL なら終了コード 1。WARN の行は結果に通すが、終了コードには数えない。道具が無いことによる SKIP は FAIL と同じに扱う。
 set -u
 TOOLS="$(cd "$(dirname "$0")" && { /bin/pwd -P 2>/dev/null || pwd -P; })"
 ROOT="$(cd "$TOOLS/.." && { /bin/pwd -P 2>/dev/null || pwd -P; })"
@@ -51,9 +51,11 @@ run() {  # run <名前> <ファイル> <コマンド...> → FAIL なら fail �
   out="$("$@" 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ]; then
     fail=$((fail + 1))
+    printf '%s\n' "$out" | grep -E '^WARN' || :
     printf '%s\n' "$out" | grep -E '^(FAIL|RESULT:)' || printf '%s\n' "$out" | head -20 | sed "s|^|FAIL $f [$name] |"
     printf 'RESULT: FAIL %s %s\n' "$name" "$f"
   else
+    printf '%s\n' "$out" | grep -E '^WARN' || :
     printf '%s\n' "$out" | grep -E '^RESULT:' || printf 'RESULT: PASS %s %s\n' "$name" "$f"
   fi
 }

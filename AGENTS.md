@@ -28,7 +28,7 @@
 | インフラ | `.company/infra/CLAUDE.md` | `infra` | `infra` |
 | セキュリティ | `.company/security/CLAUDE.md` | `security` | `security` |
 | SRE | `.company/sre/CLAUDE.md` | `sre` | `sre` |
-| 共通の下地 | なし | `verify`、`ja-professor`、`ja-fluent`、`git-issue`、`git-pr` | `editor`（別コンテキストの添削と読み手テスト） |
+| 共通の下地 | なし | `verify`、`ja-professor`、`ja-fluent`、`git-issue`、`git-pr`、`documents` | `editor`（別コンテキストの添削と読み手テスト） |
 
 サブエージェントの定義は `.claude/agents/` にあり、Cursor も互換で読む。他のプロジェクト（`tmp/` にコピーした版）ではサブエージェントは無いので、秘書が `tmp/.company/<役割>/CLAUDE.md` を読んで役割を順に演じる。
 

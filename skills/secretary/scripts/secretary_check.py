@@ -260,8 +260,8 @@ def check_intake(doc, r):
     if scale == "複雑" and len(roles) < 5:
         r.warn(no, "規模", f"「複雑」なのに役割が {len(roles)} つ。「比較」で足りないか見直す")
     no, v = doc.field("承認の状態")
-    if v and not re.match(r"^(未承認|承認済み（A-\d+）)", v):
-        r.fail(no, "承認の状態", "「未承認」で始める。承認後は「承認済み（A-番号）」")
+    if v and not re.match(r"^(未承認|承認済み（A-\d+）|承認済み（原文「[^」]+」。軽い道）)", v):
+        r.fail(no, "承認の状態", "「未承認」で始める。承認後は「承認済み（A-番号）」。軽い道は「承認済み（原文「<社長の言葉>」。軽い道）」")
     no, v = doc.field("聞くこと")
     n = len(re.findall(r"[①②③④⑤⑥⑦⑧⑨]", v))
     if n > 3:
