@@ -23,3 +23,6 @@ Issue|イシュー|チケット|起票	-	git-issue	Issue 文	no
 PR|プルリク|レビュー依頼	-	git-pr	PR 文	no
 なぜ|仕組み|分からない|教えて|とは何	-	ja-professor	質問	no
 完了報告|検証の記録|verify	-	verify	報告	no
+手順書|作業手順|手順をまとめ|手順にし|手順を書|やり方をまとめ	-	documents	手順書	no
+運用設計|運用項目|運用フロー|運用を決め|運用の決まり	-	documents	運用設計	no
+調査報告|調査して|調べて|原因を探|原因を調べ|比較して	-	documents	調査	no
