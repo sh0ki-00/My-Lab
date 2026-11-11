@@ -56,6 +56,8 @@ grep -q 'git status で [0-9]* 行' "$P/tmp/DEPLOYED.md" && bad 版 "DEPLOYED.md
 printf '{"name":"t","private":true,"scripts":{"lint":"echo lint ok","test":"echo test ok"}}\n' > "$P/package.json"
 mkdir -p "$P/tmp/flow/sample"
 printf '# 調査の覚え書き\n\n> **3 行でわかる要約**\n> 1. これは配置の試験で使う見本の文書です。\n> 2. 文体と資料の型の検査を通ることを確かめます。\n> 3. 次に、検査の結果を見ます。\n\n## 1. 目的\n\n写した道具が文書を検査できることを確かめます。短い文書なので、図と表は要りません。\n' > "$P/tmp/flow/sample/note.md"
+# 写した時点の印（tmp/.verify/last-pass）と同じ秒に書いた文書は範囲外に見える。印より新しい時刻にする（文書の新しさを確かめる試験ではない）
+[ -f "$P/tmp/.verify/last-pass" ] && python3 -I -c 'import os, sys; t = os.stat(sys.argv[1]).st_mtime + 2; os.utime(sys.argv[2], (t, t))' "$P/tmp/.verify/last-pass" "$P/tmp/flow/sample/note.md"
 out="$(cd "$P" && bash tmp/tools/project-verify.sh --fast 2>&1)" || bad project-verify "$(printf '%s\n' "$out" | grep -E '^FAIL' | head -3)"
 printf '%s\n' "$out" | grep -q 'npm run' && bad project-verify "命令のファイルが無いのに package.json の scripts を回す"
 printf '%s\n' "$out" | grep -q 'RESULT: PASS check-file' || bad project-verify "文書に check-file を回さない"
@@ -86,6 +88,7 @@ out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
 printf 'echo lint ok\n' > "$Q/tmp/verify-commands.txt"
 mkdir -p "$Q/tmp/flow/bad"
 printf '# Note\n\nThis service handles order intake for the shop and stores every order in PostgreSQL for later reporting.\n' > "$Q/tmp/flow/bad/note.md"
+[ -f "$Q/tmp/.verify/last-pass" ] && python3 -I -c 'import os, sys; t = os.stat(sys.argv[1]).st_mtime + 2; os.utime(sys.argv[2], (t, t))' "$Q/tmp/.verify/last-pass" "$Q/tmp/flow/bad/note.md"
 out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
 { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file'; } || bad project-verify "違反のある文書で FAIL（終了コード 1）にならない（rc=${rc}）"
 

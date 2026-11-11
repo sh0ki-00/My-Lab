@@ -6,6 +6,7 @@
 #   確かめること: tmp がリンクか正本そのもの・正本の中・.git の中・印（tmp/DEPLOYED.md）の無い自前の tmp/tools などでは、何も変えずに止まる。
 #   exclude は git が読む所（worktree なら共通の .git/info/exclude）に、写した tmp/ だけを外す行で足し、改行の無い最後の行を壊さない。
 #   外れたかは git check-ignore で確かめ、DEPLOYED.md の git の行にはしたことを書く。先頭が - のパスと CDPATH でも、渡した場所に写す。
+#   写した直後に印（tmp/.verify/last-pass）と一覧を置き、前からある tmp/ の文書を検証の範囲外にする。
 #   場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。bash は社長の機械と同じ /bin/bash（3.2）を使う。
 # 出力: 場面ごとに PASS <場面> [<LANG>] か FAIL <場面> [<LANG>] <理由>。最後に RESULT 行。1 件でも FAIL なら終了コード 1。
 set -u
@@ -47,6 +48,7 @@ mklab() {  # mklab <置き場> → 偽の正本。deploy.sh の写しと、写�
   printf 'a\n' > "$d/samples/app/README.md"
   printf '# 貼る本文\n' > "$d/router/cursor-user-rule.md"
   printf '# 接続\n' > "$d/router/claude-code.md"
+  cp "$HERE/../project-verify.sh" "$d/tools/project-verify.sh"   # deploy.sh が写した直後に --baseline で呼ぶ本物
   cp "$SUT" "$d/deploy.sh"
 }
 # dep_in <作業ディレクトリ> <足す環境の 1 語（空なら無し）> <deploy.sh> <引数...> → OUT と RC。環境は空にし、HOME と PATH と LANG だけを渡す
@@ -319,10 +321,26 @@ case_home_untouched() {  # HOME の下に何も書かない
   need "HOME の下に何か書いた" [ -z "$(find "$FH" -mindepth 1 -print)" ] || return 1
 }
 
+# ---- 場面: 写した時点の印（2026-11-11 の引き戻しの輪の直し）
+case_baseline() {  # 写した直後に印（tmp/.verify/last-pass）と一覧を置く。前からある tmp/ の文書は、写した先の検証で範囲外になる
+  local P="$BOX/proj" V
+  mkdir -p "$P/tmp/flow/old" && g init -q "$P" || return 1
+  printf '# Old\n\nThis note was written before the deploy.\n' > "$P/tmp/flow/old/note.md"
+  dep "$P"
+  V="$P/tmp/.verify"
+  need "rc=${RC}: $(first_fail)" [ "$RC" -eq 0 ] || return 1
+  need "印 tmp/.verify/last-pass が無い" [ -f "$V/last-pass" ] || return 1
+  need "一覧 tmp/.verify/last-pass.list が無い" [ -f "$V/last-pass.list" ] || return 1
+  need "一覧に tmp/DEPLOYED.md が無い" grep -qxF './tmp/DEPLOYED.md' "$V/last-pass.list" || return 1
+  need "一覧に前からある文書が無い" grep -qxF './tmp/flow/old/note.md' "$V/last-pass.list" || return 1
+  need "印より新しいファイルがある" [ -z "$(find "$P" -newer "$V/last-pass" -type f -not -path '*/.git/*' -not -path '*/.verify/*' | head -1)" ] || return 1
+  need "前からある文書が範囲外になると知らせない: $(printf '%s\n' "$OUT" | tail -1)" said '範囲外' || return 1
+}
+
 # ---- 実行
 CASES="tmp_link_to_lab tmp_link_shared tmp_is_lab own_tmp_tools dest_inside_lab inside_git_dir redeploy
 exclude_no_newline anchored_line old_line_kept worktree repo_subfolder special_name old_git_fallback
-unrelated_tmp_paths not_excluded_stops not_git deployed_row leading_dash cdpath home_untouched"
+unrelated_tmp_paths not_excluded_stops not_git deployed_row leading_dash cdpath home_untouched baseline"
 for L in C ja_JP.UTF-8; do
   for c in $CASES; do
     total=$((total + 1))

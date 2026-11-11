@@ -3,6 +3,7 @@
 #   1. check-file.sh は、tmp/ の外のファイル（プロジェクト自身のもの）を検査せずに PASS にする。tmp/ の中の文書は検査する。
 #   2. project-verify.sh は、写した先の PASS でだけ tmp/.verify/last-pass を更新する。Stop の hook は、変更の無い 2 回目を回さない。
 #   3. project-verify.sh は、空白と日本語を含む文書のパスを 1 本のまま check-file と check-refs に渡す。
+#   4. project-verify.sh は、最後に検証が通った印より新しい文書だけを FAIL に数え、前からある文書は範囲外の行で見せる。--baseline は写した時点の印を置く。
 # 偽のプロジェクトは手で作る（git init、tools/ を tmp/tools に写す、tmp/DEPLOYED.md を書く）。deploy.sh は使わない。
 # hooks/ は使い捨ての場所に写して回す。本物の HOME と、My-Lab の tmp/.verify には書かない。
 # 場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。
@@ -86,6 +87,9 @@ first_fail() { printf '%s\n' "$1" | grep -E '^(FAIL|RESULT: FAIL)' | grep -vE '\
 
 # exists <パス> → 「ある」か「無い」
 exists() { if [ -e "$1" ]; then printf 'ある'; else printf '無い'; fi; }
+
+# newer <印> <ファイル> → ファイルを印より 2 秒新しい時刻にする（同じ秒に書いた文書は「新しい」と見えない）
+newer() { python3 -I -c 'import os, sys; t = os.stat(sys.argv[1]).st_mtime + 2; os.utime(sys.argv[2], (t, t))' "$1" "$2"; }
 
 # 1. check-file.sh: 写した先では、tmp/ の外のファイルを検査しない（deploy-5）
 cases_check_file() {
@@ -247,11 +251,62 @@ cases_doc_paths() {
      && printf '%s\n' "$out" | grep -qF 'RESULT: PASS check-refs（tmp の文書 2 本）'; then ok "doc-path-space$s"
   else ng "doc-path-space$s" "rc=${rc}（0 のはず）: $(first_fail "$out")"; fi
   # 無いファイルを指す行を足すと、その文書の check-refs が FAIL を出す（切れた名前を読み飛ばさない）
+  # 通ったあとに変えていない ISSUE の文書は範囲外なので、範囲の中は 1 本
   printf '\n手順は %sscripts/deploy-prod.sh%s に書きます。\n' "$bt" "$bt" >> "$D/note.md"
   out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -F 'FAIL check-refs（tmp の文書 2 本）:' | grep -F 'ログイン改修/note.md' | grep -qF 'scripts/deploy-prod.sh'; then
+  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -F 'FAIL check-refs（tmp の文書 1 本）:' | grep -F 'ログイン改修/note.md' | grep -qF 'scripts/deploy-prod.sh'; then
     ok "doc-path-space-refs$s"
   else ng "doc-path-space-refs$s" "rc=${rc}（1 のはず）。check-refs が壊れた参照を示さない: $(printf '%s\n' "$out" | grep -F 'check-refs' | head -1)"; fi
+}
+
+# 4. project-verify.sh: 最後に検証が通った印より新しい文書だけを FAIL に数え、前からある文書は範囲外として見せる（2026-11-11 の引き戻しの輪の直し）
+cases_scope() {
+  local L="$1" B="$2" s="@$1" P V out rc
+  P="$B/verify scope"
+  V="$P/tmp/.verify"
+  new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
+  mkdir -p "$P/tmp/flow/old" "$P/tmp/flow/new"
+  printf '# Old\n\n%s\n' "$EN_TEXT" > "$P/tmp/flow/old/note.md"
+  # 印が無ければ、これまでどおり全部を検査して FAIL
+  out="$(verify "$L" "$P")"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file（tmp の文書 1 本）'; then ok "no-mark-all-in-scope$s"
+  else ng "no-mark-all-in-scope$s" "rc=${rc}（1 のはず）: $(first_fail "$out")"; fi
+  # 写した時点の印を置く（deploy.sh が呼ぶ --baseline）。前からある文書は範囲外になり、FAIL に数えず WARN の 1 行で見せて PASS
+  out="$( (cd "$P" && in_env "$L" /bin/bash tmp/tools/project-verify.sh --baseline 2>&1) )"; rc=$?
+  if [ "$rc" -eq 0 ] && [ -f "$V/last-pass" ] && [ -f "$V/last-pass.list" ] && grep -qxF './tmp/flow/old/note.md' "$V/last-pass.list"; then ok "baseline-writes-mark$s"
+  else ng "baseline-writes-mark$s" "rc=${rc}（0 のはず）。印が$(exists "$V/last-pass")、一覧が$(exists "$V/last-pass.list")"; fi
+  out="$(verify "$L" "$P")"; rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^WARN 範囲外 check-file' && printf '%s\n' "$out" | grep '^範囲外 ' | grep -q 'old/note.md' \
+     && ! printf '%s\n' "$out" | grep -q '^FAIL ' && printf '%s\n' "$out" | grep -q '^RESULT: PASS project-verify --fast'; then ok "old-doc-outside$s"
+  else ng "old-doc-outside$s" "rc=${rc}（0 のはず）: $(printf '%s\n' "$out" | grep -E '^(FAIL|RESULT|WARN)' | head -2 | tr '\n' ' ')"; fi
+  if grep -q '^WARN 範囲外' "$V/last-fast.txt" 2>/dev/null; then ok "outside-recorded$s"
+  else ng "outside-recorded$s" "記録 tmp/.verify/last-fast.txt に範囲外の WARN 行が無い"; fi
+  # 印より新しい文書は範囲の中。落ちれば FAIL（終了コード 1）。範囲外の文書は FAIL の行に出ない
+  printf '# New\n\n%s\n' "$EN_TEXT" > "$P/tmp/flow/new/note.md"
+  newer "$V/last-pass" "$P/tmp/flow/new/note.md"
+  out="$(verify "$L" "$P")"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file（tmp の文書 1 本）' && printf '%s\n' "$out" | grep '^FAIL check-file' | grep -q 'new/note.md' \
+     && ! printf '%s\n' "$out" | grep '^FAIL check-file' | grep -q 'old/note.md'; then ok "new-doc-in-scope$s"
+  else ng "new-doc-in-scope$s" "rc=${rc}（1 のはず）: $(first_fail "$out")"; fi
+  # 直して通れば印が進む。印より古くなった文書は、次は範囲外に戻る。前からある文書は触っていないので範囲外のまま
+  good_doc "$P/tmp/flow/new/note.md"
+  newer "$V/last-pass" "$P/tmp/flow/new/note.md"
+  out="$(verify "$L" "$P")"; rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^RESULT: PASS check-file（tmp の文書 1 本）'; then ok "fixed-doc-passes$s"
+  else ng "fixed-doc-passes$s" "rc=${rc}（0 のはず）: $(first_fail "$out")"; fi
+  newer "$P/tmp/flow/new/note.md" "$V/last-pass"   # 時間が進んだことにする（印が文書より新しい）
+  out="$(verify "$L" "$P")"; rc=$?
+  if [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q 'RESULT: PASS check-file'; then ok "passed-doc-outside$s"
+  else ng "passed-doc-outside$s" "rc=${rc}（0 のはず）。通った文書が次も範囲に入る: $(printf '%s\n' "$out" | grep RESULT | head -1)"; fi
+  # 前からある文書を直したら（印より新しくなる）範囲に入る
+  newer "$V/last-pass" "$P/tmp/flow/old/note.md"
+  out="$(verify "$L" "$P")"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep '^FAIL check-file' | grep -q 'old/note.md'; then ok "touched-old-doc-in-scope$s"
+  else ng "touched-old-doc-in-scope$s" "rc=${rc}（1 のはず）: $(first_fail "$out")"; fi
+  # --baseline は My-Lab の形では止まる（終了コード 2）。印は書かない
+  out="$( (cd "$B/lab" && in_env "$L" /bin/bash tools/project-verify.sh --baseline 2>&1) )"; rc=$?
+  if [ "$rc" -eq 2 ] && [ ! -e "$B/lab/tmp/.verify/last-pass" ]; then ok "baseline-refused-in-lab$s"
+  else ng "baseline-refused-in-lab$s" "rc=${rc}（2 のはず）。My-Lab の形で印が$(exists "$B/lab/tmp/.verify/last-pass")"; fi
 }
 
 i=0
@@ -263,5 +318,6 @@ for L in C ja_JP.UTF-8; do
   cases_check_file "$L" "$B"
   cases_last_pass "$L" "$B"
   cases_doc_paths "$L" "$B"
+  cases_scope "$L" "$B"
 done
 finish
