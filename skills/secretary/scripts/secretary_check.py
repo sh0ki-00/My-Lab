@@ -238,7 +238,7 @@ def check_intake(doc, r):
     # 言い直し（../references/elicitation.md の 2・3 節）: 原文の写しでない、候補は 3 つまでで 1 つを選ぶ、問いは 1 つまで
     no, v = doc.field("言い直し")
     if doc.has_field("言い直し"):
-        cands = re.findall(r"[（(]\d+[）)]", v)
+        cands = sorted(set(re.findall(r"[（(](\d+)[）)]", v)))  # 番号の種類で数える。「(n) と見て進める」の (n) を候補に数えない
         q = len(re.findall(r"[？?]", v)) + (1 if len(cands) >= 2 else 0)
         if not v.strip():
             r.fail(no, "言い直し", "空にしない。対象・目的・出す形を 3 行以内で書く")
@@ -790,6 +790,15 @@ ROUTE_CASES = [
 ROUTE_NO_HIT = ["来週の段取りを相談したい", "要約ログの出力の項目を決めたい"]
 
 
+# 通るべき書き方（負例の逆。その規則で落ちないこと）
+PASSES = {
+    "intake": [
+        ("言い直し", "| 言い直し | 対象は管理画面の注文一覧で、",
+         "| 言い直し | 読み方は (1) 作り直し／(2) 速さの改善／(3) 項目の追加のどれか。(1) と見て進める。対象は管理画面の注文一覧で、"),
+    ],
+}
+
+
 def selftest(kind):
     ok = True
     name = NAMES[kind]
@@ -852,11 +861,18 @@ def selftest(kind):
                 if rule not in found:
                     ok = False
                     print(f"FAIL selftest {name}: 負例「{rule}」が通った（検出: {sorted(found)}）")
+            for i, (rule, old, new) in enumerate(PASSES.get(kind, [])):
+                fine = tmpd / f"pass-{i}-{EXAMPLES[kind]}"
+                fine.write_text(mutate(src, old, new), encoding="utf-8")
+                found = run_check(kind, str(fine)).rules()
+                if rule in found:
+                    ok = False
+                    print(f"FAIL selftest {name}: 通るべき書き方「{rule}」が落ちた（検出: {sorted(found)}）")
             tmpl = SKILL / "templates" / TEMPLATES[kind]
             if tmpl.exists() and "雛形の穴" not in run_check(kind, str(tmpl)).rules():
                 ok = False
                 print(f"FAIL selftest {name}: 雛形（穴埋めのまま）が通った")
-            n = 1 + len(MUTATIONS[kind]) + 1
+            n = 1 + len(MUTATIONS[kind]) + len(PASSES.get(kind, [])) + 1
     print(f"RESULT: {'PASS' if ok else 'FAIL'} {name} --selftest ({n} 例)")
     return ok
 
