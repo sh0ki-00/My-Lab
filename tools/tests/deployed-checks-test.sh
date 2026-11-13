@@ -4,6 +4,7 @@
 #   2. project-verify.sh は、写した先の PASS でだけ tmp/.verify/last-pass を更新する。Stop の hook は、変更の無い 2 回目を回さない。
 #   3. project-verify.sh は、空白と日本語を含む文書のパスを 1 本のまま check-file と check-refs に渡す。
 #   4. project-verify.sh は、最後に検証が通った印より新しい文書だけを FAIL に数え、前からある文書は範囲外の行で見せる。--baseline は写した時点の印を置く。
+#   5. check-file.sh は、写した先で AI が書く資料（tmp/flow、tmp/ISSUE_*）と雛形で「秘書」「社長」の語を落とす。「」の引用は通す。My-Lab の tmp/flow では見ない。
 # 偽のプロジェクトは手で作る（git init、tools/ を tmp/tools に写す、tmp/DEPLOYED.md を書く）。deploy.sh は使わない。
 # hooks/ は使い捨ての場所に写して回す。本物の HOME と、My-Lab の tmp/.verify には書かない。
 # 場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。
@@ -64,6 +65,11 @@ UNITTEST_CMD='python3 -m unittest discover -s tests'
 # good_doc <ファイル> → 文体と資料の型の検査を通る文書（tools/placement-test.sh の見本と同じ中身）
 good_doc() {
   printf '# 調査の覚え書き\n\n> **3 行でわかる要約**\n> 1. これは配置の試験で使う見本の文書です。\n> 2. 文体と資料の型の検査を通ることを確かめます。\n> 3. 次に、検査の結果を見ます。\n\n## 1. 目的\n\n写した道具が文書を検査できることを確かめます。短い文書なので、図と表は要りません。\n' > "$1"
+}
+
+# persona_doc <ファイル> <目的の段落の 1 文目> → good_doc と同じ形で、目的の段落の頭に 1 文を置いた文書
+persona_doc() {
+  printf '# 調査の覚え書き\n\n> **3 行でわかる要約**\n> 1. これは配置の試験で使う見本の文書です。\n> 2. 文体と資料の型の検査を通ることを確かめます。\n> 3. 次に、検査の結果を見ます。\n\n## 1. 目的\n\n%s短い文書なので、図と表は要りません。\n' "$2" > "$1"
 }
 
 # check <LANG> <root> <ファイル> → root で、その root の写しの check-file.sh を回す（hooks と同じ呼び方）
@@ -310,6 +316,40 @@ cases_scope() {
 }
 
 i=0
+# 5. check-file.sh: 写した先で AI が書く資料と雛形から、「秘書」「社長」の語を落とす（2026-11-13 の依頼）
+cases_persona() {
+  local L="$1" B="$2" s="@$1" P out rc
+  P="$B/persona プロジェクト"
+  new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
+  mkdir -p "$P/tmp/flow/p"
+  persona_doc "$P/tmp/flow/p/bad.md" "写した道具が文書を検査できることを、社長に確かめます。"
+  out="$(check "$L" "$P" "$P/tmp/flow/p/bad.md")"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q '\[秘書・社長の語\]'; then ok "persona-flow-fail$s"
+  else ng "persona-flow-fail$s" "rc=${rc}。tmp/flow の文書の「社長」が落ちない: $(first_fail "$out")"; fi
+  persona_doc "$P/tmp/flow/p/quote.md" "依頼の原文は「社長に見せる資料を作って」です。"
+  out="$(check "$L" "$P" "$P/tmp/flow/p/quote.md")"; rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^RESULT: PASS check-persona'; then ok "persona-quote-pass$s"
+  else ng "persona-quote-pass$s" "rc=${rc}。「」の引用の中の語で落ちた: $(first_fail "$out")"; fi
+  persona_doc "$P/tmp/ISSUE_2026-11-13_x.md" "写した道具が文書を検査できることを、秘書が確かめます。"
+  out="$(check "$L" "$P" "$P/tmp/ISSUE_2026-11-13_x.md")"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q '\[秘書・社長の語\]'; then ok "persona-issue-fail$s"
+  else ng "persona-issue-fail$s" "rc=${rc}。Issue 文の「秘書」が落ちない: $(first_fail "$out")"; fi
+  out="$(verify "$L" "$P")"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '\[秘書・社長の語\]'; then ok "persona-verify-fail$s"
+  else ng "persona-verify-fail$s" "rc=${rc}（1 のはず）。project-verify が語を示さない: $(first_fail "$out")"; fi
+  # My-Lab の形: tmp/flow は一式そのものを書く場所なので見ない。雛形と完成例は見る
+  P="$B/lab"
+  mkdir -p "$P/tmp/flow/p" "$P/skills/demo/templates"
+  persona_doc "$P/tmp/flow/p/lab.md" "写した道具が文書を検査できることを、社長に確かめます。"
+  out="$( (cd "$P" && in_env "$L" /bin/bash "$P/tools/check-file.sh" "$P/tmp/flow/p/lab.md" 2>&1) )"; rc=$?
+  if ! printf '%s\n' "$out" | grep -q 'check-persona'; then ok "persona-lab-flow-skip$s"
+  else ng "persona-lab-flow-skip$s" "My-Lab の tmp/flow で check-persona が回った"; fi
+  persona_doc "$P/skills/demo/templates/t.md" "写した道具が文書を検査できることを、社長に確かめます。"
+  out="$( (cd "$P" && in_env "$L" /bin/bash "$P/tools/check-file.sh" "$P/skills/demo/templates/t.md" 2>&1) )"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q '\[秘書・社長の語\]'; then ok "persona-lab-template-fail$s"
+  else ng "persona-lab-template-fail$s" "rc=${rc}。My-Lab の雛形の「社長」が落ちない: $(first_fail "$out")"; fi
+}
+
 for L in C ja_JP.UTF-8; do
   i=$((i + 1))
   B="$T/$i"
@@ -319,5 +359,6 @@ for L in C ja_JP.UTF-8; do
   cases_last_pass "$L" "$B"
   cases_doc_paths "$L" "$B"
   cases_scope "$L" "$B"
+  cases_persona "$L" "$B"
 done
 finish

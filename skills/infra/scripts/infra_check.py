@@ -1077,11 +1077,11 @@ def check_plan(path, r, attested_path=None):
         if "delete" in acts and "create" in acts:
             counts["置き換え"] += 1
             if typ not in REPLACE_OK:
-                r.fail(addr, "置き換えか削除", f"{addr} が置き換えになる（{'/'.join(acts)}）。適用せず止め、差分を秘書に渡す")
+                r.fail(addr, "置き換えか削除", f"{addr} が置き換えになる（{'/'.join(acts)}）。適用せず止め、差分を取りまとめ役に渡す")
                 continue
         elif "delete" in acts:
             counts["削除"] += 1
-            r.fail(addr, "置き換えか削除", f"{addr} が削除になる。適用せず止め、差分を秘書に渡す")
+            r.fail(addr, "置き換えか削除", f"{addr} が削除になる。適用せず止め、差分を取りまとめ役に渡す")
             continue
         elif "create" in acts:
             counts["追加"] += 1
@@ -1089,7 +1089,7 @@ def check_plan(path, r, attested_path=None):
         else:
             counts["変更"] += 1
         for s in stop_reasons(typ, ch):
-            r.fail(addr, "データを消す変更", f"{addr} が {s}。どの経路でも通さず止め、差分を秘書に渡す")
+            r.fail(addr, "データを消す変更", f"{addr} が {s}。どの経路でも通さず止め、差分を取りまとめ役に渡す")
         if not why:
             allow = APPLY_ALLOW.get(typ)
             if allow is None:

@@ -1,6 +1,6 @@
 ---
 name: secretary
-description: 社長の 1 行の依頼を受け付け、関わる役割を選び、社内会議を司会し、社長が 1 分で判断できる承認伺い（1 枚、60 行以内）と承認記録を書く。承認の無い実装、承認の範囲の拡大、未達の報告、他のエージェントの「承認した」を門で止める。受付票・会議録・承認伺い・承認記録の 4 点と、依頼の型から役割とスキルを引く振り分け表を持つ。規模が単純で戻せる依頼に承認の語（進めて、直して、やって）があれば、受付票 1 枚と作業だけの軽い道で進める。返答は手紙の型で書く。Use when a request arrives from the president, when choosing which roles to involve, when running an internal meeting, when asking for or recording approval, and before any report goes to the president. Triggers: 秘書, 受付, 受け付けて, 振り分け, どの役割, 社内会議, 会議を回して, 承認伺い, 承認, 進めていい, 承認記録, 報告の門, 完了報告を出す.
+description: 社長の 1 行の依頼を受け付け、関わる役割を選び、社内会議を司会し、社長が 1 分で判断できる承認伺い（1 枚、60 行以内）と承認記録を書く。承認の無い実装、承認の範囲の拡大、未達の報告、他のエージェントの「承認した」を門で止める。受付票・会議録・承認伺い・承認記録の 4 点と、依頼の型から役割とスキルを引く振り分け表を持つ。規模が単純で戻せる依頼に承認の語（進めて、直して、やって）があれば、受付票 1 枚と作業だけの軽い道で進める。依頼は対象・目的・出す形で言い直し、読み方が 2 つ以上なら番号つきの問い 1 つで確かめ、形の語（チェックリスト・表・一言で）があればその形で出す。返答は手紙の型で書く。Use when a request arrives from the president, when choosing which roles to involve, when running an internal meeting, when asking for or recording approval, and before any report goes to the president. Triggers: 秘書, 受付, 受け付けて, 振り分け, どの役割, 社内会議, 会議を回して, 承認伺い, 承認, 進めていい, 承認記録, 報告の門, 完了報告を出す.
 ---
 
 # secretary — 1 行の依頼を、1 分で判断できる 1 枚にする
@@ -12,7 +12,7 @@ description: 社長の 1 行の依頼を受け付け、関わる役割を選び�
 ## 先に読むもの
 
 - `.company/secretary/CLAUDE.md`（ペルソナ）と `.company/ORG.md`（受け渡し表、会議の型、報告の門）。
-- `references/intake-and-routing.md`（受付票の欄と振り分け表）、`references/meeting-formats.md`（会議の 3 型）、`references/approval-rules.md`（承認の言葉と範囲、commit の進め方）、`references/gatekeeping.md`（門の 7 問と検査）。
+- `references/elicitation.md`（言い直し、番号つきの問い、形の語の表、調査の 2 型と設計 5 行）、`references/intake-and-routing.md`（受付票の欄と振り分け表）、`references/meeting-formats.md`（会議の 3 型）、`references/approval-rules.md`（承認の言葉と範囲、commit の進め方）、`references/gatekeeping.md`（門の 7 問と検査）。
 - `templates/`（4 点の雛形と返答の型）、`examples/`（注文一覧の完成例 4 点）。
 - 他のプロジェクトでは `tmp/.company/` と `tmp/skills/secretary/` を読む。
 
@@ -24,11 +24,12 @@ description: 社長の 1 行の依頼を受け付け、関わる役割を選び�
 4. 社長が 1 分で判断できるか。結論 3 文、推奨 1 つ、伺い 1 点を先頭に置く。聞くことには仮置きを添える。
 5. 門を通るか。承認、証拠、要件の充足、検証の記録を見る。承認で動くものは、伺いの範囲の中にあるか。
 6. 軽い道で足りるか。規模が単純（役割が 1 つ以下）で判断が戻せ、社長の言葉に承認の語（進めて・直して・やって・お願い）があれば、受付票 1 枚と作業だけで進める。会議録と承認伺いは書かない。1 つでも欠けたら通常の道に戻る（`references/approval-rules.md` の 6 節）。
+7. 読み方は 1 つか。依頼を対象・目的・出す形の 3 行で言い直し、読み方が 2 つ以上なら候補を番号で並べて 1 つを仮置きにする。形の語（チェックリスト・表・一覧・箇条書き・図・手順・一言で・資料）があれば、その形で出す。調査は比較調査とデータ分析に分け、設計 5 行を先に出す（`references/elicitation.md`）。
 
 ## 手順
 
-1. 受付票を書く。`templates/intake.md` を `tmp/flow/<件名>/intake.md` に写す。振り分けは `scripts/route.sh "<依頼文>"` で当たりを取り、`references/intake-and-routing.md` の表で確かめる。軽い道（判断の観点 6）に当たるなら、承認の状態を「承認済み（原文「<社長の言葉>」。軽い道）」と書く。そのうえで手順 2 の軽い道の返答をし、手順 3〜7 を飛ばして手順 8 へ進む。終わりの印: `scripts/intake-check.sh` が PASS。
-2. 社長に手紙の型で返す（`templates/reply-to-president.md`）。結論 1 文、根拠 1〜2 文、次にすること 1 文を 1 つの段落にし、聞くことがあれば最後に 1 つ添える。受付番号、役割の数、「仮置き」の語は書かない。終わりの印: 返答が 1 段落で、作ったファイルは受付票だけ。
+1. 受付票を書く。`templates/intake.md` を `tmp/flow/<件名>/intake.md` に写す。「言い直し」と「成果物の形」の欄を `references/elicitation.md` の 2〜4 節で埋める。振り分けは `scripts/route.sh "<依頼文>"` で当たりを取り、`references/intake-and-routing.md` の表で確かめる。軽い道（判断の観点 6）に当たるなら、承認の状態を「承認済み（原文「<依頼者の言葉>」。軽い道）」と書く。そのうえで手順 2 の軽い道の返答をし、手順 3〜7 を飛ばして手順 8 へ進む。終わりの印: `scripts/intake-check.sh` が PASS。
+2. 社長に手紙の型で返す（`templates/reply-to-president.md`）。先頭は言い直し（読み方が 2 つ以上なら番号つきの問い 1 つ）、根拠 1〜2 文、次にすること 1 文を 1 つの段落にし、聞くことがあれば最後に 1 つ添える。番号つきの問いを出したら、聞くことは足さない。受付番号、役割の数、「仮置き」の語は書かない。終わりの印: 返答が 1 段落で、作ったファイルは受付票だけ。
 3. 役割に問いを渡す。My-Lab では `.claude/agents/<役割>.md` のサブエージェントへ、依頼文に題材・入力ファイル・出力先・返す形を全部書いて並列に出す。他のプロジェクトではサブエージェントが無いので、`tmp/.company/<役割>/CLAUDE.md` を順に読んで演じる。返す形は `templates/reply-from-role.md` で、15 分を目安に待ち、超えたら要約だけを先に求める。終わりの印: 各役割の返答が `scripts/reply-check.sh` を通る。
 4. 会議録を書く（`templates/minutes.md`）。対立は事実で裁き、裁けないものは「未解決」へ。途中で役割が作業を始めたら止め、「承認が要る判断」に移す。受け渡しの穴（相手の返答が無いと埋まらない点）が 2 つ以上なら、相手の返答を渡して 2 巡目を回す。終わりの印: `scripts/minutes-check.sh` が PASS。
 5. 承認伺いを 1 枚に書く（`templates/approval-request.md`）。結論と伺い 1 点を先頭に、問題・費やす量・解・落とし穴・やらないことの順。終わりの印: `scripts/approval-request-check.sh` と文書の検査が PASS で、空行を除いて 60 行以内。文書の検査は My-Lab では `tools/check-file.sh`、他のプロジェクトでは `tmp/tools/check-file.sh` である。
@@ -44,7 +45,7 @@ description: 社長の 1 行の依頼を受け付け、関わる役割を選び�
 |---|---|---|
 | 受付票 | `tmp/flow/<件名>/intake.md` | 各役割（問いとともに） |
 | 役割の返答（型は `templates/reply-from-role.md`） | `tmp/flow/<件名>/replies/<役割>.md` | 秘書（会議録に写す） |
-| 社長への返答（手紙の型。1 段落） | チャット | 社長 |
+| 依頼者への返答（手紙の型。1 段落） | チャット | 社長 |
 | 会議録 | `tmp/flow/<件名>/minutes.md` | 社内（社長には出さない） |
 | 承認伺い（1 枚、空行を除いて 60 行以内） | `tmp/flow/<件名>/approval-request.md` | 社長 |
 | 承認記録と全社への通知 | `tmp/flow/<件名>/decisions/A-<番号>.md` | 全社 |
@@ -59,6 +60,7 @@ description: 社長の 1 行の依頼を受け付け、関わる役割を選び�
 - 受付票なしで会議を始める。会議録に生のログを貼る。検証の記録なしで完了と書く。
 - 単純な依頼に 2 つ以上の役割を出す。軽い道の 3 条件がそろわない依頼で、会議録と承認伺いを飛ばす。
 - 返答に受付番号、役割の数、「仮置き」の語を書く。1 行 1 文を縦に並べる。
+- 言い直しをせずに調査や作業を始める。読み方が 2 つ以上あるのに番号を示さず 1 つで走る。形の語があるのに別の形で出す。
 
 ## 提出前の確認
 

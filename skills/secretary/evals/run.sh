@@ -2,7 +2,8 @@
 # skills/secretary/evals/run.sh — secretary の試験ケース。機械で判定できる分だけを回す。
 #   1) 完成例 4 点が各検査を通り、承認伺いが gate-check を通る。雛形 4 点は穴埋めのままなので落ちる。
 #   2) cases/<名前>.md と cases/<名前>.expect（「<検査名> PASS|FAIL」）を対にし、判定が期待と合うか。
-#   3) 振り分け: routing-cases.tsv の全件を route で判定し、正答率が 95% 以上（44 件なら 42 件以上）。期待の「当たり無し」は、route が当たり無しと返すこと。
+#   3) 振り分け: routing-cases.tsv の全件を route で判定し、正答率が 95% 以上（56 件なら 54 件以上）。期待の「当たり無し」は、route が当たり無しと返すこと。
+#   4) 言い直し: restatement-run.sh（restatements/ の出力 20 件の機械の検査と、判定 3 体の票の多数決で一致 18 件以上）。
 # 出力: ケースごとの行と、最後に RESULT: PASS|FAIL evals secretary (<合格>/<全部>)。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
@@ -56,6 +57,10 @@ done < "$HERE/routing-cases.tsv"
 rate=0; [ "$n" -gt 0 ] && rate=$((correct * 100 / n))
 if [ "$n" -gt 0 ] && [ $((correct * 20)) -ge $((n * 19)) ]; then got=PASS; else got=FAIL; fi
 judge "振り分け $n 件の正答率 95% 以上（$correct/$n = $rate%）" PASS "$got"
+
+# 4) 言い直し（仕様書 R-20261113-01 の C-01・C-02）
+if bash "$HERE/restatement-run.sh" >/dev/null 2>&1; then got=PASS; else got=FAIL; fi
+judge "restatements（言い直し 20 件の形と、判定 3 体の一致 18 件以上）" PASS "$got"
 
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals secretary ($pass/${total}、振り分け $correct/$n)"; exit 0; fi
 echo "RESULT: FAIL evals secretary ($pass/${total}、振り分け $correct/$n)"; exit 1
