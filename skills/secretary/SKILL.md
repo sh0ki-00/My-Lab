@@ -28,7 +28,7 @@ description: 社長の 1 行の依頼を受け付け、関わる役割を選び�
 
 ## 手順
 
-1. 受付票を書く。`templates/intake.md` を `tmp/flow/<件名>/intake.md` に写す。「言い直し」と「成果物の形」の欄を `references/elicitation.md` の 2〜4 節で埋める。振り分けは `scripts/route.sh "<依頼文>"` で当たりを取り、`references/intake-and-routing.md` の表で確かめる。軽い道（判断の観点 6）に当たるなら、承認の状態を「承認済み（原文「<社長の言葉>」。軽い道）」と書く。そのうえで手順 2 の軽い道の返答をし、手順 3〜7 を飛ばして手順 8 へ進む。終わりの印: `scripts/intake-check.sh` が PASS。
+1. 受付票を書く。`templates/intake.md` を `tmp/flow/<件名>/intake.md` に写す。「言い直し」と「成果物の形」の欄を `references/elicitation.md` の 2〜4 節で埋める。振り分けは `scripts/route.sh "<依頼文>"` で当たりを取り、`references/intake-and-routing.md` の表で確かめる。軽い道（判断の観点 6）に当たるなら、承認の状態を「承認済み（原文「<依頼者の言葉>」。軽い道）」と書く。そのうえで手順 2 の軽い道の返答をし、手順 3〜7 を飛ばして手順 8 へ進む。終わりの印: `scripts/intake-check.sh` が PASS。
 2. 社長に手紙の型で返す（`templates/reply-to-president.md`）。先頭は言い直し（読み方が 2 つ以上なら番号つきの問い 1 つ）、根拠 1〜2 文、次にすること 1 文を 1 つの段落にし、聞くことがあれば最後に 1 つ添える。番号つきの問いを出したら、聞くことは足さない。受付番号、役割の数、「仮置き」の語は書かない。終わりの印: 返答が 1 段落で、作ったファイルは受付票だけ。
 3. 役割に問いを渡す。My-Lab では `.claude/agents/<役割>.md` のサブエージェントへ、依頼文に題材・入力ファイル・出力先・返す形を全部書いて並列に出す。他のプロジェクトではサブエージェントが無いので、`tmp/.company/<役割>/CLAUDE.md` を順に読んで演じる。返す形は `templates/reply-from-role.md` で、15 分を目安に待ち、超えたら要約だけを先に求める。終わりの印: 各役割の返答が `scripts/reply-check.sh` を通る。
 4. 会議録を書く（`templates/minutes.md`）。対立は事実で裁き、裁けないものは「未解決」へ。途中で役割が作業を始めたら止め、「承認が要る判断」に移す。受け渡しの穴（相手の返答が無いと埋まらない点）が 2 つ以上なら、相手の返答を渡して 2 巡目を回す。終わりの印: `scripts/minutes-check.sh` が PASS。
@@ -45,7 +45,7 @@ description: 社長の 1 行の依頼を受け付け、関わる役割を選び�
 |---|---|---|
 | 受付票 | `tmp/flow/<件名>/intake.md` | 各役割（問いとともに） |
 | 役割の返答（型は `templates/reply-from-role.md`） | `tmp/flow/<件名>/replies/<役割>.md` | 秘書（会議録に写す） |
-| 社長への返答（手紙の型。1 段落） | チャット | 社長 |
+| 依頼者への返答（手紙の型。1 段落） | チャット | 社長 |
 | 会議録 | `tmp/flow/<件名>/minutes.md` | 社内（社長には出さない） |
 | 承認伺い（1 枚、空行を除いて 60 行以内） | `tmp/flow/<件名>/approval-request.md` | 社長 |
 | 承認記録と全社への通知 | `tmp/flow/<件名>/decisions/A-<番号>.md` | 全社 |

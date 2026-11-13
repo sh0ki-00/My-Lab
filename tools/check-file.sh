@@ -2,6 +2,8 @@
 # tools/check-file.sh <ファイル>... — 直したファイルの検査を、種類で選んで回す。hooks が編集の直後に呼ぶ。
 #   .md .mdc : check-ja（文体）。資料（docs/、tmp/flow/、tmp/ISSUE_*、tmp/PR_*、README.md、skills/*/references|examples）なら check-doc。
 #              図（```mermaid）があれば check-mermaid。ja-fluent のスキルがあれば fluency-check（文の運び）
+#              雛形と完成例（skills/*/templates|examples）と、写した先で AI が書く資料（tmp/flow/、tmp/ISSUE_*、tmp/PR_*）
+#              なら check-persona（「秘書」「社長」の語。決まりは .company/rules/documents.md の 5 節）
 #   .sh      : bash -n と shellcheck と、全角の字の直前の変数の波括弧
 #   .py      : 構文（ast）
 #   .mjs .js : node --check
@@ -35,6 +37,18 @@ is_doc() {
   case "$1" in
     */docs/*|docs/*|*/tmp/flow/*|tmp/flow/*|*/tmp/ISSUE_*|tmp/ISSUE_*|*/tmp/PR_*|tmp/PR_*|*/README.md|README.md|*/references/*|*/examples/*) return 0 ;;
   esac
+  return 1
+}
+
+persona_target() {  # persona_target <ファイル> → 「秘書」「社長」の語を見る文書か（雛形と完成例、写した先で AI が書く資料）
+  local rp
+  rp="$(real_path "$1")" || return 1
+  case "$rp" in
+    "$ROOT"/skills/*/templates/*|"$ROOT"/skills/*/examples/*) return 0 ;;
+  esac
+  if [ "$DEPLOYED" -eq 1 ]; then
+    case "$rp" in "$ROOT"/flow/*|"$ROOT"/ISSUE_*|"$ROOT"/PR_*) return 0 ;; esac
+  fi
   return 1
 }
 
@@ -72,6 +86,7 @@ for f in "$@"; do
     *.md|*.mdc)
       run check-ja "$f" python3 -I "$TOOLS/lib/check_ja.py" "$f"
       if is_doc "$f"; then run check-doc "$f" python3 -I "$TOOLS/lib/check_doc.py" "$f"; fi
+      if persona_target "$f"; then run check-persona "$f" python3 -I "$TOOLS/lib/check_persona.py" "$f"; fi
       if grep -q '^```mermaid' "$f"; then run check-mermaid "$f" python3 -I "$TOOLS/lib/check_mermaid.py" "$f"; fi
       # 文の運び（ja-fluent のスキルがあれば。My-Lab では skills/、他のプロジェクトでは tmp/skills/）
       if [ -f "$ROOT/skills/ja-fluent/scripts/fluency-check.sh" ]; then run fluency-check "$f" bash "$ROOT/skills/ja-fluent/scripts/fluency-check.sh" "$f"; fi

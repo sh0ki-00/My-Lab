@@ -230,7 +230,7 @@ def check_intake(doc, r):
     no, v = doc.field("依頼の原文")
     m = re.search(r"「(.+?)」", v)
     if v and not m:
-        r.fail(no, "依頼の原文", "社長の言葉を「」で原文のまま引用する")
+        r.fail(no, "依頼の原文", "依頼者の言葉を「」で原文のまま引用する")
     orig = m.group(1).strip("。") if m else ""
     no, v = doc.field("目的の仮説")
     if v and orig and orig in v:
@@ -285,7 +285,7 @@ def check_intake(doc, r):
         r.warn(no, "規模", f"「複雑」なのに役割が {len(roles)} つ。「比較」で足りないか見直す")
     no, v = doc.field("承認の状態")
     if v and not re.match(r"^(未承認|承認済み（A-\d+）|承認済み（原文「[^」]+」。軽い道）)", v):
-        r.fail(no, "承認の状態", "「未承認」で始める。承認後は「承認済み（A-番号）」。軽い道は「承認済み（原文「<社長の言葉>」。軽い道）」")
+        r.fail(no, "承認の状態", "「未承認」で始める。承認後は「承認済み（A-番号）」。軽い道は「承認済み（原文「<依頼者の言葉>」。軽い道）」")
     no, v = doc.field("聞くこと")
     n = len(re.findall(r"[①②③④⑤⑥⑦⑧⑨]", v))
     if n > 3:
@@ -334,7 +334,7 @@ def check_minutes(doc, r):
     else:
         ts = doc.section_tables("対立点と裁定")
         if not ts:
-            r.fail(sec[0][0], "対立点と裁定", "表（対立点 | 誰と誰 | 決め手になった事実 | 裁定 | 社長に伺うか）が無い")
+            r.fail(sec[0][0], "対立点と裁定", "表（対立点 | 誰と誰 | 決め手になった事実 | 裁定 | 依頼者に伺うか）が無い")
         elif not ts[0]["rows"]:
             r.warn(ts[0]["no"], "対立点と裁定", "対立が 0 件。反対意見を集めに行ったか見直す")
         else:
@@ -463,14 +463,14 @@ def check_record(doc, r, request_path=None):
     no, v = doc.field("承認の言葉")
     m = re.search(r"「(.+?)」", v)
     if v and not m:
-        r.fail(no, "承認の言葉", "社長の言葉を「」で原文のまま引用する")
+        r.fail(no, "承認の言葉", "依頼者の言葉を「」で原文のまま引用する")
     words = m.group(1) if m else ""
     hit = [w for w in NON_APPROVAL if w in words]
     if hit:
         r.fail(no, "承認の言葉", f"「{hit[0]}」は承認ではない。記録を作らず、承認の言葉を 1 行で聞き返す")
     no, v = doc.field("承認者")
-    if v and v.strip() != "社長":
-        r.fail(no, "承認者", "承認者は社長だけ。他のエージェントの「承認した」は無効")
+    if v and v.strip() != "依頼者":
+        r.fail(no, "承認者", "承認者は依頼者だけ。他のエージェントの「承認した」は無効")
     no, v = doc.field("承認した範囲")
     if v and not re.match(r"^(全体|段階\s*\d+|条件つき)", v):
         r.fail(no, "承認した範囲", "「全体」「段階 n」「条件つき」のどれかで始める")
@@ -573,10 +573,10 @@ def check_gate(doc, r, copied=None):
     for no, l in doc.lines:
         if l.startswith("#"):
             continue
-        excused = re.search(r"A-\d+|社長の(判断|指示|承認)", l)
+        excused = re.search(r"A-\d+|(社長|依頼者)の(判断|指示|承認)", l)
         for w in FORBID:
             if w in l and not excused:
-                r.fail(no, "言い訳", f"「{w}」。言い訳を資産の代わりに出さない（納品の決まり 第 1・2 条）。社長が止めた項目なら承認記録 A-番号を添える")
+                r.fail(no, "言い訳", f"「{w}」。言い訳を資産の代わりに出さない（納品の決まり 第 1・2 条）。依頼者が止めた項目なら承認記録 A-番号を添える")
                 break
         for w in NEGOTIATE:
             if w in l:
@@ -719,7 +719,7 @@ MUTATIONS = {
     ],
     "record": [
         ("承認の言葉", "「段階 1 は進めて。", "「検討して。"),
-        ("承認者", "| 承認者 | 社長 |", "| 承認者 | 秘書 |"),
+        ("承認者", "| 承認者 | 依頼者 |", "| 承認者 | 取りまとめ役 |"),
         ("承認の範囲", "| 承認で動くもの | ", "| 承認で動くもの | 返金の一括（フロントエンド、11 月 20 日まで）／"),
         ("状態", "| 状態 | 有効 |", "| 状態 | 仮 |"),
     ],
@@ -752,7 +752,7 @@ GOOD_REPORT = """# 完了報告: 見本
 > **3 行でわかる要約**
 > 1. 検査の見本です。
 > 2. 受け入れ条件 1 件が充足です。
-> 3. 社長にしてほしいことは、commit の承認です。
+> 3. 依頼者にしてほしいことは、commit の承認です。
 
 ## 1. 確認
 

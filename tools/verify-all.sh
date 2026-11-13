@@ -85,6 +85,10 @@ v_style() {  # 2 文体・資料・図
   [ -n "$docs" ] && { python3 -I "$TOOLS/lib/check_doc.py" $docs || rc=1; }
   # shellcheck disable=SC2086
   [ -n "$mm" ] && { python3 -I "$TOOLS/lib/check_mermaid.py" $mm || rc=1; }
+  # 雛形と完成例に「秘書」「社長」の語が無いこと（.company/rules/documents.md の 5 節）
+  local pers; pers="$(md_files | grep -E '^\./skills/[^/]+/(templates|examples)/' || true)"
+  # shellcheck disable=SC2086
+  [ -n "$pers" ] && { python3 -I "$TOOLS/lib/check_persona.py" $pers || rc=1; }
   return $rc
 }
 v_render() {  # 3 図の実描画

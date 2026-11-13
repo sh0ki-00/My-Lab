@@ -29,7 +29,7 @@
 | 短答 | 「一言で」「短く」「要るの？」 | 3 文以内。図も表も無し | `explain-check.sh --profile short` |
 | 解説 | 「なぜ」「どうして」「仕組み」「違い」「分からない」 | 本文 40 行まで（表・図・見出し・空行を除く）。60 行で WARN | `explain-check.sh` |
 | 講義 | 「資料にして」「まとめて」 | `.company/rules/documents.md` の型でファイルに。解説の節を「## 解説」にする | `explain-check.sh` と `check-doc.sh` |
-| 作業報告 | 作業を終えたとき | 答え（何が変わったか 1 文）、全体像（変えた場所の表）、仕組み（なぜそう変えたか）、確認（社長が次にすること）。証拠の対は `skills/verify` の完了報告の型 | `explain-check.sh --profile report` |
+| 作業報告 | 作業を終えたとき | 答え（何が変わったか 1 文）、全体像（変えた場所の表）、仕組み（なぜそう変えたか）、確認（読み手が次にすること）。証拠の対は `skills/verify` の完了報告の型 | `explain-check.sh --profile report` |
 
 ## 3. 長さの数え方
 
