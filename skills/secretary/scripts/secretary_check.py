@@ -24,6 +24,8 @@ COPIED = ROOT.name == "tmp"
 VERIFY_RECORD = {False: (re.compile(r"docs/verify/"), "docs/verify/<日付>.md"),
                  True: (re.compile(r"tmp/\.verify/last-(fast|full)\.txt"), "tmp/.verify/last-fast.txt か last-full.txt")}
 ROLES = ["CEO", "デザイナー", "フロントエンド", "バックエンド", "インフラ", "セキュリティ", "SRE"]
+# 成果物の形の語（../references/elicitation.md の 4 節）。受付票の「成果物の形」はこのどれかで始める
+SHAPES = ["チェックリスト", "表", "一覧", "箇条書き", "図", "手順", "一言で", "資料", "指定なし"]
 NON_APPROVAL = ["検討して", "調べて", "案を出して", "いいね", "考えて", "見ておいて"]
 FORBID = ["できませんでした", "限界", "両立しません", "両立しない", "前より良く", "概ね", "暫定版", "一部は未対応", "スコープ外にしました", "未達", "未充足"]
 NEGOTIATE = ["どちらを外", "どちらを諦", "要件を緩", "要件を外", "どちらか一方を"]
@@ -221,7 +223,7 @@ def table_check(r, t, cols, rule):
 # ---- 受付票
 def check_intake(doc, r):
     need_title(doc, r, "受付票")
-    need_fields(doc, r, ["受付番号", "依頼の原文", "目的の仮説", "判断の種類", "規模", "関わる役割と問い", "承認の状態", "聞くこと"])
+    need_fields(doc, r, ["受付番号", "依頼の原文", "言い直し", "成果物の形", "目的の仮説", "判断の種類", "規模", "関わる役割と問い", "承認の状態", "聞くこと"])
     no, v = doc.field("受付番号")
     if v and not re.search(r"R-\d{8}-\d{2}", v):
         r.fail(no, "受付番号", "R-<日付 8 桁>-<連番 2 桁> の形にする")
@@ -233,6 +235,28 @@ def check_intake(doc, r):
     no, v = doc.field("目的の仮説")
     if v and orig and orig in v:
         r.fail(no, "目的の仮説", "依頼の原文の写し。誰の何が変わるかを 1 文で書く")
+    # 言い直し（../references/elicitation.md の 2・3 節）: 原文の写しでない、候補は 3 つまでで 1 つを選ぶ、問いは 1 つまで
+    no, v = doc.field("言い直し")
+    if doc.has_field("言い直し"):
+        cands = re.findall(r"[（(]\d+[）)]", v)
+        q = len(re.findall(r"[？?]", v)) + (1 if len(cands) >= 2 else 0)
+        if not v.strip():
+            r.fail(no, "言い直し", "空にしない。対象・目的・出す形を 3 行以内で書く")
+        elif orig and base_item(v) == base_item(orig):
+            r.fail(no, "言い直し", "依頼の原文の写し。対象・目的・出す形で言い換える")
+        elif len(cands) > 3:
+            r.fail(no, "言い直し", f"候補が {len(cands)} つ。4 つ以上なら候補を並べず、目的だけを 1 問で聞く")
+        elif len(cands) >= 2 and not re.search(r"と見て|仮置き", v):
+            r.fail(no, "言い直し", "候補を並べたら、1 つを「(n) と見て進める」と選ぶ")
+        elif q > 1:
+            r.fail(no, "言い直し", f"問いが {q} つ。1 つまでにする")
+        elif v.count("。") > 4:
+            r.warn(no, "言い直し", "長い。対象・目的・出す形の 3 行以内に収める")
+    no, v = doc.field("成果物の形")
+    if v and not any(v.startswith(x) for x in SHAPES):
+        r.fail(no, "成果物の形", f"形の語（{'、'.join(SHAPES[:-1])}）か「指定なし（仮置き: 形）」で始める")
+    elif v.startswith("指定なし") and "仮置き" not in v:
+        r.fail(no, "成果物の形", "「指定なし」には仮置きの形を添える")
     no, v = doc.field("判断の種類")
     if v and not re.match(r"^(戻せる|戻せない)", v):
         r.fail(no, "判断の種類", "「戻せる」か「戻せない」で始める")
@@ -678,6 +702,8 @@ MUTATIONS = {
         ("規模", "比較（", "単純（"),
         ("関わる役割と問い", "CEO: ", "QA: "),
         ("聞くこと", "③", "③ 仮置き ④ 4 つ目の問い ③"),
+        ("言い直し", "| 言い直し | 対象は管理画面の注文一覧で、", "| 言い直し | 管理画面の注文一覧を作り直したい |\n| 言い直し（元） | 対象は管理画面の注文一覧で、"),
+        ("成果物の形", "| 成果物の形 | 指定なし（仮置き: ", "| 成果物の形 | いい感じに（仮置き: "),
     ],
     "minutes": [
         ("欄", "| 黙読した文書 |", "| 黙読 |"),
@@ -757,6 +783,8 @@ ROUTE_CASES = [
     ("注文一覧の CSV を書き出したい", {"バックエンド", "セキュリティ"}),
     ("管理画面のボタンから注文を CSV でダウンロードしたい", {"フロントエンド", "バックエンド", "セキュリティ"}),
     ("要約ログの出力の項目を決めたい", set()),
+    ("リリース前のチェックリストを作って", set()),
+    ("注文データを調査して", set()),
 ]
 # どの規則にも当たらない依頼文。型が「当たり無し」になることを見る
 ROUTE_NO_HIT = ["来週の段取りを相談したい", "要約ログの出力の項目を決めたい"]
