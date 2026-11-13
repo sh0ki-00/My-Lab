@@ -122,4 +122,4 @@ w1280x360 checked 110 covered 0 / w640x400 checked 92 covered 0 / w412x823 check
 | 誰に | 何を | いつ |
 |---|---|---|
 | デザイナー | この票、忠実度の表（配置のずれ 1 件、色の丸め 1 件）、監修の依頼 | いま |
-| 秘書 | 判定と証拠。ゲートの出力、sample-app-test の出力、measure.json、焦点の測り直し | いま |
+| 取りまとめ役 | 判定と証拠。ゲートの出力、sample-app-test の出力、measure.json、焦点の測り直し | いま |

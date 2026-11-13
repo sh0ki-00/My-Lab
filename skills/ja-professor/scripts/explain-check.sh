@@ -7,7 +7,7 @@
 #                   ④例がある ⑤英単語の裸出し（english-allow.txt に無く、括弧の説明も用語の表も無い 3 文字以上の英単語）
 #                   ⑦専門語の密度（1 段落に初出の専門語が 3 つ以上で FAIL、全体で 9 語以上は WARN）
 #                   ⑧確認の問い（最後の節に「？」か「か。」の文が 1 つ。2 つ以上は WARN） ⑨雛形の <…> の残り
-#                   WARN: 仕組みの節に理由の語が無い、比喩が 3 回以上、誤った前提の否定が無い、社長が次にすることが無い、本文 40 行超
+#                   WARN: 仕組みの節に理由の語が無い、比喩が 3 回以上、誤った前提の否定が無い、読み手が次にすることが無い、本文 40 行超
 #   short: 文が 3 つ以内、表と図が無い。①②④⑦⑧は見ない。  report: ⑧の代わりに「次にすること」を必須にし、②④は見ない。
 #   一文の長さと文末は tools/check-ja.sh、文の中の運びは skills/ja-fluent/scripts/fluency-check.sh が見る。
 # 使い方: explain-check.sh <ファイル> [--profile …] [--reader …]   /   explain-check.sh --selftest
@@ -249,9 +249,9 @@ if profile == "explain":
         W(scope[-1][0], "確認の問い", f"問いが {questions} つ。1 つにする")
 next_step = any(re.search(r"進めて|ください|お願いします|次に|お知らせ|教えて", t) for t in prose[-6:] and [t for _, t in prose[-6:]])
 if profile == "report" and not next_step:
-    F(scope[-1][0] if scope else scope_start_no, "次にすること", "社長が次にすることを末尾に 1 文書く")
+    F(scope[-1][0] if scope else scope_start_no, "次にすること", "読み手が次にすることを末尾に 1 文書く")
 elif profile == "explain" and not next_step:
-    W(scope[-1][0] if scope else scope_start_no, "次にすること", "社長が次にすることが末尾に無い")
+    W(scope[-1][0] if scope else scope_start_no, "次にすること", "読み手が次にすることが末尾に無い")
 if profile == "explain":
     mech = None
     for k, r in enumerate(scope):

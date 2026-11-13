@@ -66,7 +66,7 @@ description: 社長が所有し許可した対象（検証環境と自社のコ�
 
 ## 提出前の確認
 
-1. `scripts/roe-check.sh <RoE>` が PASS で、社長の署名と日付がある。
+1. `scripts/roe-check.sh <RoE>` が PASS で、対象の持ち主の署名と日付がある。
 2. `scripts/report-check.sh --roe <RoE> <報告>` と `scripts/cvss4.sh --report <報告>` が PASS。再現・再検証・試験は、RoE の範囲の宛先と写しの置き場に合っている。
 3. `scripts/report-check.sh --matrix <行列>` が PASS。検証の命令を手元で回した結果を行列に書いた。
 4. 再検証の命令を直した版で回し、全部の期待の値が出た。宛先は RoE の範囲の中だけだった。

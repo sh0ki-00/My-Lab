@@ -35,7 +35,7 @@ description: 社長の問いに、教授が生徒に教えるように答える�
 4. `templates/explanation.md`（短答は `templates/short-answer.md`）を写して書く。順は 8 段で、問いの言い直し・答え・全体像・用語・仕組み・例・手順・確認の問いである。仕組みには、よくある誤解の否定を 1 行含める。終わりの印: `<…>` が残っていない。
 5. 検査する。本文をファイルに置き、`scripts/explain-check.sh <ファイル>`、`tools/check-file.sh <ファイル>`、`skills/ja-fluent/scripts/fluency-check.sh <ファイル>` を通す。終わりの印: 3 つとも `RESULT: PASS`。
 6. 言い直しテスト。`templates/restatement-test.md` の依頼文で、別コンテキスト（Claude Code は `editor`、Cursor は新しいチャット）に本文だけを渡す。終わりの印: 3 つの事実を全部含む言い直しが返り、記録を `tmp/flow/<件名>/restatement-test.md` に残した。
-7. 出す。Cursor ではチャットにそのまま、Claude Code でも同じ本文。図は描画できる画面（Cursor のチャット、ファイル）だけに置き、端末では表にする。終わりの印: 社長が次にすることが末尾に 1 文ある。
+7. 出す。Cursor ではチャットにそのまま、Claude Code でも同じ本文。図は描画できる画面（Cursor のチャット、ファイル）だけに置き、端末では表にする。終わりの印: 読み手が次にすることが末尾に 1 文ある。
 8. 確認の問いの答えを受けたら、`scripts/reader-profile-update.sh --known <語> --stuck <語>` で記録を更新する。終わりの印: `reader-profile.md` に日付つきの行が増えた。
 
 ## 出力と受け渡し
@@ -64,4 +64,4 @@ description: 社長の問いに、教授が生徒に教えるように答える�
 1. `bash skills/ja-professor/scripts/explain-check.sh <ファイル>` が PASS（結論の位置、問いの言い直し、用語の初出、例、英単語の裸出し、専門語の密度、確認の問い）。
 2. `bash tools/check-file.sh <ファイル>` と `bash skills/ja-fluent/scripts/fluency-check.sh <ファイル>` が PASS。
 3. 別コンテキストの言い直しテストで、3 つの事実を全部含む。
-4. 数値に「架空」か出どころがあり、社長が次にすることが 1 文ある。
+4. 数値に「架空」か出どころがあり、読み手が次にすることが 1 文ある。
