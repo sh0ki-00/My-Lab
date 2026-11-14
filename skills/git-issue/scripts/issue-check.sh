@@ -52,8 +52,9 @@ title_no, title = next(((i, l[2:].strip()) for i, l in lines if l.startswith("# 
 if not title:
     fail(1, "題名", "「# 題名」が無い")
 else:
-    if len(re.sub(r"\s", "", title)) > 60:
-        fail(title_no, "題名", f"{len(re.sub(r'\s', '', title))} 字。60 字以内にする")
+    title_len = len(re.sub(r"\s", "", title))  # f 文字列の式にバックスラッシュを書くと Python 3.11 以前で構文エラーになる
+    if title_len > 60:
+        fail(title_no, "題名", f"{title_len} 字。60 字以内にする")
     if re.search(r"(を直す|直す|を修正する|修正する|修正|改修する|fix|Fix)\s*$", title):
         fail(title_no, "題名", "直し方ではなく、起きている症状を書く")
 

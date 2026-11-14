@@ -54,8 +54,9 @@ for i, l in enumerate(raw_lines, 1):
 title_no, title = next(((i, l[2:].strip()) for i, l in lines if l.startswith("# ")), (1, ""))
 if not re.match(r"^(feat|fix|docs|refactor|perf|test|build|ci|chore)(\([^)]+\))?: \S", title):
     fail(title_no, "題名", "「<型>(<対象>): <何をするか>」の形にする。型は feat・fix・docs・refactor・perf・test・build・ci・chore")
-if len(re.sub(r"\s", "", title)) > 60:
-    fail(title_no, "題名", f"{len(re.sub(r'\s', '', title))} 字。60 字以内にする")
+title_len = len(re.sub(r"\s", "", title))  # f 文字列の式にバックスラッシュを書くと Python 3.11 以前で構文エラーになる
+if title_len > 60:
+    fail(title_no, "題名", f"{title_len} 字。60 字以内にする")
 
 head = [l for i, l in lines if i <= 25]
 quote = [l for l in head if l.startswith(">")]
