@@ -83,5 +83,13 @@ if printf '%s\n' "$cloud_out" | grep -q '\[範囲外の宛先\]' \
    && ! printf '%s\n' "$cloud_out" | grep -qE '\[(所有の確認|許可|連絡先|期間|止める条件|やらないこと|範囲)\]'; then r=PASS; else r=FAIL; fi
 judge "fixtures/bad-cloud-roe.md は所有の確認と署名があっても「範囲外の宛先」だけで落ちる" PASS "$r"
 
+# 9) 攻撃の道具の自己試験（9 つの線・台帳の形）
+judge "attack-run の 9 つの線の自己試験" PASS "$(verdict attack-run --selftest)"
+judge "attack-check の台帳の自己試験" PASS "$(verdict attack-check --selftest)"
+
+# 10) 検知力の試験（脆弱性を仕込んだサンプル。サーバーを立てる）。S-3・S-4・S-6
+if python3 "$HERE/vulnerable-app/detect-test.py" >/dev/null 2>&1; then r=PASS; else r=FAIL; fi
+judge "検知力: 穴 12 件を見つけ、ふさいだ版で 0 件、届いた本数が一致" PASS "$r"
+
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals security ($pass/$total)"; exit 0; fi
 echo "RESULT: FAIL evals security ($pass/$total)"; exit 1
