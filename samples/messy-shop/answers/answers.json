@@ -1,0 +1,214 @@
+{
+  "about": "messy-shop の 10 問の正答と、その導き方（SQL）。build.py が種 20261126 で作った DB の値。答える側には渡さない。",
+  "seed": 20261126,
+  "snapshot": "2026-11-01 00:00（日本時間）",
+  "fields": {
+    "trap": "主に試す罠の番号（answers/traps.md の番号と同じ）",
+    "form": "答えの形。number は数、text は文字、list は一覧",
+    "tolerance": "許す誤差。abs は差の上限、rel は正答に対する割合の上限。null は完全に一致",
+    "sql": "正答を出す SELECT の文。1 文だけ",
+    "alt": "別の道筋で同じ正答を出す SELECT の文。数の問いは許す誤差の内で合えばよい",
+    "naive": "罠を知らずにコードの数え方をそのまま使った文と、その値。正答とは合わない"
+  },
+  "tables": {
+    "customers": 2999,
+    "daily_stats": 578,
+    "order_items": 20874,
+    "orders": 9152,
+    "payments": 8407,
+    "products": 38,
+    "shipments": 8074
+  },
+  "questions": {
+    "Q1": {
+      "trap": 1,
+      "trap_type": "定数に無い値",
+      "form": "number",
+      "unit": "件",
+      "tolerance": {
+        "abs": 0
+      },
+      "answer": 556,
+      "sql": "SELECT COUNT(*) FROM orders WHERE status IN ('cancel', 'canceled')",
+      "alt": [],
+      "naive": {
+        "from": "app/reports.py の cancel_count",
+        "sql": "SELECT COUNT(*) FROM orders WHERE status = 'canceled'",
+        "answer": 457
+      }
+    },
+    "Q2": {
+      "trap": 2,
+      "trap_type": "書かれない列、動いていない経路",
+      "form": "number",
+      "unit": "件",
+      "tolerance": {
+        "abs": 0
+      },
+      "answer": 186,
+      "sql": "SELECT COUNT(DISTINCT order_id) FROM shipments WHERE shipped_on >= '2026-09-01' AND shipped_on < '2026-10-01'",
+      "alt": [
+        "SELECT COUNT(*) FROM orders o WHERE EXISTS (SELECT 1 FROM shipments s WHERE s.order_id = o.id AND s.shipped_on >= '2026-09-01' AND s.shipped_on < '2026-10-01')"
+      ],
+      "naive": {
+        "from": "app/reports.py の shipped_count",
+        "sql": "SELECT COUNT(*) FROM orders WHERE substr(shipped_at, 1, 7) = '2026-09'",
+        "answer": 0
+      }
+    },
+    "Q3": {
+      "trap": 3,
+      "trap_type": "同じ事実の二重の置き場",
+      "form": "number",
+      "unit": "件",
+      "tolerance": {
+        "abs": 0
+      },
+      "answer": 228,
+      "sql": "SELECT COUNT(*) FROM orders WHERE is_deleted = 1 OR deleted_at IS NOT NULL",
+      "alt": [],
+      "naive": {
+        "from": "app/reports.py の deleted_count",
+        "sql": "SELECT COUNT(*) FROM orders WHERE deleted_at IS NOT NULL",
+        "answer": 132
+      }
+    },
+    "Q4": {
+      "trap": 4,
+      "trap_type": "途中で意味が変わった列",
+      "form": "number",
+      "unit": "円",
+      "tolerance": {
+        "rel": 0.001
+      },
+      "answer": 3556806,
+      "sql": "SELECT SUM(CASE WHEN created_at < '2024-03-31 15:00:00' THEN total + tax ELSE total END) FROM orders WHERE status IN ('paid', 'shipped', 'delivered') AND datetime(created_at, '+9 hours') >= '2024-01-01 00:00:00' AND datetime(created_at, '+9 hours') < '2025-01-01 00:00:00'",
+      "alt": [
+        "SELECT SUM(CASE WHEN o.total = (SELECT SUM(i.qty * i.unit_price) FROM order_items i WHERE i.order_id = o.id) THEN o.total + o.tax ELSE o.total END) FROM orders o WHERE o.status IN ('paid', 'shipped', 'delivered') AND datetime(o.created_at, '+9 hours') >= '2024-01-01 00:00:00' AND datetime(o.created_at, '+9 hours') < '2025-01-01 00:00:00'"
+      ],
+      "naive": {
+        "from": "app/reports.py の yearly_sales",
+        "sql": "SELECT COALESCE(SUM(o.total), 0) FROM orders o JOIN payments p ON p.order_id = o.id WHERE strftime('%Y', o.created_at) = '2024'",
+        "answer": 3478110
+      }
+    },
+    "Q5": {
+      "trap": 5,
+      "trap_type": "読んでいない書き手",
+      "form": "number",
+      "unit": "個",
+      "tolerance": {
+        "abs": 0
+      },
+      "answer": 6276,
+      "sql": "SELECT SUM(i.qty) FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id WHERE o.status IN ('paid', 'shipped', 'delivered') AND datetime(o.created_at, '+9 hours') >= '2025-01-01 00:00:00' AND datetime(o.created_at, '+9 hours') < '2026-01-01 00:00:00' AND p.sku <> 'SHIP'",
+      "alt": [
+        "SELECT SUM(i.qty) FROM order_items i JOIN orders o ON o.id = i.order_id WHERE o.status IN ('paid', 'shipped', 'delivered') AND datetime(o.created_at, '+9 hours') >= '2025-01-01 00:00:00' AND datetime(o.created_at, '+9 hours') < '2026-01-01 00:00:00' AND i.product_id IN (SELECT id FROM products WHERE is_active = 1)"
+      ],
+      "naive": {
+        "from": "app/reports.py の items_sold",
+        "sql": "SELECT COALESCE(SUM(i.qty), 0) FROM order_items i JOIN orders o ON o.id = i.order_id WHERE o.status IN ('paid', 'shipped', 'delivered') AND strftime('%Y', o.created_at) = '2025'",
+        "answer": 7422
+      }
+    },
+    "Q6": {
+      "trap": 6,
+      "trap_type": "同じ集計の重複",
+      "form": "number",
+      "unit": "円",
+      "tolerance": {
+        "abs": 0
+      },
+      "answer": 535403,
+      "sql": "SELECT SUM(sales) FROM daily_stats WHERE day >= '2026-09-01' AND day < '2026-10-01'",
+      "alt": [
+        "SELECT COALESCE(SUM(total + shipping_fee), 0) FROM orders WHERE date(created_at, '+9 hours') >= '2026-09-01' AND date(created_at, '+9 hours') < '2026-10-01' AND status != 'canceled' AND deleted_at IS NULL"
+      ],
+      "naive": {
+        "from": "app/reports.py の monthly_sales",
+        "sql": "SELECT COALESCE(SUM(total), 0) FROM orders WHERE status IN ('paid', 'shipped', 'delivered') AND substr(created_at, 1, 7) = '2026-09'",
+        "answer": 347996
+      }
+    },
+    "Q7": {
+      "trap": 7,
+      "trap_type": "孤児の行と、重複する鍵",
+      "form": "number",
+      "unit": "円",
+      "tolerance": {
+        "rel": 0.001
+      },
+      "answer": 4108929,
+      "sql": "SELECT SUM(total) FROM orders WHERE status IN ('paid', 'shipped', 'delivered') AND datetime(created_at, '+9 hours') >= '2025-01-01 00:00:00' AND datetime(created_at, '+9 hours') < '2026-01-01 00:00:00'",
+      "alt": [
+        "SELECT SUM(o.total) FROM orders o WHERE EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id) AND datetime(o.created_at, '+9 hours') >= '2025-01-01 00:00:00' AND datetime(o.created_at, '+9 hours') < '2026-01-01 00:00:00'"
+      ],
+      "naive": {
+        "from": "app/reports.py の yearly_sales",
+        "sql": "SELECT COALESCE(SUM(o.total), 0) FROM orders o JOIN payments p ON p.order_id = o.id WHERE strftime('%Y', o.created_at) = '2025'",
+        "answer": 4690686
+      }
+    },
+    "Q8": {
+      "trap": 8,
+      "trap_type": "時刻の境目",
+      "form": "text",
+      "normalize": "date",
+      "tolerance": null,
+      "answer": "2026-08-01",
+      "sql": "SELECT date(created_at, '+9 hours') AS d FROM orders WHERE datetime(created_at, '+9 hours') >= '2026-08-01 00:00:00' AND datetime(created_at, '+9 hours') < '2026-09-01 00:00:00' GROUP BY d ORDER BY COUNT(*) DESC, d LIMIT 1",
+      "alt": [
+        "SELECT substr(datetime(created_at, '+9 hours'), 1, 10) AS d FROM orders WHERE substr(datetime(created_at, '+9 hours'), 1, 7) = '2026-08' AND status NOT IN ('cancel', 'canceled') GROUP BY d ORDER BY COUNT(*) DESC, d LIMIT 1"
+      ],
+      "naive": {
+        "from": "app/reports.py の daily_orders",
+        "sql": "SELECT substr(created_at, 1, 10) AS d FROM orders WHERE substr(created_at, 1, 7) = '2026-08' GROUP BY d ORDER BY COUNT(*) DESC, d LIMIT 1",
+        "answer": "2026-08-21"
+      }
+    },
+    "Q9": {
+      "trap": 9,
+      "trap_type": "試しのデータの混入",
+      "form": "list",
+      "ordered": true,
+      "tolerance": null,
+      "answer": [
+        1925,
+        1028,
+        1620
+      ],
+      "sql": "SELECT o.customer_id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status IN ('paid', 'shipped', 'delivered') AND datetime(o.created_at, '+9 hours') >= '2026-10-01 00:00:00' AND datetime(o.created_at, '+9 hours') < '2026-11-01 00:00:00' AND c.email NOT LIKE '%@komonoya.example' GROUP BY o.customer_id ORDER BY SUM(o.total) DESC LIMIT 3",
+      "alt": [
+        "SELECT o.customer_id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status IN ('paid', 'shipped', 'delivered') AND datetime(o.created_at, '+9 hours') >= '2026-10-01 00:00:00' AND datetime(o.created_at, '+9 hours') < '2026-11-01 00:00:00' AND c.name NOT LIKE 'テスト%' AND c.name <> '動作確認' GROUP BY o.customer_id ORDER BY SUM(o.total + o.shipping_fee) DESC LIMIT 3"
+      ],
+      "naive": {
+        "from": "app/reports.py の top_customers",
+        "sql": "SELECT o.customer_id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status IN ('paid', 'shipped', 'delivered') AND substr(o.created_at, 1, 7) = '2026-10' GROUP BY o.customer_id ORDER BY SUM(o.total) DESC LIMIT 3",
+        "answer": [
+          2928,
+          2929,
+          1925
+        ]
+      }
+    },
+    "Q10": {
+      "trap": 10,
+      "trap_type": "型のゆれ",
+      "form": "number",
+      "unit": "人",
+      "tolerance": {
+        "abs": 0
+      },
+      "answer": 1383,
+      "sql": "SELECT COUNT(*) FROM customers WHERE (mail_ok = 1 OR mail_ok = 'on') AND email NOT LIKE '%@komonoya.example'",
+      "alt": [
+        "SELECT COUNT(*) FROM customers WHERE typeof(mail_ok) = 'integer' AND mail_ok = 1 OR typeof(mail_ok) = 'text' AND mail_ok = 'on'"
+      ],
+      "naive": {
+        "from": "app/mail_report.py の newsletter_targets",
+        "sql": "SELECT COUNT(*) FROM customers WHERE mail_ok = 1",
+        "answer": 975
+      }
+    }
+  }
+}

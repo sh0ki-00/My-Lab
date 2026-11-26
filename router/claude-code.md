@@ -31,6 +31,8 @@ Claude Code は、My-Lab の中では `CLAUDE.md`（`AGENTS.md` を取り込む 
 
 常時ルールの本文は、`router/cursor-user-rule.md`（写した先では `tmp/cursor-user-rule.md`）の「貼る本文」と同じものを `~/.claude/CLAUDE.md` に社長が貼る。Claude Code は `~/.claude/CLAUDE.md` を全プロジェクトで読む。
 
+読む順の 4 つ目は、プロジェクトの地図の入口 tmp/catchup/index.md（キャッチアップで作る）である。あれば読み、依頼が触る節のファイルだけを開き、地図は書き換えない。地図が無いか、触る節が古い（`bash tmp/skills/catchup/scripts/map-check.sh --fresh` の SECTION の行）ときは、最初の返答で 1 行伝え、依頼はそのまま進める。キャッチアップは、頼まれたときだけ `tmp/skills/catchup/SKILL.md` で回す。
+
 ## 3. 確かめ方
 
 1. `bash hooks/selftest.sh` が `RESULT: PASS` を出す（判定表と、両ツールの接続口の端から端）。
