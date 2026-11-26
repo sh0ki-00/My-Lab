@@ -508,13 +508,39 @@ def pii_in_projection(sql):
     COUNT・SUM・AVG・TOTAL の中と、IS NULL の比べは値を出さないので数えない。別名（AS の後ろ）も数えない。"""
     words = sql_words(sql)
     alias, tables = sql_sources(words)
-    stack, inside = [], []
+    stack, anc, close = [], [], {}
     for k, (w, isname) in enumerate(words):
-        inside.append([words[j - 1][0] if j > 0 else "" for j in stack])  # 囲む関数の名前
+        anc.append(list(stack))  # 外側の括弧の位置（内側が後ろ）
         if w == "(":
             stack.append(k)
         elif w == ")" and stack:
-            stack.pop()
+            close[stack.pop()] = k
+
+    def fname(j):
+        return words[j - 1][0] if j > 0 else ""
+
+    def only_cols(j):
+        return j in close and all(isn or t in ("*", ".", "DISTINCT") for t, isn in words[j + 1:close[j]])
+
+    def agg_safe(k):
+        """値を出さない所か。通すのは 3 つだけ。
+        1. すぐ外側の関数が COUNT・SUM・AVG・TOTAL で、括弧の中が列の名前（と * と DISTINCT）だけ
+        2. typeof(列)。型の名前しか出ない
+        3. 集計の中の CASE WHEN 列 = 値。推測した値と同じかしか出ない（文字列の値は字句で中身が消える）
+        SUM(UNICODE(SUBSTR(email, 1, 1))) や、集計の中の LIKE・> のように、値の一部が数で出る形は通さない"""
+        a = anc[k]
+        if not a:
+            return False
+        j = a[-1]
+        if fname(j) in AGG_SAFE and only_cols(j):
+            return True
+        if fname(j) == "TYPEOF" and only_cols(j):
+            return True
+        if any(fname(x) in AGG_SAFE for x in a) and k > 0 and words[k - 1][0] in ("WHEN", "AND", "OR") \
+                and k + 2 < len(words) and words[k + 1][0] == "=" \
+                and (words[k + 2][0] == "\x01" or re.fullmatch(r"-?\d+(\.\d+)?", words[k + 2][0])):
+            return True
+        return False
     # 括弧ごとに、問い合わせの括弧か関数の括弧かを持つ。関数の括弧は、開いた所の射影かどうかを引き継ぐ
     ctx, proj = [["query", False]], []
     for k, (w, isname) in enumerate(words):
@@ -541,7 +567,7 @@ def pii_in_projection(sql):
     for k, (w, isname) in enumerate(words):
         if not proj[k]:
             continue
-        safe = any(f in AGG_SAFE for f in inside[k])
+        safe = agg_safe(k)
         if w == "*" and not safe and (k == 0 or words[k - 1][0] in ("SELECT", ",", ".", "DISTINCT", "ALL")):
             star = True
             continue
@@ -2791,6 +2817,12 @@ def selftest_review(results):
               ["email_count", "no_mail"], [[3, 1]], False),
              ("SELECT status, COUNT(*) AS n FROM orders WHERE customer_id IN (SELECT id FROM customers WHERE email IS NULL) "
               "GROUP BY status", ["status", "n"], [["paid", 3]], False),
+             # 集計の中でも、列を別の関数や式で包むと値の一部が数で出る（指摘: 集計で包んだ個人情報のすり抜け）
+             ("SELECT SUM(UNICODE(SUBSTR(email, 1, 1))) AS x FROM customers WHERE id = 1", ["x"], [[97]], True),
+             ("SELECT AVG(LENGTH(name)) AS x FROM customers", ["x"], [[6]], True),
+             ("SELECT SUM(CASE WHEN email LIKE 'a%' THEN 1 ELSE 0 END) AS x FROM customers", ["x"], [[2]], True),
+             ("SELECT COUNT(DISTINCT email) AS x FROM customers", ["x"], [[3]], False),
+             ("SELECT COUNT(c.email) AS x FROM customers c", ["x"], [[3]], False),
              ("SELECT x FROM t", ["x"], [["０９０－１２３４－５６７８"]], True),
              ("SELECT x FROM t", ["x"], [["090 1234 5678"]], True)]
     for sql, cols, rows, bad in cases:
