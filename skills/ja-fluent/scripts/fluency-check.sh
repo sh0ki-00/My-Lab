@@ -6,7 +6,7 @@
 #         カタカナ語（katakana.txt）、カタカナが本文の 20% 超、翻訳調の型（WARN 印）、漢字 6 字以上の連続（allow-kanji.txt は除く）
 #   見ないもの: 見出し、表、コード、frontmatter、注釈、<!-- check:off --> 〜 <!-- check:on --> の区間、<!-- ja-ok --> の行。
 #   一文の長さ・文末の連続・調・禁則語は tools/check-ja.sh が見る。
-# 使い方: fluency-check.sh <ファイル>... [--profile doc|answer]   /   fluency-check.sh --selftest
+# 使い方: fluency-check.sh <ファイル>...   /   fluency-check.sh --selftest
 # 出力: FAIL/WARN <ファイル>:<行> [<決まり>] <内容>、info の 1 行、RESULT: PASS|FAIL fluency-check。FAIL が 1 件でもあれば終了コード 1。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
@@ -236,7 +236,7 @@ selftest() {
   printf '# 題\n\n検証を行う。確認を実施する。集計を行う。\n' > "$t/suru.md"
   printf '# 題\n\n速いが、高いが、使いやすい案です。\n' > "$t/ga.md"
   printf '# 題\n\n一覧の取得によってクエリが発行されます。\n' > "$t/trans.md"
-  printf '# 題\n\nユーザーのステータスを見ます。\n' > "$t/kata.md"
+  printf '# 題\n\nソリューションのアジェンダを見ます。\n' > "$t/kata.md"
   run "$t/good.md" | grep -q '^RESULT: PASS' || { echo "FAIL selftest: 正例が落ちた"; rc=1; }
   for pair in "ten:読点" "no:助詞の連続" "redundant:冗長" "passive:受身" "dneg:二重否定" "suru:冗長" "ga:接続助詞" "trans:翻訳調"; do
     f="${pair%%:*}"; rule="${pair#*:}"
@@ -250,6 +250,6 @@ selftest() {
 
 case "${1:-}" in
   --selftest) selftest ;;
-  "") echo "使い方: fluency-check.sh <ファイル>... [--profile doc|answer] | --selftest"; exit 2 ;;
+  "") echo "使い方: fluency-check.sh <ファイル>... | --selftest"; exit 2 ;;
   *) run "$@" ;;
 esac

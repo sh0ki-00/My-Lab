@@ -13,7 +13,7 @@
 | 計画 | `frontend-plan-dive-log.md`（同じ examples にある） |
 | 画面の型 | 没入の型。実装計画から写した |
 | 演出の記録 | tmp/.verify/immersive-measure.json（回すたびに書き直す） |
-| フレームの一覧 | tmp/flow/team-improvement/stage2/frames.json（frames 50 枚、directions 3 枚。戻るの縮小版 4 枚は同じ手順の小さな台本で足した） |
+| フレームの一覧 | tmp/flow/team-improvement/stage2/frames.json（frames 50 枚、directions 3 枚。戻るの縮小版 4 枚は同じ手順の小さなスクリプトで足した） |
 
 ## 点検
 

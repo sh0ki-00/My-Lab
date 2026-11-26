@@ -2,7 +2,7 @@
 # deploy.sh <プロジェクトのパス> — この一式（skills/・.company/・tools/・samples/）をそのプロジェクトの tmp/ に写し、git に入らないようにする。
 # 社長が手でコピーするのと中身は同じ。加えて git が読む exclude に、写した tmp/ だけを外す行を足す（直下なら /tmp/）。
 # worktree では、git が読む共通の .git/info/exclude に足す。tmp/DEPLOYED.md には、日時と正本の場所と常時ルールの貼り先と、git でしたことを書く。
-# samples/ は、写した skills の参照と自己試験（見本を使う検査）が写した先でも通るように写す。__pycache__ は写さない。
+# samples/ は、写した skills の参照と自己試験（見本を使う検査）が移した先でも通るように写す。__pycache__ は写さない。
 # 常時ルール（~/.claude/CLAUDE.md、Cursor の User Rules）には書き込まない。貼る本文は tmp/cursor-user-rule.md、Claude Code の接続の説明は tmp/claude-code.md に写すだけ。
 # 使い方: ./deploy.sh /path/to/project   前に写した印（tmp/DEPLOYED.md）があれば、tmp/skills などを新しい版で置き換える。tmp/ の他の中身は触らない。
 # 写した直後に tmp/tools/project-verify.sh --baseline を回し、写した時点の印（tmp/.verify/last-pass）と一覧を置く。hooks は、このあとファイルが変わるまで検証を回さない。
@@ -145,7 +145,7 @@ cat > "$DEST/tmp/DEPLOYED.md" <<EOF
 検査するのは、引数で渡した文書（\`tmp/flow/\` の下の .md、\`tmp/ISSUE_*.md\`、\`tmp/PR_*.md\`）だけです。引数が無ければ、文書は 1 本も検査しません。文書も命令も無い回は、PASS にならず WARN（終了コード 3）で終わります。
 AI は、このセッション（AI との 1 つの会話）で書いた文書を全部渡します。Bash のコマンドで書いた文書も、自分で引数に入れます。終わりの検証と添削には、ほかのセッションが書いた文書を入れません。hooks（Mac 全体に 1 回登録）が回す検証とは別に、AI が自分で回します。
 プロジェクトの lint や試験も回すなら、\`tmp/verify-commands.txt\` に 1 行 1 命令で書きます（例: \`pnpm run lint\`）。この命令は、引数によらず回ります。
-\`tmp/tools/verify-all.sh\` は My-Lab の一式の検証なので、写した先では回さずに止まります。
+\`tmp/tools/verify-all.sh\` は My-Lab の一式の検証なので、移した先では回さずに止まります。
 EOF
 
 # 写した時点の印を置く。hooks は、このあとファイルが変わるまで検証を回さない（文書の範囲の決まりは tools/project-verify.sh の冒頭）

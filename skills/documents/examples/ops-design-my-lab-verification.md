@@ -26,7 +26,7 @@ My-Lab は、会社の決まりと役割のスキルと守りと検証の道具�
 | 守りの設定 | 守りの強さの設定ファイル（管理者 root 所有。置き場は `AGENTS.md` の守りの表） | 依頼者が `sudo` で書く。AI は読むだけ |
 | 検証 | `tools/verify-all.sh`、`tools/check-file.sh`、`tools/lib/*.py` | 全体の検証（11 種類）と、1 ファイルの検査 |
 | 記録 | `docs/verify/<日付>.md`、`tmp/.verify/` | `--full` の記録と、`--fast` の記録と詳細のログ |
-| 配布 | `deploy.sh`、`tools/project-verify.sh` | 他のプロジェクトの `tmp/` へ写す。写した先の検証 |
+| 配布 | `deploy.sh`、`tools/project-verify.sh` | 他のプロジェクトの `tmp/` へ写す。移した先の検証 |
 | 置き場 | GitHub の sh0ki-00/My-Lab | 正本。main へは PR で入れる |
 
 ## 3. 運用体制
@@ -62,7 +62,7 @@ My-Lab は、会社の決まりと役割のスキルと守りと検証の道具�
 | 3 | 基盤運用 | commit 前の検証と記録 | `tools/verify-all.sh --full` を回し、記録を残す | 依頼（commit の承認を伺う前） | 取りまとめ役 | `procedure-verify-before-commit.md` | 記録は `docs/verify/<日付>.md` |
 | 4 | 基盤運用 | 守りの自己試験 | `hooks/selftest.sh` で判定の規則を試す | 自動（全体の検証の中） | hooks | `skills/verify/references/checks.md` | 2 つの言語設定で回る |
 | 5 | 運用管理 | 守りの設定の切り替え | 守りの強さの設定ファイルを書き換える | 依頼者の判断 | 依頼者 | 未整備 | 管理者（root）所有のファイルで、依頼者が `sudo` で書く |
-| 6 | 運用管理 | 写した先への配布 | `deploy.sh` で一式を他のプロジェクトの `tmp/` に写す | 依頼（決まりや検査を変えて main に入れたあと） | 依頼者 | `deploy.sh` の冒頭の使い方 | 写した先の検査は `tools/project-verify.sh` |
+| 6 | 運用管理 | 移した先への配布 | `deploy.sh` で一式を他のプロジェクトの `tmp/` に写す | 依頼（決まりや検査を変えて main に入れたあと） | 依頼者 | `deploy.sh` の冒頭の使い方 | 移した先の検査は `tools/project-verify.sh` |
 | 7 | 運用管理 | 検査の道具の更新 | shellcheck、gitleaks、trivy、semgrep、jq、node を入れ直す | 通知（検査が `[道具が無い]` を出したとき） | 依頼者 | 未整備 | 無いときは FAIL と同じに扱い、依頼者に伝える |
 | 8 | 業務運用 | 依頼の受付から完了報告 | 受付票、承認伺い、承認記録、完了報告を書く | 依頼のたび | 取りまとめ役 | `skills/secretary/SKILL.md` | 成果物は `tmp/flow/<件名>/` |
 
@@ -118,11 +118,11 @@ My-Lab は、会社の決まりと役割のスキルと守りと検証の道具�
 | 段階 | すること | 誰 |
 |---|---|---|
 | 依頼 | 1 行の依頼を受付票にする | 取りまとめ役 |
-| 承認（関所 1） | 承認伺いを 1 枚にし、依頼者の言葉を承認記録に残す | 取りまとめ役、依頼者 |
+| 承認（承認 1） | 承認伺いを 1 枚にし、依頼者の言葉を承認記録に残す | 取りまとめ役、依頼者 |
 | 作る | 作業ブランチで、承認の範囲のファイルだけを直す | 役割、取りまとめ役 |
 | 検証 | `tools/verify-all.sh --full` を回し、完了報告を書く | 取りまとめ役 |
-| 承認（関所 2） | commit と push の承認の言葉を得る | 依頼者 |
-| 本番反映 | PR を作り、main に merge する。写した先へは `deploy.sh` | 依頼者 |
+| 承認（承認 2） | commit と push の承認の言葉を得る | 依頼者 |
+| 本番反映 | PR を作り、main に merge する。移した先へは `deploy.sh` | 依頼者 |
 
 ## 11. アカウントと権限
 

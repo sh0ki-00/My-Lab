@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# hooks/claude-postedit.sh — Claude Code の PostToolUse（Edit・Write・MultiEdit・NotebookEdit）接続口。
+# hooks/claude-postedit.sh — Claude Code の PostToolUse（Edit・Write・MultiEdit・NotebookEdit）hooks。
 # 直したファイルの検査を tools/check-file.sh で回す。FAIL なら終了コード 2 で結果を Claude に見せる（編集は戻さない）。
 # 検査の前に、直したファイルをセッションの記録（tmp/.verify/sessions/<名前>.files）に足す。終わりの検証が、そのセッションの文書だけを見るため。
 #   記録は子のシェルで書き、失敗しても検査と終了コードに響かない。
-# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、重ねて回さない。
+# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ hooks を登録していれば、重ねて回さない。
 set -u
 # shellcheck source=hooks/lib.sh
 . "$(dirname "$0")/lib.sh"

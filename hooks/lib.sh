@@ -92,7 +92,7 @@ verify_cmd() {
   fi
 }
 
-# project_registers <root> <接続口の名前> → そのプロジェクト自身が同じ接続口を登録していれば 0
+# project_registers <root> <hooks の名前> → そのプロジェクト自身が同じ hooks を登録していれば 0
 # Mac 全体の登録（--global）は、プロジェクト自身の登録があるときは理由を省くか、重ねて回さない。
 project_registers() {
   local r="$1" name="$2"
@@ -114,7 +114,7 @@ tree_list() {
   (cd "$1" 2>/dev/null && find_tree . -print | LC_ALL=C sort)
 }
 
-# snapshot_tree <root> → 今のファイルの一覧を tmp/.verify/last-pass.list に書く。接続口が、検証が通った直後に呼ぶ。書けなくても 0
+# snapshot_tree <root> → 今のファイルの一覧を tmp/.verify/last-pass.list に書く。hooks が、検証が通った直後に呼ぶ。書けなくても 0
 snapshot_tree() {
   local r="$1"
   local list="$r/tmp/.verify/last-pass.list"
@@ -136,7 +136,7 @@ changed_since_pass() {
   return 0
 }
 
-# stop_count <session> [reset|bump] → Stop の指示で続けた回数（セッションごと）。上限は接続口が決める
+# stop_count <session> [reset|bump] → Stop の指示で続けた回数（セッションごと）。上限は hooks が決める
 #   claude-stop.sh は、返答の書き直しと検証の差し戻しを、この 1 つの回数で数える。bump で記録を書けなければ終了コード 1
 stop_count() {
   local f="$LAB_ROOT/tmp/.verify/stop-count-${1:-none}" n=0
@@ -433,7 +433,7 @@ guard_mode_file() { printf '%s' "${COMPANY_GUARD_MODE_FILE:-/usr/local/etc/compa
 #      自分の権限で書ける（ファイル・置き場のフォルダ・その親のどれか。AI が置けた物か、置き場ごと移せる物）なら、deny に倒す（fail-closed）。
 #   3. 置き場が無いときだけ、今までどおり ~/.cursor/company-guard.mode を読む（移行期の互換。無ければ ask）。
 #      置き場を「作る前」と「消された」は見分けられない。この Mac では親の /usr/local/etc と /usr/local が root 所有なので消せない。
-# shellcheck disable=SC2034  # GUARD_MODE と GUARD_MODE_WHY は呼んだ接続口が読む
+# shellcheck disable=SC2034  # GUARD_MODE と GUARD_MODE_WHY は呼んだ hooks が読む
 guard_mode() {
   local f d p v
   f="$(guard_mode_file)"; d="$(dirname "$f")"; p="$(dirname "$d")"

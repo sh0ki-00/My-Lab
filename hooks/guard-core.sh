@@ -2,14 +2,14 @@
 # hooks/guard-core.sh — 判定本体。コマンド文字列を 1 本受け取り、判定と理由を 1 行で返す。
 #
 # 判定は 3 つ。allow（許可）、ask（社長の確認）、deny（拒否）。
-# 接続口（claude-*.sh、cursor-*.sh）は入出力の変換だけを持ち、判定はすべてここで行う。
+# hooks（claude-*.sh、cursor-*.sh）は入出力の変換だけを持ち、判定はすべてここで行う。
 #
 # 使い方:
 #   guard-core.sh [--signal deny] -- "<コマンド>"
 #   printf '%s' "<コマンド>" | guard-core.sh [--signal deny]
 # 出力: 「判定<TAB>理由」の 1 行。終了コードは常に 0（判定は出力で伝える）。
 #
-# 合図の語 APPROVE_GIT が含まれていれば、どの接続口のどの設定でも deny。合図で通す道は持たない。
+# 合図の語 APPROVE_GIT が含まれていれば、どの hooks のどの設定でも deny。合図で通す道は持たない。
 # Cursor の beforeShellExecution では命令の文字列を AI が書くので、合図で通すと AI の自己承認になる。
 # 承認は確認ダイアログ（ask）で受けるか、社長が hooks の掛からない自分の端末で実行する。
 # --signal は前の呼び方との互換のために受け取るだけで、値は判定に使わない（honor を渡しても同じ判定）。
@@ -47,7 +47,7 @@ esac
 #     正規化で引用符と逆斜線は消えるが、名前は残る。命令がどちらかに触れ、かつ次のどれかがあれば deny:
 #       書き込みのリダイレクト（>、>>、>|、&>。先が company-guard か、$ で隠した名前か、~/.cursor の下）、
 #       書き換え・削除・権限の命令（tee、cp、mv、rm、rmdir、unlink、truncate、install、dd、ln、sed、chmod、chown、chflags、
-#       台本の python・perl・ruby・node・php）。/bin/rm のようなパス付きと、; & ( | の直後の命令名も見る。
+#       スクリプトの python・perl・ruby・node・php）。/bin/rm のようなパス付きと、; & ( | の直後の命令名も見る。
 #     cat・ls・stat・test・wc・grep・diff の読みは allow。プロジェクトの中の .cursor/（hooks.json）は、家のパスでないので見ない。
 #     芯の守りは文字列ではなく置き場の所有者（root）にあり、ここは AI の手元で早く止めるための網。
 #     大文字小文字は区別しない。APFS では RM も /bin/rm として動き、~/.Cursor も ~/.cursor と同じ場所になるため。
@@ -88,15 +88,15 @@ ask_president() { out ask "$1${NOTE:+ $NOTE}"; }  # 社長の承認が要る操�
 
 # 2c. hooks の登録と本体への書き込み・削除・移動・権限の変更も deny。Write・Edit の門（claude-preedit.sh）と同じ場所を、Bash の側でも守る。
 #     場所: ~/.claude/settings.json、~/.claude/hooks/、~/.claude/CLAUDE.md、My-Lab の hooks/ と .claude/settings.json と .cursor/hooks.json。
-#     My-Lab は絶対パスと、~ や $HOME からの書き方で見る。My-Lab の中で動いているとき（接続口が渡す COMPANY_GUARD_PROJECT_ROOT、無ければ
+#     My-Lab は絶対パスと、~ や $HOME からの書き方で見る。My-Lab の中で動いているとき（hooks が渡す COMPANY_GUARD_PROJECT_ROOT、無ければ
 #     CLAUDE_PROJECT_DIR・CURSOR_PROJECT_DIR・PWD が My-Lab の下）は、hooks/・./hooks/・../hooks/・.claude/settings.json・.cursor/hooks.json の
 #     相対パスも見る。他のプロジェクトの hooks/ は見ない。
 #     場所がその命令の引数のとき deny にする形: リダイレクト（> >> >| &>）、tee・mv・rm・rmdir・unlink・truncate・install・dd・ln・chmod・chown・
 #       chflags・patch・shred・ed・ex、cp と rsync は場所が最後の引数（写す先）か -t の先、sed と perl は -i（上書き）つき、
 #       git checkout <ref> -- <場所> と git restore <場所>。
-#     命令のどこかに場所があれば deny にする形: 台本を -c や -e で命令の中に書く python・perl・ruby・node・php、
+#     命令のどこかに場所があれば deny にする形: スクリプトを -c や -e で命令の中に書く python・perl・ruby・node・php、
 #       場所を変数に入れる書き方（f=hooks/x）と書き込みの目印（$ へのリダイレクト、上の命令）の組。
-#     読みと検査は allow のまま（cat・ls・diff・grep・git diff・git add・shellcheck・bash hooks/selftest.sh・python3 <台本> hooks/*.sh・
+#     読みと検査は allow のまま（cat・ls・diff・grep・git diff・git add・shellcheck・bash hooks/selftest.sh・python3 <スクリプト> hooks/*.sh・
 #       cp hooks/x /tmp/ のように場所が写す元）。大文字小文字は区別しない。
 #     git の merge・checkout <ブランチ>・apply・stash pop で hooks/ の中身が変わる道と、別の命令に分けた書き方は、文字列では見ない。
 # shellcheck disable=SC2016  # 正規表現の中の $ は字面。展開しない
@@ -313,14 +313,14 @@ EOF
 fi
 [ "$cloud" = 1 ] && ask_president "クラウドにつなぐコマンドは、開発環境でだけ、そのたびに承認を得て回す（読むだけのコマンドも含む）。承認を伺う文に、環境の名前と、読むだけか書き換えるかを書く。"
 
-# 3a. 関所 2: 外に出る操作
-has "${G}commit${A}"      && ask_president "commit は関所 2。社長の承認があれば実行し、なければ中止する。"
-has "${G}push${A}"        && ask_president "push は外に出る操作（関所 2）。社長の承認があれば実行する。"
+# 3a. 承認 2: 外に出る操作
+has "${G}commit${A}"      && ask_president "commit は承認 2。社長の承認があれば実行し、なければ中止する。"
+has "${G}push${A}"        && ask_president "push は外に出る操作（承認 2）。社長の承認があれば実行する。"
 has "${G}send-email${A}"  && ask_president "外部へ送る操作。社長の承認があれば実行する。"
 has "${B}gh +pr +(create|merge|close|reopen|edit|comment|review|ready|lock|unlock)${A}" \
-  && ask_president "PR の作成と変更は外に出る操作（関所 2）。社長の承認があれば実行する。"
+  && ask_president "PR の作成と変更は外に出る操作（承認 2）。社長の承認があれば実行する。"
 has "${B}gh +issue +(create|close|reopen|edit|comment|delete|transfer|pin|unpin|lock|unlock|develop)${A}" \
-  && ask_president "Issue の作成と変更は外に出る操作（関所 2）。社長の承認があれば実行する。"
+  && ask_president "Issue の作成と変更は外に出る操作（承認 2）。社長の承認があれば実行する。"
 has "${B}gh +(release|repo|gist) +(create|delete|edit|upload|delete-asset|fork|archive|unarchive|rename|sync)${A}" \
   && ask_president "GitHub への書き込みは外に出る操作。社長の承認があれば実行する。"
 has "${B}gh +label +(create|delete|edit|clone)${A}" \

@@ -3,7 +3,7 @@
 #   1) 設計書: 完成例が arch-check を通り、雛形と負例が名指しで落ちる。
 #   2) 構成コード: 良い例と見本（samples/infra）が iac-scan を通り、悪い例と見本を壊した写しが規則の番号で落ちる。
 #   3) 復元: restore-drill が小さな行数で PASS し、RTO を超えたら落ちる。
-#   4) 計画の関所: plan-gate が置き換えと削除で止め、許す物の一覧の外を承認 2 人の経路へ回す。
+#   4) 計画の承認: plan-gate が置き換えと削除で止め、許す物の一覧の外を承認 2 人の経路へ回す。
 #   5) データベースの権限: db-grants-check が正本との食い違いを落とし、見本が正本と合う。
 #   6) 部品の一覧の差分: deps-diff が新しい部品と版の変更を知らせ、危ない形を止める。
 #   7) 自前のコード: egress-check が外へ移る処理と外へ送る処理を落とし、見本の API が通る。
@@ -76,7 +76,7 @@ TF
   judge "17 見本の守りの適用（guarded_statements）に rds:ModifyDBInstance がある" PASS "$got"
 fi
 
-# 2b) 計画の関所
+# 2b) 計画の承認
 judge "10 plan-gate の自己試験（一覧の内と外・置き換え・削除・データを消す変更・来歴・部品・前提の検査）が通る" PASS "$(has plan-gate '^RESULT: PASS plan-gate --selftest' --selftest)"
 
 # 2c) データベースの権限と正本

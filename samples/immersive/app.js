@@ -138,7 +138,7 @@ const curveOf = (name) => {
 };
 
 // 焦点を動かした手段。入力欄をポインターで押したときだけ data-modality="pointer" を置き、焦点の輪が 120ms で灯る。
-// キーボードと台本からの移しは 0ms で、属性を外す（無いときは書き換えないので、スタートを押した瞬間に属性が変わらない）
+// キーボードとスクリプトからの移しは 0ms で、属性を外す（無いときは書き換えないので、スタートを押した瞬間に属性が変わらない）
 const setModality = (pointer) => {
   if (pointer && root.dataset.modality !== 'pointer') root.dataset.modality = 'pointer';
   else if (!pointer && root.dataset.modality) delete root.dataset.modality;

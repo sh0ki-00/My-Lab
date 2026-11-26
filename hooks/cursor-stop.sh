@@ -10,7 +10,7 @@
 #   Cursor の stop の出力には、利用者の画面に出す欄が無い（followup_message は AI への続きの指示）。そのため、上限で語が残ったことは
 #   記録（tmp/.verify/hooks.log）に書くだけで、画面には出せない。改善提案書 12 章の 7（超えたら画面に通知）は、Cursor では満たせない。
 # 14 日より古いセッションの記録（tmp/.verify/sessions/）は、ここで消す。
-# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、重ねて回さない。
+# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ hooks を登録していれば、重ねて回さない。
 set -u
 # shellcheck source=hooks/lib.sh
 . "$(dirname "$0")/lib.sh"

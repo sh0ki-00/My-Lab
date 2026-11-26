@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# skills/documents/scripts/shape-check.sh [--kind 種類] [--theirs] <ファイル> — 手順書・運用設計書・調査報告・仕様書・要件定義書・ポストモーテムの形の検査を束ねる。
+# skills/documents/scripts/shape-check.sh [--kind 種類] [--theirs] <ファイル> — 手順書・運用設計書・調査報告・仕様書・要件定義書・ポストモーテム・
+#   チェックリスト・データ分析の形の検査を束ねる。
 #   1) 雛形の印: 〈…〉が残っていれば FAIL（雛形を埋めずに出すのを止める）。
-#   2) 種類: 表題の先頭「種類:」か、表題の末尾の語（「〜手順書」「〜運用設計書」「〜調査報告書」「〜仕様書」「〜要件定義書」「〜ポストモーテム」）か、--kind で決める。
+#   2) 種類: 表題の先頭「種類:」か、表題の末尾の語（「〜手順書」「〜運用設計書」「〜調査報告書」「〜仕様書」「〜要件定義書」「〜ポストモーテム」
+#      「〜チェックリスト」「〜データ分析」）か、--kind で決める。「リリース前チェックリスト: 件名」のように、チェックリストの語で終わる語も先頭と見る。
 #      どれも無ければ FAIL。相手の形に合わせて表題に種類が無いときは --kind で渡す。check-doc には表題に種類を足した写しを渡し、元のファイルは変えない。
 #   3) 型: tools/lib/check_doc.py。手順書・運用設計書・要件定義書・ポストモーテムは現場の文書の型（表題の直下の文書情報の表、必須の節、表の列と語の決まり）で見る。
-#      調査報告・仕様書は資料の型（要約、導入の文、図と表、用語、必須の節、表の列の決まり）で見る。--theirs のときは「必須の節」と「文書情報」を見ない（相手の節構成が正本）。
+#      調査報告・データ分析・仕様書は資料の型（要約、導入の文、図と表、用語、必須の節、表の列の決まり）で見る。
+#      チェックリストは「- [ ]」の 1 行 1 確認で見る（表、チェックボックスの無い箇条書き、60 字超、曖昧語、1 行 2 確認で落ちる）。
+#      --theirs のときは「必須の節」と「文書情報」を見ない（相手の節構成が正本）。
 #   4) 文体: tools/lib/check_ja.py。文の運び: skills/ja-fluent/scripts/fluency-check.sh（あれば）。
-# 道具は 3 つ上の tools/ から探す（My-Lab なら tools/、写した先なら tmp/tools/）。無ければ FAIL（SKIP は FAIL と同じ）。
+# 道具は 3 つ上の tools/ から探す（My-Lab なら tools/、移した先なら tmp/tools/）。無ければ FAIL（SKIP は FAIL と同じ）。
 # 使い方: shape-check.sh [--kind 種類] [--theirs] <ファイル>   /   shape-check.sh --selftest
 # 出力: 束ねた検査の FAIL・WARN・RESULT 行と、最後に RESULT: PASS|FAIL shape-check <ファイル>。FAIL が 1 件でもあれば終了コード 1。
 set -u
@@ -15,7 +19,7 @@ ROOT="$(cd "$HERE/../../.." && pwd -P)" || exit 1
 TOOLS="$ROOT/tools"
 FLUENCY="$ROOT/skills/ja-fluent/scripts/fluency-check.sh"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
-KINDS="手順書・運用設計書・調査報告・仕様書・要件定義書・ポストモーテム"
+KINDS="手順書・運用設計書・調査報告・仕様書・要件定義書・ポストモーテム・チェックリスト・データ分析"
 fail=0
 
 title_of() {  # title_of <ファイル> → 表題（# を除く）
@@ -25,8 +29,8 @@ title_of() {  # title_of <ファイル> → 表題（# を除く）
 kind_of() {  # kind_of <表題> → 種類か -。先頭の「種類:」を優先し、無ければ表題の末尾の語で見る。「調査報告書」は「調査報告」に揃える
   printf '%s\n' "$1" | python3 -I -c 'import re, sys
 t = sys.stdin.read().strip()
-pat = r"(手順書|運用設計書|調査報告書?|仕様書|要件定義書|ポストモーテム)"
-m = re.match("^" + pat + r"\s*[:：]", t) or re.search(pat + "$", t)
+pat = r"(手順書|運用設計書|調査報告書?|仕様書|要件定義書|ポストモーテム|チェックリスト|データ分析)"
+m = re.match("^" + pat + r"\s*[:：]", t) or re.match(r"^[^:：]*(チェックリスト)\s*[:：]", t) or re.search(pat + "$", t)
 print(m.group(1).replace("調査報告書", "調査報告") if m else "-")'
 }
 
@@ -179,6 +183,24 @@ reasons = "許可の正は設定ファイルである。\n\n優先度 6 が国�
 (t / "noexpect.md").write_text(good.replace("   - 期待結果: 行数が 1 つ増える。\n", ""), encoding="utf-8")
 table = good[good.index("| 項目 | 内容 |"):good.index("## 1. 目的")]
 (t / "notable.md").write_text(good.replace(table, ""), encoding="utf-8")
+check = """# リリース前チェックリスト: 見本の作業
+
+対象は見本の作業です。確かめた人は、項目の末尾に名前を書きます。
+
+## 作業の前
+
+- [ ] 作業用の場所に、書く権限がある
+- [ ] 足す行の中身を、依頼者が読んだ
+- [ ] 元のファイルの写しを取った
+
+## 作業の後
+
+- [ ] 行数が 1 つだけ増えている
+- [ ] 差分が 1 行の追加だけである
+"""
+(t / "check.md").write_text(check, encoding="utf-8")
+(t / "check-table.md").write_text(check.replace("- [ ] 作業用の場所に、書く権限がある\n- [ ] 足す行の中身を、依頼者が読んだ", "| 確認 | 結果 |\n|---|---|\n| 書く権限 | |\n| 依頼者が読んだ | |"), encoding="utf-8")
+(t / "check-nokind.md").write_text(check.replace("# リリース前チェックリスト: 見本の作業", "# 見本の作業の確認", 1), encoding="utf-8")
 PY
   check "$t/good.md" - 0 >/dev/null || { echo "FAIL selftest: 正例（末尾が手順書）が落ちた"; check "$t/good.md" - 0 | grep '^FAIL'; rc=1; }
   check "$t/prefix.md" - 0 >/dev/null || { echo "FAIL selftest: 正例（先頭が手順書:）が落ちた"; check "$t/prefix.md" - 0 | grep '^FAIL'; rc=1; }
@@ -192,8 +214,12 @@ PY
   check "$t/noexpect.md" - 0 | grep -q '\[期待結果\]' || { echo "FAIL selftest: 期待結果の無い操作が通った"; rc=1; }
   check "$t/notable.md" - 0 | grep -q '\[文書情報\]' || { echo "FAIL selftest: 文書情報の表が無いのに通った"; rc=1; }
   check "$t/notable.md" - 1 >/dev/null || { echo "FAIL selftest: 相手の形（文書情報なし）が --theirs でも落ちた"; check "$t/notable.md" - 1 | grep '^FAIL'; rc=1; }
+  check "$t/check.md" - 0 >/dev/null || { echo "FAIL selftest: 正例（チェックリスト）が落ちた"; check "$t/check.md" - 0 | grep '^FAIL'; rc=1; }
+  check "$t/check-table.md" - 0 | grep -q '\[チェックリストの表\]' || { echo "FAIL selftest: 表で書いたチェックリストが通った"; rc=1; }
+  check "$t/check-nokind.md" - 0 | grep -q '\[種類\]' || { echo "FAIL selftest: 種類の無いチェックリストの表題が通った"; rc=1; }
+  check "$t/check-nokind.md" チェックリスト 0 >/dev/null || { echo "FAIL selftest: --kind チェックリストを付けた表題が落ちた"; check "$t/check-nokind.md" チェックリスト 0 | grep '^FAIL'; rc=1; }
   rm -rf "$t"
-  if [ "$rc" -eq 0 ]; then echo "RESULT: PASS shape-check --selftest (12 例)"; else echo "RESULT: FAIL shape-check --selftest"; fi
+  if [ "$rc" -eq 0 ]; then echo "RESULT: PASS shape-check --selftest (16 例)"; else echo "RESULT: FAIL shape-check --selftest"; fi
   return $rc
 }
 
@@ -213,7 +239,7 @@ done
 [ -n "$file" ] || { usage; exit 2; }
 case "$kind" in
   調査報告書) kind="調査報告" ;;
-  -|手順書|運用設計書|調査報告|仕様書|要件定義書|ポストモーテム) ;;
+  -|手順書|運用設計書|調査報告|仕様書|要件定義書|ポストモーテム|チェックリスト|データ分析) ;;
   *) echo "FAIL [種類] --kind は $KINDS のどれか（${kind}）"; exit 2 ;;
 esac
 check "$file" "$kind" "$theirs"

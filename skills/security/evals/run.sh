@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# skills/security/evals/run.sh — security の試験ケース（cases.md の 8 件）。機械で判定できる分だけを回す。
+# skills/security/evals/run.sh — security の試験ケース（cases.md の 9 件）。機械で判定できる分だけを回す。
 #   1) 完成例と雛形: 完成例は 4 つの検査を通り、雛形は穴埋めのままなので落ちる。
 #   2) RoE の負例 fixtures/bad-roe.md が、7 つの決まりで名指しで落ちる。
 #   3) 報告の負例 fixtures/bad-report.md が、7 つの決まりで名指しで落ちる。
@@ -8,6 +8,7 @@
 #   6) 報告が指す見本の試験 3 本が通る（網を使わない）。
 #   7) 写しの負例 fixtures/bad-copy-report.md が、--roe で RoE の範囲と突き合わせて 4 つの決まりで落ち、--roe なしでは通る。
 #   8) RoE の負例 fixtures/bad-cloud-roe.md が、所有の確認と署名がそろっていても、手元の外の宛先だけで落ちる。
+#   11) 誤検知の確かめの負例 fixtures/bad-fp-report.md が、再現 1 回・空の升・誤検知の発見・表に無い発見の 4 つで落ちる。
 # 出力: ケースごとの行と、最後に RESULT: PASS|FAIL evals security (<合格>/<全部>)。
 set -u
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
@@ -90,6 +91,14 @@ judge "attack-check の台帳の自己試験" PASS "$(verdict attack-check --sel
 # 10) 検知力の試験（脆弱性を仕込んだサンプル。サーバーを立てる）。S-3・S-4・S-6
 if python3 "$HERE/vulnerable-app/detect-test.py" >/dev/null 2>&1; then r=PASS; else r=FAIL; fi
 judge "検知力: 穴 12 件を見つけ、ふさいだ版で 0 件、届いた本数が一致" PASS "$r"
+
+# 11) 誤検知の確かめ（references/five-points-and-retest.md の「誤検知を確かめる」）
+fp_out="$(bash "$S/report-check.sh" "$FX/bad-fp-report.md" 2>&1)"
+for msg in "F-1 の再現が 2 回に満たない" "C-1 の 守りの層 が空" "F-1 を誤検知と判定したのに、発見に書いている" "F-2 に、誤検知の確かめで「本物」と判定した行が無い"; do
+  if printf '%s\n' "$fp_out" | grep -q -- "\[誤検知の確かめ\] ${msg}"; then r=PASS; else r=FAIL; fi
+  judge "fixtures/bad-fp-report.md が「誤検知の確かめ」で落ちる（${msg}）" PASS "$r"
+done
+judge "fixtures/bad-report.md は誤検知の確かめの節が無いことでも落ちる" PASS "$(has report-check '\[誤検知の確かめ\]' "$FX/bad-report.md")"
 
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals security ($pass/$total)"; exit 0; fi
 echo "RESULT: FAIL evals security ($pass/$total)"; exit 1

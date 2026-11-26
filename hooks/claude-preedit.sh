@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# hooks/claude-preedit.sh — Claude Code の PreToolUse（Write・Edit・MultiEdit・NotebookEdit）接続口。
+# hooks/claude-preedit.sh — Claude Code の PreToolUse（Write・Edit・MultiEdit・NotebookEdit）hooks。
 # 書く先のパスを実体のパス（リンクと .. を解いた物）にし、大文字小文字をそろえて比べ、守りの設定と hooks の登録に当たれば deny を返す。
 # 当たらなければ何も出さず、通常の権限の流れに任せる。シェルの門（claude-pretooluse.sh）は Bash しか見ないので、Write・Edit の道をここで閉じる。
 #   deny にする先: ~/.cursor/ の下、~/.claude/settings.json、~/.claude/hooks/ の下、~/.claude/CLAUDE.md、/usr/local/etc/company-guard/ の下、
@@ -7,7 +7,7 @@
 #   比較は両側を小文字にそろえる。APFS は大文字小文字を区別せず、real_path はフォルダは本当の綴りに直すが最後の名前は打たれた綴りのまま返すため。
 #   さらに、書く先が名前を 2 つ以上持つファイル（ハードリンク）なら deny。別の名前（ln ~/.claude/settings.json /tmp/x）から同じ中身を
 #   書き換える道を、パスの比較では見分けられないため。
-# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、理由を省いて判定だけ返す。
+# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ hooks を登録していれば、理由を省いて判定だけ返す。
 # セッションの始まりの印（tmp/.verify/sessions/<名前>.start）も置く。終わりの検証の範囲に使い、判定には使わない。
 #   子のシェルで置き、失敗しても判定に響かない。
 # shellcheck disable=SC2088  # 文の中の ~/ は人に見せる表記で、展開させない

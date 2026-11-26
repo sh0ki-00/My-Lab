@@ -5,7 +5,7 @@
 #   写しの project-verify.sh は、引数で渡した文書だけを検査する。命令のファイル（tmp/verify-commands.txt）も文書の引数も無い置き場では
 #   project-verify が WARN（終了コード 3）を返し、プロジェクトの試験は回らないことも確かめる。
 #   命令を書けばその命令が回り、落ちる命令と違反のある文書では FAIL になることも確かめる。
-#   写した説明の文書（tmp/claude-code.md、tmp/cursor-user-rule.md）に、写した先の check-refs が FAIL を出さないことも確かめる。
+#   写した説明の文書（tmp/claude-code.md、tmp/cursor-user-rule.md）に、移した先の check-refs が FAIL を出さないことも確かめる。
 #   さらに HOME を使い捨ての場所に向けて install.sh を回し、hooks が登録され、旧 cradle の登録が外れ、他の設定が残り、
 #   常時ルール（~/.claude/CLAUDE.md、~/.cursor/rules）に何も書かれないことを確かめる。本物の HOME には触れない。
 # 出力: FAIL placement [<観点>] <内容> と、最後に RESULT: PASS|FAIL placement-test。
@@ -48,8 +48,8 @@ for p in $(grep -oE "${bt}tmp/[^${bt}<*{ ]+${bt}" "$LAB/router/cursor-user-rule.
   if printf '%s\n' "$planned" | grep -qx "${rel%/}" || printf '%s\n' "$planned" | grep -qx "$rel"; then continue; fi
   [ -e "$P/${p%/}" ] || bad 参照 "User Rules が指す $p が写しに無い"
 done
-# 写した説明の文書が指す My-Lab にしか無い物（hooks/ など）は、写した先の check-refs で FAIL にならない
-out="$(cd "$P" && bash tmp/tools/check-refs.sh tmp/claude-code.md tmp/cursor-user-rule.md 2>&1)" || bad 参照 "写した先の check-refs が落ちた: $(printf '%s\n' "$out" | grep -E '^FAIL' | head -3)"
+# 写した説明の文書が指す My-Lab にしか無い物（hooks/ など）は、移した先の check-refs で FAIL にならない
+out="$(cd "$P" && bash tmp/tools/check-refs.sh tmp/claude-code.md tmp/cursor-user-rule.md 2>&1)" || bad 参照 "移した先の check-refs が落ちた: $(printf '%s\n' "$out" | grep -E '^FAIL' | head -3)"
 # DEPLOYED.md の変更の数は、ファイルの本数で書く（git status の行の数ではない）
 grep -q 'git status で [0-9]* 行' "$P/tmp/DEPLOYED.md" && bad 版 "DEPLOYED.md が git status の行の数を書く"
 

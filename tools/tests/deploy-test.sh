@@ -7,6 +7,7 @@
 #   exclude は git が読む所（worktree なら共通の .git/info/exclude）に、写した tmp/ だけを外す行で足し、改行の無い最後の行を壊さない。
 #   外れたかは git check-ignore で確かめ、DEPLOYED.md の git の行にはしたことを書く。先頭が - のパスと CDPATH でも、渡した場所に写す。
 #   写した直後に印（tmp/.verify/last-pass）と一覧を置く。文書は、移した先の検証が引数で渡されたものだけを検査する。
+#   本物の router/cursor-user-rule.md の貼る本文に、言い直し・形の語・語彙表・調べた結果の伝え方があり、RESULT の行を返答に貼る決まりが無い（C-09）。
 #   場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。bash は社長の機械と同じ /bin/bash（3.2）を使う。
 # 出力: 場面ごとに PASS <場面> [<LANG>] か FAIL <場面> [<LANG>] <理由>。最後に RESULT 行。1 件でも FAIL なら終了コード 1。
 set -u
@@ -337,10 +338,22 @@ case_baseline() {  # 写した直後に印（tmp/.verify/last-pass）と一覧�
   need "文書は引数で渡したものだけを検査すると知らせない: $(printf '%s\n' "$OUT" | tail -1)" said '引数で渡したものだけ' || return 1
 }
 
+# ---- 場面: 貼る本文の答え方（仕様書 R-20261113-01 の C-09）
+case_router_answer_rules() {  # 本物の貼る本文（ここから〜ここまで）に、返答の決まりが入っている
+  local R="$HERE/../../router/cursor-user-rule.md" body w
+  need "本物の router/cursor-user-rule.md が無い（${R}）" [ -f "$R" ] || return 1
+  body="$(sed -n '/^## 貼る本文（ここから）/,/^## 貼る本文（ここまで）/p' "$R")"
+  need "貼る本文の区切り（ここから・ここまで）が無い" [ -n "$body" ] || return 1
+  for w in "言い直す" "形の語" "チェックボックス" "vocabulary.md" "答え→根拠の数字" "answer-check.sh" "返答には貼らない"; do
+    need "貼る本文に「${w}」が無い" grep -qF -- "$w" <<<"$body" || return 1
+  done
+  need "貼る本文に、RESULT の行を返答に貼る決まりが残っている" not_grep "行をそのまま返答に貼る" "$R" || return 1
+}
+
 # ---- 実行
 CASES="tmp_link_to_lab tmp_link_shared tmp_is_lab own_tmp_tools dest_inside_lab inside_git_dir redeploy
 exclude_no_newline anchored_line old_line_kept worktree repo_subfolder special_name old_git_fallback
-unrelated_tmp_paths not_excluded_stops not_git deployed_row leading_dash cdpath home_untouched baseline"
+unrelated_tmp_paths not_excluded_stops not_git deployed_row leading_dash cdpath home_untouched baseline router_answer_rules"
 for L in C ja_JP.UTF-8; do
   for c in $CASES; do
     total=$((total + 1))

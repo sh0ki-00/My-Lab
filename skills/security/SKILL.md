@@ -13,8 +13,8 @@ description: ソースコードから手元で起こしたアプリ（宛先は 
 
 - `.company/security/CLAUDE.md`（ペルソナ）と `.company/DELIVERY.md`、`.company/rules/evidence-and-safety.md`。
 - 対象の設計と実装。バックエンドの計画 `tmp/flow/<件名>/backend-plan.md`、インフラの設計、SRE の盲点。無ければ秘書に戻す。
-- `references/roe-and-scope.md`（RoE の 6 項目、許可の線、止める条件）と `references/attack-table.md`（攻撃の表 A01〜A12 と、道具が守る 9 つの線）。
-- `references/five-points-and-retest.md`（発見の 5 点、再現と再検証の命令、攻撃のコードを書かない線、OWASP の項目と直す役）。
+- `references/roe-and-scope.md`（RoE の 6 項目、許可の線、止める条件）と `references/attack-table.md`（攻撃の表 A01〜A12 と OWASP ASVS 5.0.0 の要件、道具が守る 9 つの線）。
+- `references/five-points-and-retest.md`（誤検知の確かめ、発見の 5 点、再現と再検証の命令、攻撃のコードを書かない線、OWASP の項目と直す役）。
 - `references/cvss4-scoring.md`（基本の 11 個の値の選び方、計算の手順、表の出典）。
 - `references/detection-matrix.md`（4 つの列、段階の分け方、盲点の扱い）。
 - `templates/`（`roe.md`、`standing-roe.md`、`pentest-plan.md`、`pentest-report.md`、`detection-matrix.md`）と `examples/`。見本の API は `samples/api/`、脆弱性を仕込んだ試験の的は `evals/vulnerable-app/`。
@@ -35,12 +35,13 @@ description: ソースコードから手元で起こしたアプリ（宛先は 
 3. 秘書を通して、社長の署名と日付をもらう。署名が無いうちは、道具を 1 つも向けない。
 4. 計画を `templates/pentest-plan.md` から書く。攻撃者ごとに試すことを、要求 1 本と「穴とみなす応答」で決め、OWASP API Security Top 10 の項目に結びつける。
 5. 試す。依頼ごとは手で、ローカルでの攻撃を毎回回すときは `scripts/attack-run.sh`（表の手口を送り、9 つの線を自分で守る）。宛先は 127.0.0.1 だけにする。攻撃の台帳は `scripts/attack-check.sh` で検査し、tmp の下に置いて PR 文には貼らない。止める条件に当たったら、すぐに止めて秘書へ知らせる。
-6. 穴ごとに、報告の型で 5 点を書く。再現は穴のある版、再検証は直した版に送る命令にする。再検証は、再現と同じ写しを直して立てた RoE の宛先に向け、名を挙げる試験はその写しの置き場の中の物にする。期待の値は「期待: `404`」の形で書く。
-7. 採点する。11 個の値を選び、`scripts/cvss4.sh '<CVSS:4.0/…>'` で点数と重さを出し、根拠の表に値ごとの理由を書く。
-8. 検知の行列を `templates/detection-matrix.md` から書く。攻撃の段階を 4 つ以上並べ、ログの列から埋める。手元で検証の命令を回し、ログの行数を書く。
-9. 検査を通す。`scripts/report-check.sh --roe <RoE> <報告>`、`scripts/cvss4.sh --report <報告>`、`scripts/report-check.sh --matrix <行列>`、`tools/check-file.sh` を各文書に回す。秘書が `editor` で読み手テスト（セキュリティからは呼べない）。
-10. 渡す。発見と再検証の依頼はバックエンドとフロントエンドへ、設計と権限の穴はインフラへ、検知すべき経路と盲点は SRE へ渡す。
-11. 直ったと言われたら、報告の再検証の命令をそのまま回す。全部の期待の値が出たら、報告の状態と再検証の結果の表を直す。
+6. 候補ごとに誤検知でないかを確かめ、報告の「誤検知の確かめ」の表に書く。言い直し・前提・2 回の再現・守りの層・反対の側の 5 つを `references/five-points-and-retest.md` の順で当て、誤検知は捨てた理由と一緒に残す。終わりの印: 発見にする候補が全部「本物」の行を持つ。
+7. 本物の穴ごとに、報告の型で 5 点を書く。再現は穴のある版、再検証は直した版に送る命令にする。再検証は、再現と同じ写しを直して立てた RoE の宛先に向け、名を挙げる試験はその写しの置き場の中の物にする。期待の値は「期待: `404`」の形で書く。
+8. 採点する。11 個の値を選び、`scripts/cvss4.sh '<CVSS:4.0/…>'` で点数と重さを出し、根拠の表に値ごとの理由を書く。
+9. 検知の行列を `templates/detection-matrix.md` から書く。攻撃の段階を 4 つ以上並べ、ログの列から埋める。手元で検証の命令を回し、ログの行数を書く。
+10. 検査を通す。`scripts/report-check.sh --roe <RoE> <報告>`、`scripts/cvss4.sh --report <報告>`、`scripts/report-check.sh --matrix <行列>`、`tools/check-file.sh` を各文書に回す。読み手テストは取りまとめ役が `editor` で行う（セキュリティからは呼べない）。
+11. 渡す。発見と再検証の依頼はバックエンドとフロントエンドへ、設計と権限の穴はインフラへ、検知すべき経路と盲点は SRE へ渡す。
+12. 直ったと言われたら、報告の再検証の命令をそのまま回す。全部の期待の値が出たら、報告の状態と再検証の結果の表を直す。
 
 ## 出力と受け渡し
 
@@ -68,7 +69,7 @@ description: ソースコードから手元で起こしたアプリ（宛先は 
 ## 提出前の確認
 
 1. `scripts/roe-check.sh <RoE>` が PASS で、対象の持ち主の署名と日付がある。
-2. `scripts/report-check.sh --roe <RoE> <報告>` と `scripts/cvss4.sh --report <報告>` が PASS。再現・再検証・試験は、RoE の範囲の宛先と写しの置き場に合っている。
+2. `scripts/report-check.sh --roe <RoE> <報告>` と `scripts/cvss4.sh --report <報告>` が PASS。発見の全部に、誤検知の確かめで「本物」の行がある。再現・再検証・試験は、RoE の範囲の宛先と写しの置き場に合っている。
 3. `scripts/report-check.sh --matrix <行列>` が PASS。検証の命令を手元で回した結果を行列に書いた。
 4. 再検証の命令を直した版で回し、全部の期待の値が出た。宛先は RoE の範囲の中だけだった。
 5. 各文書の `tools/check-file.sh` と `tools/check-refs.sh` が PASS。

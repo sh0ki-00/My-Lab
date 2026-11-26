@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# hooks/claude-pretooluse.sh — Claude Code の PreToolUse（Bash）接続口。
+# hooks/claude-pretooluse.sh — Claude Code の PreToolUse（Bash）hooks。
 # 入力: 標準入力の JSON（tool_name、tool_input.command ほか）。
 # 出力: 判定が ask か deny のとき hookSpecificOutput の JSON。allow のときは何も出さず、通常の権限の流れに任せる。
-# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、理由を省いて判定だけ返す
+# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ hooks を登録していれば、理由を省いて判定だけ返す
 #               （2 つの登録が重なっても、確認の文が 2 回出ないようにする。判定は厳しい方が勝つ）。
 # セッションの始まりの印（tmp/.verify/sessions/<名前>.start）も置く。終わりの検証の範囲に使い、判定には使わない。
 #   子のシェルで置き、失敗しても判定に響かない。

@@ -125,11 +125,11 @@
     "overlapS": 10.0,
     "apiTransactionLimitS": 8.0,
     "horizon": "orders_write_horizon()。定義は samples/infra/db/roles.sql の 1 つだけ（持ち主 orders_horizon、指紋の検査もそこ）。pg_stat_activity から、orders の書き手（writers の DB の利用者）のうち、書いてまだコミットしていない取引の始まりの最も古い時刻を返す。API は読みの取引を始める前に、取引の外で least(statement_timestamp(), この値) を読み、servedAt にする（orders_api.py の SERVED_PG）。写しが決まってから読むと、そのあいだにコミットした取引が、写しにも horizon にも出ない。返すのは時刻だけで、文と鍵のハッシュは返さない。いまの roles.sql は書き手を orders_api と legacy_api の名前で固定している。名前で絞らず、orders に RowExclusiveLock を持つ取引を pg_locks で数える案をインフラに渡す（計画の未確定 11）",
-    "how": "本番の changed_at はトリガーが書いた時刻（clock_timestamp）。書き手の取引の始まりより後なので、servedAt を書き手の取引の始まりより後にしなければ、遅れてコミットした行も次の since に入る。旧 API と移行の利用者に取引の上限は掛けない。重ね幅 10 秒は、DB の時計の粒と、読みの取引の始まりから文までの差の余裕。移行の利用者は行を書かず、横の索引作りで servedAt を止めないよう writers の利用者に入れない。servedAt を取引の前に読むので、読みの写しが決まった直後にコミットした取引も、servedAt を読んだ時に開いていた取引として数える",
+    "how": "本番の changed_at はトリガーが書いた時刻（clock_timestamp）。書き手の取引の始まりより後なので、servedAt を書き手の取引の始まりより後にしなければ、遅れてコミットした行も次の since に入る。旧 API と移行の利用者に取引の上限は掛けない。重ね幅 10 秒は、DB の時計の粒と、読みの取引の始まりから文までの差の余裕。移行の利用者は行を書かず、横のインデックス作りで servedAt を止めないよう writers の利用者に入れない。servedAt を取引の前に読むので、読みの写しが決まった直後にコミットした取引も、servedAt を読んだ時に開いていた取引として数える",
     "writers": {
       "orders_api": "新 API。出荷指示（ready から shipped）と取り消し（is_cancelled を 1）。API 自身の打ち切りは 8 秒",
       "legacy_api": "旧 API。取り消し、取り消しの戻し、出荷、配達済み、決済の通知（pending から ready）、受注（INSERT）。この計画では止めず、文も取引の長さも変えない。段 0 で、この書き込みをするのが旧 API の利用者だけかを確かめ、別の利用者がいれば、ここと otherRoles と orders_write_horizon の一覧に足す",
-      "migration": "移行の利用者（orders の持ち主）。足し算の文だけで、行を書かない。索引は CONCURRENTLY で、lock_timeout と statement_timeout を 0 に戻してから流す"
+      "migration": "移行の利用者（orders の持ち主）。足し算の文だけで、行を書かない。インデックスは CONCURRENTLY で、lock_timeout と statement_timeout を 0 に戻してから流す"
     }
   },
   "open": [
@@ -147,7 +147,7 @@
     "meaning": "1 なら取消。移行の前と同じ意味で、どの書き手もこの列だけで取消を決める",
     "status": "status に 'cancelled' は書かない。契約の status の 'cancelled' は、新 API が読むときに is_cancelled から作る",
     "stamp": "トリガー orders_before_write（見本は orders_cancel_stamp と orders_touch）だけが、印の立て下ろしで cancelled_at と cancelled_by を書き、書いた取引の番号を stamped_xid に残す。トリガーは ENABLE ALWAYS で、session_replication_role が replica の取り込みでも動く（論理複製の適用が運んできた値はそのまま入れる）。人は要求の鍵（app.key_hash）から sessions で引き、旧 API の取り消しは null。API の文はこの 2 列を書かない。読みは印が立っていれば列の値を返し、行の xmin とは比べない（セーブポイントの中の書き込みと、表の写し直しのあとも消えない）。新 API は stamped_xid で、書いた行をトリガーがその取引で通したかを確かめる。旧い列と書き込みの成否は変えない",
-    "shipped": "出荷のあとに印が立った行（旧 API の取り消しの文は status を条件に持たない）は、取消でなく済のまま読み、済のビューに残す。前の日までの出荷も、出荷済み（shipped）のあいだは今日出荷と済のビューに残す（索引 orders_marked）。印の立て下ろしは、何日前の出荷でも changed_at を進める。cancelledAfterShip を true にして知らせ、新 API の取り消しは ORDER_CANCEL_NOT_ALLOWED"
+    "shipped": "出荷のあとに印が立った行（旧 API の取り消しの文は status を条件に持たない）は、取消でなく済のまま読み、済のビューに残す。前の日までの出荷も、出荷済み（shipped）のあいだは今日出荷と済のビューに残す（インデックス orders_marked）。印の立て下ろしは、何日前の出荷でも changed_at を進める。cancelledAfterShip を true にして知らせ、新 API の取り消しは ORDER_CANCEL_NOT_ALLOWED"
   },
   "owner": {
     "role": "orders の今の持ち主（旧 API の側。段 0 の 6 つ目で名前を調べる）",

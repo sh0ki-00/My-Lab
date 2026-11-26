@@ -1,0 +1,5 @@
+手順書を作成しました。
+deploy.sh で写した先に一式を置く手順です。 <!-- ja-ok -->
+台本を回す前に、写した先の tmp/ を確認します。 <!-- ja-ok -->
+RESULT: PASS check-file tmp/flow/deploy-howto/procedure.md
+ご確認ください。

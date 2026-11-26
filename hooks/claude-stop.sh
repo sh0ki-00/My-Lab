@@ -15,7 +15,7 @@
 #   stop_hook_active を送らない呼び手（Claude Code 形式の hook を Cursor が回すとき）でも、回数だけで止まる。
 #   返答の書き直しの回数を記録できないときは、差し戻し続けないよう、書き直させずに画面に出して検証へ進む。
 # 14 日より古いセッションの記録（tmp/.verify/sessions/）は、ここで消す。
-# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、重ねて回さない。
+# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ hooks を登録していれば、重ねて回さない。
 set -u
 # shellcheck source=hooks/lib.sh
 . "$(dirname "$0")/lib.sh"

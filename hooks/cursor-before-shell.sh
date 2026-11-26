@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# hooks/cursor-before-shell.sh — Cursor の beforeShellExecution 接続口。
+# hooks/cursor-before-shell.sh — Cursor の beforeShellExecution hooks。
 # 入力: 標準入力の JSON（command、cwd ほか）。
 # 出力: {"permission":"allow|ask|deny","user_message":"...","agent_message":"..."}。常に JSON を出す（空の出力は Cursor が拒否と扱う）。
 #
 # 既定は ask（確認）。Cursor で ask が効かないと実機で分かったら、社長が ~/.cursor/company-guard.mode に deny と書く。
 # deny の設定では、承認が要る操作をすべて拒否する。合図の語 APPROVE_GIT=1 が付いていても通さない。
-# この接続口に来る命令の文字列は AI が書くので、合図で通すと AI の自己承認になる。社長は hooks の掛からない自分の端末で実行する。
-# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、文を省いて判定だけ返す。
+# この hooks に来る命令の文字列は AI が書くので、合図で通すと AI の自己承認になる。社長は hooks の掛からない自分の端末で実行する。
+# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ hooks を登録していれば、文を省いて判定だけ返す。
 # セッション（会話）の始まりの印（tmp/.verify/sessions/<会話の名前>.start）も置く。終わりの検証の範囲に使い、判定には使わない。
 #   子のシェルで置き、失敗しても判定に響かない。
 set -u

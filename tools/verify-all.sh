@@ -12,7 +12,7 @@ ROOT="$(cd "$TOOLS/.." && pwd -P)" || exit 1
 # 他のプロジェクトの tmp/ に写した版では回さない。一式の自己検査になり、記録も tmp/tmp/.verify に書いてしまう。
 if [ "$(basename "$ROOT")" = "tmp" ]; then
   echo "verify-all: これは My-Lab の一式の検証です。他のプロジェクトでは bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>（または --full）を使う"
-  echo "RESULT: FAIL verify-all (写した先では回さない。tmp/tools/project-verify.sh を使う)"
+  echo "RESULT: FAIL verify-all (移した先では回さない。tmp/tools/project-verify.sh を使う)"
   exit 2
 fi
 cd "$ROOT" || exit 1
