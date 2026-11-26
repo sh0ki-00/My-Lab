@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
 """secretary_check — 秘書の 4 文書（受付票・会議録・承認伺い・承認記録）と門の検査、依頼文の振り分け。
 
-使い方: secretary_check.py <intake|minutes|request|record|gate> <ファイル> [--request <承認伺い>]
+使い方: secretary_check.py <intake|minutes|request|record|gate> <ファイル> [--request <承認伺い>] [--base <基点>]
         secretary_check.py route "<依頼文>"
         secretary_check.py <種類> --selftest
 出力: FAIL <ファイル>:<行> [<決まり>] <内容>、WARN …、最後に RESULT: PASS|FAIL <検査名> <ファイル> (FAIL n、WARN m)。
-      1 件でも FAIL なら終了コード 1。WARN だけなら 0。
+      1 件でも FAIL なら終了コード 1。WARN だけなら 0。読めないファイルも、FAIL と RESULT の行を出す。
 文書の型は ../templates/ の雛形、各欄の意味は ../references/ にある。
+門の自問 8（完了報告の攻撃の結果）は、検証のスキルの report-check.sh --attack-only に任せる。--base はそこへ渡す。
 """
+import contextlib
 import datetime
+import io
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 SKILL = HERE.parent
 ROOT = SKILL.parent.parent
+# 門の自問 8 の判定の本体。完了報告の検査と同じ処理を使い、2 つの検査で同じ判定を出す
+REPORT_CHECK = ROOT / "skills" / "verify" / "scripts" / "report-check.sh"
 # 他のプロジェクトでは一式が <プロジェクト>/tmp/ に写る。そのときの root の名前は tmp になる。
 COPIED = ROOT.name == "tmp"
 # 検証の記録。My-Lab は verify-all の docs/verify/、他のプロジェクトは project-verify の tmp/.verify/ の記録。
@@ -580,7 +586,30 @@ def record_verdict(path):
     return hits[-1] if hits else None
 
 
-def check_gate(doc, r, copied=None, record_base=None):
+def gate_attack(doc, r, base=None):
+    """門の自問 8（../references/gatekeeping.md の 1 節）。判定は report-check.sh --attack-only に任せ、
+    完了報告の検査と同じ判定を出す（欄の置き場・名・値、攻撃の結果の節、RESULT の行、表の数、「なし」に残った節）。
+    --base を渡すと、git の差分で配るコードの有無を決めて欄と照らす。結果は「攻撃の結果」の決まりにまとめて返す。"""
+    if not REPORT_CHECK.is_file():
+        r.fail(0, "攻撃の結果", "判定の本体 skills/verify/scripts/report-check.sh が無い。自問 8 を見られない")
+        return
+    cmd = ["bash", str(REPORT_CHECK), "--attack-only", doc.name] + (["--base", base] if base else [])
+    try:
+        p = subprocess.run(cmd, capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as e:
+        r.fail(0, "攻撃の結果", f"report-check を回せない（{e}）")
+        return
+    out = p.stdout.decode("utf-8", "replace").splitlines()
+    for line in out:
+        parts = line.split("\t")
+        if len(parts) == 4 and parts[0] in ("FAIL", "WARN"):
+            no = int(parts[1]) if parts[1].isdigit() else 0
+            (r.fail if parts[0] == "FAIL" else r.warn)(no, "攻撃の結果", f"{parts[3]}（{parts[2]}。自問 8）")
+    if p.returncode not in (0, 1) or not any(l.startswith("RESULT:") for l in out):
+        r.fail(0, "攻撃の結果", f"report-check の結果の行が無い（終了コード {p.returncode}）")
+
+
+def check_gate(doc, r, copied=None, record_base=None, base=None):
     copied = COPIED if copied is None else copied
     record_base = RECORD_BASE if record_base is None else record_base
     title = doc.title
@@ -625,6 +654,7 @@ def check_gate(doc, r, copied=None, record_base=None):
             for no_, cells in t["rows"]:
                 if len(cells) > k and cells[k] and not re.match(r"^充足", cells[k]) and not re.search(r"A-\d+", cells[k]):
                     r.fail(no_, "出す前の表", f"判定「{cells[k]}」。全行が充足になるまで出さない（第 5 条）")
+        gate_attack(doc, r, base)
     elif kind == "request":
         heads = doc.headings()
         if not heads or "結論と伺い" not in heads[0][1]:
@@ -702,7 +732,7 @@ def mutate(src, old, new):
     return src.replace(old, new, 1)
 
 
-def run_check(kind, path, request_path=None, copied=None, record_base=None):
+def run_check(kind, path, request_path=None, copied=None, record_base=None, base=None):
     doc = Doc(path)
     r = Report(NAMES[kind], path)
     if kind == "intake":
@@ -714,7 +744,7 @@ def run_check(kind, path, request_path=None, copied=None, record_base=None):
     elif kind == "record":
         check_record(doc, r, request_path)
     elif kind == "gate":
-        check_gate(doc, r, copied, record_base)
+        check_gate(doc, r, copied, record_base, base)
     elif kind == "reply":
         check_reply(doc, r)
     return r
@@ -786,6 +816,78 @@ GOOD_REPORT = """# 完了報告: 見本
 
 検証の記録は `{record}` にあります。
 """
+
+# 門の自問 8 のサンプル。配るコードを変えた完了報告の頭・攻撃の結果の節・残り（数値は架空）
+ATTACK_HEAD = """# 完了報告: サンプル（配るコードの変更あり）
+
+> **3 行でわかる要約**
+> 1. 検査のサンプルです。
+> 2. 攻撃は入口 3 の全部に 1 の手口で 3 本を送り、脆弱性は 0 件でした。
+> 3. 依頼者にしてほしいことは、commit の承認です。
+
+| 項目 | 内容 |
+|---|---|
+| 配るコードの変更 | {deploy} |
+
+"""
+
+ATTACK_SECTION = """## 1. 攻撃の結果
+
+スクリプトが書いた節です。
+
+```text
+RESULT: PASS attack-run（入口 3/3、手口 1、リクエスト 3 本、脆弱性 0、未実施 0、前からある脆弱性 0）
+```
+
+| 手口 | 試した入口 | 送った本数 | 結果 | 記録 |
+|---|---|---|---|---|
+| 認証なしで入る | 3 | 3 | 守れた | A01 |
+
+| 確かめたこと | 値 | 出どころ |
+|---|---|---|
+| 対象の版 | commit 3f2a91c0d4e1、配るコードの差分 2 ファイル（sha256 の先頭 12 桁 9c1e0b7a2f45） | 攻撃の記録の頭 |
+| 届いた本数 | アプリのログに 3 行。送った 3 本と同じ | 攻撃用に立てたアプリのログ |
+| 宛先 | 127.0.0.1 の 1 つのポートだけ。外へのリクエストは 0 本 | 攻撃の記録の宛先の列 |
+| 接続先 | DB は攻撃用のテストデータ | 事前の確かめの出力 |
+| 許可 | 常設の RoE。承認記録 A-000 で、範囲のハッシュ値が一致 | 常設の RoE の検査 |
+| 検出力 | 仕込んだ脆弱性 3 件のうち、3 件を見つけた | サンプルでの試験 |
+| 確かめていないこと | 表に無い手口は試していない | 攻撃の記録の末尾 |
+| 攻撃の記録 | `tmp/.verify/attack-20261126-101500.json`（sha256 の先頭 12 桁 4b8e0f1a9c2d） | attack-run |
+
+"""
+
+ATTACK_TAIL = """## 2. 確認
+
+| # | 要件 | 判定 |
+|---|---|---|
+| 1 | 店ごとに絞り込める | 充足 |
+
+検証の記録は `{record}` にあります。
+"""
+
+HEAD_ARI = ATTACK_HEAD.format(deploy="あり（API の 2 ファイル）")
+HEAD_NASHI = ATTACK_HEAD.format(deploy="なし（文書だけ）")
+# (名前, 頭, 頭の下に置く本文, 自問 8 で落ちるか)。判定の本体は report-check で、そこの自己試験が全部の負例を持つ。
+# ここでは、門が同じ判定を受け取れるかを、正例と負例の種類ごとに 1 つずつ見る
+GATE_ATTACK_CASES = [
+    ("攻撃の結果が先頭にある", HEAD_ARI, ATTACK_SECTION, False),
+    ("配るコードの変更なし", HEAD_NASHI, "", False),
+    ("攻撃の結果の節が無い", HEAD_ARI, "", True),
+    ("攻撃の結果が先頭に無い", HEAD_ARI, "## 1. 前置き\n\n前置きです。\n\n" + ATTACK_SECTION, True),
+    ("RESULT の行が無い", HEAD_ARI, ATTACK_SECTION.replace("RESULT: PASS attack-run", "攻撃は全部守れた"), True),
+    ("RESULT が FAIL", HEAD_ARI, ATTACK_SECTION.replace("RESULT: PASS", "RESULT: FAIL"), True),
+    ("欄の値が「あり」「なし」でない", ATTACK_HEAD.format(deploy="未定"), ATTACK_SECTION, True),
+    ("欄の名の誤り", HEAD_ARI.replace("| 配るコードの変更 |", "| 配るコード変更 |"), ATTACK_SECTION, True),
+    ("「なし」に攻撃の結果の節が残る", HEAD_NASHI, ATTACK_SECTION, True),
+    ("RESULT の行が 2 本", HEAD_ARI, ATTACK_SECTION.replace("```text\n", "```text\nRESULT: FAIL attack-run（脆弱性 1）\n"), True),
+    ("結果が未実施", HEAD_ARI, ATTACK_SECTION.replace("| 3 | 3 | 守れた |", "| 3 | 3 | 未実施 |"), True),
+    ("届いた本数が合わない", HEAD_ARI, ATTACK_SECTION.replace("アプリのログに 3 行", "アプリのログに 1 行"), True),
+    ("注釈の中の欄（見える欄は「あり」で節が無い）",
+     HEAD_ARI.replace("| 項目 | 内容 |", "<!--\n| 配るコードの変更 | なし |\n-->\n\n| 項目 | 内容 |"), "", True),
+    ("欄が表の見出しの行",
+     HEAD_ARI.replace("| 項目 | 内容 |\n|---|---|\n| 配るコードの変更 | あり（API の 2 ファイル） |",
+                      "| 配るコードの変更 | あり |\n|---|---|\n| 対象 | API |"), "", True),
+]
 
 # 検証の記録の受け方（置き場, 記録のパス, 通るか）。他のプロジェクトは tmp/.verify/ だけ、My-Lab は docs/verify/ だけを受ける。
 GATE_RECORD_CASES = [
@@ -883,7 +985,44 @@ def selftest(kind):
                     ok = False
                     last = body.splitlines()[-1]
                     print(f"FAIL selftest gate: 記録の最後の行が「{last}」の報告が{'通った' if got else '落ちた'}（期待 {'PASS' if want else 'FAIL'}）")
-            n = 1 + 5 * 2 + len(GATE_RECORD_CASES) + len(GATE_RECORD_BODY_CASES)
+            # 自問 8: 配るコードを変えた完了報告の攻撃の結果。置き場ごとに、その置き場の検証の記録を添える。
+            # 判定の本体は置き場によらないので、他のプロジェクトでは最初の 3 例（正例 2 つと負例 1 つ）だけを回す
+            attack_n = 0
+            for copied in (False, True):
+                record = "tmp/.verify/last-full.txt" if copied else "docs/verify/2026-11-08.md"
+                for i, (label, head, body, want_fail) in enumerate(GATE_ATTACK_CASES[:3] if copied else GATE_ATTACK_CASES):
+                    attack_n += 1
+                    f = tmpd / f"attack-{int(copied)}-{i}.md"
+                    f.write_text(head + body + ATTACK_TAIL.format(record=record), encoding="utf-8")
+                    found = run_check("gate", str(f), copied=copied).rules()
+                    if ("攻撃の結果" in found) != want_fail or (not want_fail and found):
+                        ok = False
+                        where = "他のプロジェクト" if copied else "My-Lab"
+                        print(f"FAIL selftest gate: {where}で「{label}」が{'自問 8 で落ちなかった' if want_fail else '落ちた'}（検出: {sorted(found)}）")
+            legacy = tmpd / "report-legacy.md"
+            legacy.write_text(GOOD_REPORT.format(record="docs/verify/2026-11-08.md"), encoding="utf-8")
+            warns = [x for x in run_check("gate", str(legacy), copied=False).items if x[0] == "WARN" and x[2] == "攻撃の結果"]
+            if len(warns) != 1:
+                ok = False
+                print(f"FAIL selftest gate: 欄の無い古い報告に、攻撃の結果の WARN が {len(warns)} 行（期待 1 行）")
+            # --base は report-check に渡る。読めない基点は、FAIL でなく WARN（差分の判定そのものは report-check の自己試験が見る）
+            based = tmpd / "report-base.md"
+            based.write_text(HEAD_NASHI + ATTACK_TAIL.format(record="docs/verify/2026-11-08.md"), encoding="utf-8")
+            rb = run_check("gate", str(based), copied=False, base="壊れた基点")
+            if rb.fails or not any(x[0] == "WARN" and "差分を読めない" in x[3] for x in rb.items):
+                ok = False
+                print(f"FAIL selftest gate: --base が report-check に渡らない（{[(x[0], x[3][:30]) for x in rb.items]}）")
+            # 読めないファイル（UTF-8 でない、ディレクトリ）も、FAIL と RESULT の行を出して終了コード 1 にする
+            binf = tmpd / "bin.md"
+            binf.write_bytes(b"\xff\xfe# x\n")
+            for label, target in (("UTF-8 でない", binf), ("ディレクトリ", tmpd)):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = main(["gate", str(target)])
+                if rc != 1 or "[読めない]" not in buf.getvalue() or "RESULT: FAIL gate-check" not in buf.getvalue():
+                    ok = False
+                    print(f"FAIL selftest gate: {label}のファイルで、読めない FAIL と RESULT の行が出ない（終了コード {rc}）")
+            n = 1 + 5 * 2 + len(GATE_RECORD_CASES) + len(GATE_RECORD_BODY_CASES) + attack_n + 1 + 1 + 2
         else:
             good = tmpd / EXAMPLES[kind]
             r = run_check(kind, str(good))
@@ -933,12 +1072,26 @@ def main(argv):
         i = argv.index("--request")
         request_path = argv[i + 1] if i + 1 < len(argv) else None
         argv = argv[:i] + argv[i + 2:]
+    base = None
+    if "--base" in argv:
+        i = argv.index("--base")
+        if i + 1 >= len(argv):
+            print(__doc__)
+            return 2
+        base = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
     path = argv[1]
     if not pathlib.Path(path).exists():
         print(f"FAIL {path} [読めない] ファイルが無い")
         print(f"RESULT: FAIL {NAMES[kind]} {path}")
         return 1
-    return 0 if run_check(kind, path, request_path).show() else 1
+    try:
+        r = run_check(kind, path, request_path, base=base)
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"FAIL {path} [読めない] {type(e).__name__}: {e}")
+        print(f"RESULT: FAIL {NAMES[kind]} {path}")
+        return 1
+    return 0 if r.show() else 1
 
 
 if __name__ == "__main__":
