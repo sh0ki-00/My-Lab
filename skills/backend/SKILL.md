@@ -1,6 +1,6 @@
 ---
 name: backend
-description: 画面仕様と実装計画を受け取り、API の契約（OpenAPI 3.1 の JSON）を先に決め、認可・冪等・エラーの 4 点・問い合わせの数・p99 の予算・移行・観測・流出経路の 6 つの出口を書いた設計と実装計画にする。契約を壊す変更と契約の決まりの欠けを contract-check で、件数に比例する問い合わせ（N+1）と p99 の超過を query-count-check で、計画の欠けを backend-plan-check で機械で落とす。Use when designing or changing an API contract, writing a backend design and implementation plan, deciding authorization, idempotency, pagination, error formats, data migrations or performance budgets, and when checking for N+1 queries or breaking contract changes. Triggers: バックエンド, API, 契約, OpenAPI, エラーコード, 認可, 権限, 冪等, 冪等キー, 二度押し, 一括更新, ページング, 起点の送り, カーソル, N+1, 問い合わせの数, p99, 性能予算, 移行, マイグレーション, ログ, 追跡番号, 流出経路, 設計と実装計画.
+description: 画面仕様と実装計画を受け取り、API の契約（OpenAPI 3.1 の JSON）を先に決め、認可・冪等・エラーの 4 点・問い合わせの数・p99 の予算・移行・観測・流出経路の 6 つの出口を書いた設計と実装計画にする。契約を壊す変更と契約の決まりの欠けを contract-check で、件数に比例する問い合わせ（N+1）と p99 の超過を query-count-check で、計画の欠けを backend-plan-check で機械で落とす。既存の DB を読む調査とキャッチアップでは、実物のスキーマと集計から読み、数を読み取りだけのクエリの記録で裏づけ、辞書と記録を data-dictionary-check で落とす。Use when designing or changing an API contract, writing a backend design and implementation plan, deciding authorization, idempotency, pagination, error formats, data migrations or performance budgets, and when checking for N+1 queries or breaking contract changes. Also use when reading an existing database before an investigation or catch-up (schema snapshot, data profile, read-only queries, data dictionary). Triggers: バックエンド, API, 契約, OpenAPI, エラーコード, 認可, 権限, 冪等, 冪等キー, 二度押し, 一括更新, ページング, 起点の送り, カーソル, N+1, 問い合わせの数, p99, 性能予算, 移行, マイグレーション, ログ, 追跡番号, 流出経路, 設計と実装計画, 既存の DB, 実データ, キャッチアップ, データの辞書, クエリの記録.
 ---
 
 # backend — 契約・認可・冪等・移行を決めた計画を書き、検査で守られた API にする
@@ -8,6 +8,8 @@ description: 画面仕様と実装計画を受け取り、API の契約（OpenAP
 ## いつ使うか
 
 秘書の受付票で依頼の型が「実装（API）」か「設計（データ）」のとき。画面仕様と実装計画を受けて API を作るとき、既存の API の契約を変えるとき、表を足すか既存のデータを移すときにも使う。画面の見た目と文言はデザイナー、網と鍵の置き場はインフラが決めるので、このスキルでは決めない。
+
+既存の DB を読む調査とキャッチアップのときにも使う。そのときは `references/existing-data.md` の掴む順で実物の DB から読み、`templates/data-dictionary.md` の 6 つの記録に残す。
 
 ## 先に読むもの
 
@@ -17,7 +19,9 @@ description: 画面仕様と実装計画を受け取り、API の契約（OpenAP
 - `references/contract-and-errors.md`（契約が先、壊す変更、エラーの 4 点、起点の送り、冪等キーと一括の書き込み）。
 - `references/authz-and-exfil.md`（資源 1 件ごとの認可、404 で隠す、流出経路の 6 つの出口と図の描き方）。
 - `references/data-performance-ops.md`（N+1 を作らない、p99 と測定点、意味を変えない足し算の移行と版と段の表、1 要求 1 行のログ）。
+- `references/existing-data.md`（既存の DB を掴む順、問いの種類で裁く、罠の 10 の型、DB を読む線、調査の決まりと検査）。
 - `templates/`（計画の雛形 `backend-plan.md`、契約の雛形 `openapi-contract.json`）、`examples/`（注文一覧の計画、契約の 1 版目と壊した 2 版目）。見本の API は `samples/api/`。
+- データの辞書の完成例 `examples/data-dictionary-messy-shop.md`（messy-shop で道具を回した辞書。検査は `--root samples/messy-shop` を付けて回す）。キャッチアップの効き目の試験（C-3）で messy-shop を読むセッションは、この完成例を開かない。
 
 ## 判断の観点
 
@@ -29,6 +33,7 @@ description: 画面仕様と実装計画を受け取り、API の契約（OpenAP
 
 ## 手順
 
+0. 既存の DB の数を調べる依頼で、地図（tmp/catchup/index.md）があるときは、データの節（辞書）が新しいかを先に見る。`scripts/schema-snapshot.sh` の --expect-hash で形を比べ、触る表を `scripts/data-profile.sh` で数え直す。数は `scripts/data-query.sh` の記録から出す。記録は tmp/flow/<件名>/queries.jsonl に置き、地図の記録には足さない。地図が無ければ、最初の返答で 1 行伝えて手順 1 へ進む。終わりの印: `scripts/data-dictionary-check.sh` が辞書と調査の文書で PASS。
 1. 入力を読む。画面仕様のエラー表と権限表、実装計画の API への要望とタイムアウト。終わりの印: 要望の数とエラーコードの数を言える。
 2. 契約を書く。`templates/openapi-contract.json` を写し、操作・応答の欄・エラー・冪等キー・起点の送りを決める。終わりの印: `scripts/contract-check.sh <契約.json>` が PASS。
 3. 要望に 1 件ずつ答える。断るなら理由と代わりの案を書く。エラーは画面仕様のコードと 1 対 1 にし、画面仕様に無いコードはデザイナーに文を頼む。
@@ -53,6 +58,7 @@ description: 画面仕様と実装計画を受け取り、API の契約（OpenAP
 | 待ち受けの網、DB の利用者の権限、移行の時間帯、写しの消す日 | 計画の流出経路と移行の節 | インフラ |
 | 要約のログの項目、p99 の予算、打ち切り | 計画の観測と性能予算の節 | SRE |
 | 6 つの出口の守りと確認方法 | 計画の流出経路の節 | セキュリティ（審査の依頼） |
+| データの辞書とクエリの記録（既存の DB を読んだとき） | キャッチアップでは地図のデータの節（tmp/catchup/ の下）。調査では記録を tmp/flow/<件名>/ に置く | 調査する役割と、計画を書くときの自分 |
 
 秘書には、要約 10 行以内・未解決の対立・承認が要る判断の 3 つを `skills/secretary/templates/reply-from-role.md` の型で返す。承認が要るのは、契約を壊す変更、移行の時間帯、予算の値である。
 
@@ -65,6 +71,8 @@ description: 画面仕様と実装計画を受け取り、API の契約（OpenAP
 - UTC 以外での保存。小数の金額。足すことと消すことを同じリリースに入れる移行。
 - 測定点の無い性能目標。測っていない数値を実測と書く。氏名・住所・検索の語・鍵をログに書く。
 - 本物の鍵をファイルに書く。他の役割の判断を代行する。承認のない commit・push・Issue と PR の作成、本番への操作、データの削除と移行の実行。
+- 辞書に無い列と値で数える。コードから読んだだけの数を、実測と書く。クエリの記録を手で書く。
+- 書き込みの文を DB に流す。AI が本番の DB につなぐ。本番の行を写す。個人が分かる値を辞書と記録に残す。
 
 ## 提出前の確認
 
@@ -73,3 +81,4 @@ description: 画面仕様と実装計画を受け取り、API の契約（OpenAP
 3. `scripts/query-count-check.sh --plan <計画> --app <実装>` が PASS（SQL の数が件数で増えない、p99 が予算内）。出力の MEASURE の行を計画に写した。
 4. 流出経路の表の 6 行に、守りと確認方法がある。確認方法の試験が実在して通る。
 5. 秘書に返す 3 つ（要約・未解決の対立・承認が要る判断）が `skills/secretary/scripts/reply-check.sh` を通る。
+6. 既存の DB を読んだときは、`scripts/data-dictionary-check.sh <辞書> [<調査の文書>]` が PASS（数字の出どころ、条件の値、裏づけ、検算、読み取りだけ）。

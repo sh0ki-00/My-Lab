@@ -1,0 +1,403 @@
+{
+ "at": "2026-11-26T10:56:38+09:00",
+ "engine": "sqlite",
+ "env": "手元の作り物（build.py で作った DB）",
+ "hash": "74659ebc2c067f885bdccd6f9f11cf23fd714dde6a96db5c8d877a1a3f1b96cb",
+ "shape": {
+  "tables": {
+   "customers": {
+    "columns": [
+     {
+      "default": null,
+      "name": "id",
+      "notnull": false,
+      "pk": 1,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "name",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "email",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "pref",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "mail_ok",
+      "notnull": false,
+      "pk": 0,
+      "type": ""
+     },
+     {
+      "default": null,
+      "name": "created_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "without_rowid": false
+   },
+   "daily_stats": {
+    "columns": [
+     {
+      "default": null,
+      "name": "day",
+      "notnull": false,
+      "pk": 1,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "orders",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "sales",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "updated_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+     {
+      "columns": [
+       "day"
+      ],
+      "name": "sqlite_autoindex_daily_stats_1",
+      "origin": "pk",
+      "partial": false,
+      "unique": true
+     }
+    ],
+    "without_rowid": false
+   },
+   "order_items": {
+    "columns": [
+     {
+      "default": null,
+      "name": "id",
+      "notnull": false,
+      "pk": 1,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "order_id",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "product_id",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "qty",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "unit_price",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "without_rowid": false
+   },
+   "orders": {
+    "columns": [
+     {
+      "default": null,
+      "name": "id",
+      "notnull": false,
+      "pk": 1,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "customer_id",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "status",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "total",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "tax",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "shipping_fee",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "pay_method",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": "0",
+      "name": "is_deleted",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "created_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "updated_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "deleted_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "shipped_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+     {
+      "columns": [
+       "created_at"
+      ],
+      "name": "idx_orders_created",
+      "origin": "c",
+      "partial": false,
+      "unique": false
+     }
+    ],
+    "without_rowid": false
+   },
+   "payments": {
+    "columns": [
+     {
+      "default": null,
+      "name": "id",
+      "notnull": false,
+      "pk": 1,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "order_id",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "method",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "amount",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "paid_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "without_rowid": false
+   },
+   "products": {
+    "columns": [
+     {
+      "default": null,
+      "name": "id",
+      "notnull": false,
+      "pk": 1,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "sku",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "name",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "price",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "stock",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": "1",
+      "name": "is_active",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "created_at",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "without_rowid": false
+   },
+   "shipments": {
+    "columns": [
+     {
+      "default": null,
+      "name": "id",
+      "notnull": false,
+      "pk": 1,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "order_id",
+      "notnull": false,
+      "pk": 0,
+      "type": "INTEGER"
+     },
+     {
+      "default": null,
+      "name": "carrier",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "tracking_no",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "shipped_on",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     },
+     {
+      "default": null,
+      "name": "delivered_on",
+      "notnull": false,
+      "pk": 0,
+      "type": "TEXT"
+     }
+    ],
+    "foreign_keys": [],
+    "indexes": [],
+    "without_rowid": false
+   }
+  },
+  "triggers": {
+   "trg_orders_after_insert": {
+    "sql": "CREATE TRIGGER trg_orders_after_insert AFTER INSERT ON orders WHEN NEW.shipping_fee > 0 BEGIN INSERT INTO order_items (order_id, product_id, qty, unit_price) VALUES (NEW.id, (SELECT id FROM products WHERE sku = 'SHIP'), 1, NEW.shipping_fee); END",
+    "table": "orders"
+   }
+  },
+  "views": {}
+ },
+ "source": "shop.db",
+ "tool": "schema-snapshot"
+}

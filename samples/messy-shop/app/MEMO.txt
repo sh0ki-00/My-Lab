@@ -1,0 +1,9 @@
+こもの屋の管理画面のメモ（2024-04 に書いた）
+
+- DB は sqlite。場所は config.py の DB_PATH
+- 注文の状態は models.py の 5 つ
+- 時刻はぜんぶ日本時間で入れている（db.jst_now）
+- 送料は orders.shipping_fee。total には入れない
+- 削除は deleted_at を使う（is_deleted は昔の印）
+- 数字はレポートの画面（reports.py）で見る
+- 夜の処理はサーバーの cron で回している。設定はサーバーにある
