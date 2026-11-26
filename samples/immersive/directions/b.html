@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>方向 B ・ 海図台の航海日誌 ・ 深海の探査日誌</title>
+<link rel="icon" href="data:,">
+<style>
+  /* 方向 B「海図台の航海日誌」の静止画。紙の海図の上で、今夜の潜航地点に印を付ける世界。
+     雑誌風の既定（クリーム地とテラコッタ）に寄せないよう、海図の約束（陸の黄、浅瀬の青、注記の赤紫、等深線、水深の数字）で描く。
+     生の値は :root にだけ書き、下の規則は変数だけで描く。外の素材は読まない。動きは無い */
+  :root {
+    color-scheme: light;
+    --paper: #FAF8F1;
+    --land: #EAD7A2;
+    --coast: #6E6046;
+    --shallow: #D6E6EF;
+    --contour: #8EA7B8;
+    --grid: #D2CCBD;
+    --sounding: #56616B;
+    --magenta: #A23C79;
+    --magenta-soft: rgb(162 60 121 / 0.1);
+    --ink: #1B2733;
+    --ink-sub: #4A5560;
+    --font-title: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+    --font-text: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", sans-serif;
+    --font-num: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+    --size-title: clamp(30px, 5.4vw, 58px);
+    --size-lede: 15px;
+    --size-body: 15px;
+    --size-sub: 12px;
+    --gutter: 16px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --rim: 1px;
+    --rule: 2px;
+    --rule-gap: 3px;
+    --radius: 2px;
+    --control-height: 48px;
+    --mark-size: 18px;
+    --scale-height: 6px;
+    --scale-step: 24px;
+    --note-width: 300px;
+    --card-width: 600px;
+    --scale-width: 240px;
+    --size-sounding: 14px;
+    --size-mark-label: 15px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background-color: var(--paper); }
+  body { font-family: var(--font-text); color: var(--ink); }
+  .world { position: fixed; inset: 0; width: 100%; height: 100%; }
+  .land { fill: var(--land); stroke: var(--coast); stroke-width: 1.5; }
+  .shallow { fill: var(--shallow); }
+  .contour { fill: none; stroke: var(--contour); stroke-width: 1.2; }
+  .contour-deep { fill: none; stroke: var(--contour); stroke-width: 1.2; stroke-dasharray: 10 6; }
+  .grid { stroke: var(--grid); stroke-width: 1; }
+  .frame { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+  .frame-scale { fill: none; stroke: var(--ink); stroke-width: 8; stroke-dasharray: 30 30; }
+  .soundings { fill: var(--sounding); font-family: var(--font-num); font-size: var(--size-sounding); }
+  .rose { fill: none; stroke: var(--magenta); stroke-width: 1.2; }
+  .rose-ticks { fill: none; stroke: var(--magenta); stroke-width: 6; stroke-dasharray: 1.2 7.614; }
+  .rose-star { fill: var(--magenta-soft); stroke: var(--magenta); stroke-width: 1.2; }
+  .route { fill: none; stroke: var(--magenta); stroke-width: 2; stroke-dasharray: 12 8; }
+  .dive { fill: var(--paper); stroke: var(--magenta); stroke-width: 2.5; }
+  .label { fill: var(--magenta); font-family: var(--font-text); font-size: var(--size-mark-label); }
+  .still {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: var(--gutter);
+  }
+  .note {
+    max-width: var(--note-width);
+    padding: var(--space-3) var(--space-4);
+    border: var(--rim) solid var(--ink);
+    background-color: var(--paper);
+  }
+  .note p { margin: 0; font-size: var(--size-sub); line-height: 1.6; color: var(--ink-sub); }
+  .note .note-name { color: var(--ink); font-weight: 600; }
+  .content { display: grid; place-items: center; padding: var(--space-6) 0; }
+  /* 海図の表題の枠（カルトゥーシュ）。二重の罫 */
+  .cartouche {
+    width: min(var(--card-width), 100%);
+    padding: var(--space-8) var(--space-6);
+    border: var(--rule) solid var(--ink);
+    outline: var(--rim) solid var(--ink);
+    outline-offset: calc(var(--rule-gap) * -2);
+    background-color: var(--paper);
+    text-align: center;
+  }
+  .logline { margin: 0 0 var(--space-3); font-size: var(--size-sub); letter-spacing: 0.3em; color: var(--ink-sub); }
+  h1 {
+    margin: 0;
+    padding-inline-start: 0.18em;
+    font-family: var(--font-title);
+    font-size: var(--size-title);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.18em;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .subline { margin: var(--space-3) 0 var(--space-2); font-family: var(--font-title); font-size: var(--size-sub); letter-spacing: 0.08em; color: var(--ink-sub); }
+  /* 縮尺の帯。墨と紙が交互に並ぶ */
+  .scale {
+    width: min(var(--scale-width), 70%);
+    height: var(--scale-height);
+    margin: 0 auto;
+    border: var(--rim) solid var(--ink);
+    background-image: repeating-linear-gradient(90deg, var(--ink) 0 var(--scale-step), var(--paper) var(--scale-step) calc(var(--scale-step) * 2));
+  }
+  .lede { margin: var(--space-6) 0 0; font-size: var(--size-lede); line-height: 1.7; color: var(--ink-sub); }
+  .start {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--control-height);
+    margin-top: var(--space-6);
+    padding: 0 var(--space-6) 0 var(--space-4);
+    border: var(--rule) solid var(--ink);
+    border-radius: var(--radius);
+    background-color: var(--paper);
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--size-body);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+  /* 潜航地点の記号（丸に十字）。海図の注記と同じ赤紫 */
+  .mark {
+    position: relative;
+    width: var(--mark-size);
+    height: var(--mark-size);
+    border: var(--rule) solid var(--magenta);
+    border-radius: 50%;
+    background-image:
+      linear-gradient(var(--magenta), var(--magenta)),
+      linear-gradient(var(--magenta), var(--magenta));
+    background-size: 100% var(--rule), var(--rule) 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+</style>
+</head>
+<body>
+<svg class="world" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <!-- 経緯線 -->
+  <g class="grid">
+    <line x1="240" y1="0" x2="240" y2="900"/><line x1="480" y1="0" x2="480" y2="900"/><line x1="720" y1="0" x2="720" y2="900"/><line x1="960" y1="0" x2="960" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/>
+    <line x1="0" y1="225" x2="1440" y2="225"/><line x1="0" y1="450" x2="1440" y2="450"/><line x1="0" y1="675" x2="1440" y2="675"/>
+  </g>
+  <!-- 浅瀬の青と陸（左上の岬） -->
+  <path class="shallow" d="M0,0 L560,0 C540,60 500,90 470,150 C440,215 380,240 330,300 C280,360 230,420 150,450 C100,470 50,470 0,490 Z"/>
+  <path class="land" d="M0,0 L430,0 C415,45 380,80 350,125 C320,175 270,200 230,250 C190,300 150,340 90,365 C55,380 25,385 0,392 Z"/>
+  <!-- 等深線（深いほど破線） -->
+  <path class="contour" d="M0,560 C140,520 260,470 360,380 C450,300 520,200 620,110 C680,55 720,20 760,0"/>
+  <path class="contour" d="M0,650 C180,610 330,560 450,470 C560,390 640,280 760,170 C830,105 890,50 960,0"/>
+  <path class="contour-deep" d="M0,760 C220,720 400,660 560,560 C700,470 820,360 960,240 C1050,165 1130,90 1220,0"/>
+  <path class="contour-deep" d="M0,880 C260,840 480,780 680,680 C860,590 1010,470 1170,330 C1270,245 1350,160 1440,80"/>
+  <!-- 水深（m、架空） -->
+  <g class="soundings">
+    <text x="278" y="423">905</text><text x="467" y="146">838</text><text x="435" y="716">1312</text><text x="873" y="270">1231</text><text x="984" y="644">1535</text><text x="1322" y="619">1824</text><text x="565" y="119">952</text><text x="1348" y="171">1486</text><text x="839" y="93">1092</text><text x="1077" y="208">1275</text><text x="934" y="836">1662</text><text x="331" y="606">1127</text><text x="217" y="835">1254</text><text x="852" y="622">1490</text><text x="69" y="526">832</text><text x="1111" y="827">1810</text><text x="968" y="75">1169</text><text x="340" y="767">1280</text><text x="1198" y="408">1499</text><text x="678" y="819">1521</text><text x="1380" y="268">1544</text><text x="1299" y="171">1388</text><text x="643" y="669">1354</text><text x="1240" y="520">1702</text><text x="120" y="700">1166</text>
+  </g>
+  <!-- 航路と潜航地点 -->
+  <path class="route" d="M0,610 C220,600 420,640 600,700 C760,752 930,760 1080,712"/>
+  <circle class="dive" cx="1102" cy="700" r="16"/>
+  <path class="route" d="M1102,676 L1102,724 M1078,700 L1126,700"/>
+  <text class="label" x="1090" y="752" text-anchor="middle">今夜の潜航地点</text>
+  <!-- 方位盤（右下） -->
+  <g transform="translate(1270 768)">
+    <circle class="rose" r="110"/>
+    <circle class="rose-ticks" r="101"/>
+    <circle class="rose" r="92"/>
+    <polygon class="rose-star" points="0,-86 12,-12 86,0 12,12 0,86 -12,12 -86,0 -12,-12"/>
+  </g>
+  <!-- 図郭と、目盛りの縁（墨と紙が交互） -->
+  <rect class="frame" x="12" y="12" width="1416" height="876"/>
+  <rect class="frame-scale" x="20" y="20" width="1400" height="860"/>
+  <rect class="frame" x="28" y="28" width="1384" height="844"/>
+</svg>
+<main class="still">
+  <aside class="note" aria-label="方向の説明">
+    <p class="note-name">方向 B ・ 海図台の航海日誌</p>
+    <p class="note-story">利用者は観測船の航海士で、海図台の上で今夜の潜航地点に印を付ける。押すと、航路の線が潜航地点まで引かれていく。</p>
+  </aside>
+  <div class="content">
+    <div class="cartouche">
+      <p class="logline">架空のアプリのサンプル</p>
+      <h1>深海の探査日誌</h1>
+      <p class="subline">観測記録 第 214 夜 ・ 縮尺 1:50,000</p>
+      <div class="scale" aria-hidden="true"></div>
+      <p class="lede">今夜の観測を、海図の上で記録します。</p>
+      <button class="start" type="button"><span class="mark" aria-hidden="true"></span>潜航を始める</button>
+    </div>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,6 @@
+/* 負例 J: 動きが 3 本あるのに、縮小版の分岐は無関係のセレクタを 1 つ上書きするだけ。拡張の前は素通りした。 */
+.hero { animation: rise 600ms ease-out both; }
+.card { transition: transform 200ms ease-out; }
+.menu { transition: box-shadow 150ms ease; }
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .unrelated { animation: none; } }

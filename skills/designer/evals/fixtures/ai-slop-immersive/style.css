@@ -1,0 +1,7 @@
+/* 没入の型の既定を集めた負例。ai-look-check がネオンの光と粒子の部品と一律の浮き上がりを数え、帯 mild 以上で落とすこと。
+   色は既定の紫（AI_PURPLE）を避け、没入の既定の 3 項目だけが数えられるようにしてある。 */
+body { margin: 0; background: #05060F; color: #E6F7FF; }
+.title { text-shadow: 0 0 24px #22D3EE; }
+.panel { box-shadow: 0 0 32px #E879F9; }
+.start { box-shadow: 0 0 20px rgba(34, 211, 238, 0.8); }
+.fade-up { opacity: 0; transform: translateY(24px); }

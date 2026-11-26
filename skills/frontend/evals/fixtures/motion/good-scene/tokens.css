@@ -1,0 +1,9 @@
+/* 正例のトークン。時間のトークンは、どれも縮小版の分岐で書き換える。 */
+:root {
+  --duration-press: 120ms;
+  --duration-enter: 600ms;
+  --ease-enter: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-press: 0ms; --duration-enter: 150ms; }
+}

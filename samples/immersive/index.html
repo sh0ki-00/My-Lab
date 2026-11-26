@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja" data-scene="surface">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="没入の型のサンプル。架空のアプリ「深海の探査日誌」の、スタートからログインへの見せ場「潜る」。">
+<title>深海の探査日誌</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./tokens.css">
+<link rel="stylesheet" href="./app.css">
+<link rel="preload" href="./ledger.json" as="fetch" crossorigin="anonymous">
+<!-- 場面は URL のハッシュに置く。#panel で開いたら、最初の描画から計器盤を出す -->
+<script>document.documentElement.dataset.scene = location.hash === '#panel' ? 'panel' : 'surface';</script>
+<script type="module" src="./app.js"></script>
+</head>
+<body>
+<!-- 地の層: canvas が来る前の深い所の色。見せ場の間は台帳の拍で不透明度だけを動かす -->
+<div class="ground" aria-hidden="true"></div>
+<!-- 背景の層: 水とマリンスノー。scene.js が最初の描画のあとに描く -->
+<canvas class="sea" aria-hidden="true"></canvas>
+
+<!-- 舞台の層: 2 つの場面と、場面をまたぐ灯 -->
+<main class="stage">
+  <section class="scene scene-surface" id="surface" aria-labelledby="title">
+    <div class="surface-text">
+      <p class="logline">架空のアプリのサンプル</p>
+      <h1 class="title" id="title">深海の探査日誌</h1>
+      <p class="lede">今夜の観測を、計器盤の前で記録します。</p>
+      <button class="start" id="start" type="button">
+        <span class="lamp" aria-hidden="true"><span class="lamp-glow"></span><span class="lamp-core"></span></span>
+        <span class="start-label">潜航を始める</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="scene scene-panel" id="panel" aria-labelledby="login-title">
+    <div class="panel">
+      <span class="screw screw-tl" aria-hidden="true"></span>
+      <span class="screw screw-tr" aria-hidden="true"></span>
+      <span class="screw screw-bl" aria-hidden="true"></span>
+      <span class="screw screw-br" aria-hidden="true"></span>
+      <div class="panel-head">
+        <span class="power" data-power="ready">
+          <span class="lamp" aria-hidden="true"><span class="lamp-glow"></span><span class="lamp-core"></span></span>
+          <span class="power-label panel-text" id="power-label">受付中</span>
+        </span>
+        <p class="gauge panel-text">深度 <span class="num">1,200</span> m</p>
+      </div>
+      <div class="ticks" aria-hidden="true"></div>
+      <div class="panel-text">
+        <h1 class="panel-title" id="login-title">ログイン</h1>
+        <p class="panel-lede">観測員の記録を開きます。</p>
+      </div>
+      <form class="login" id="login" aria-labelledby="login-title" novalidate>
+        <div class="field" data-field="1">
+          <label for="email"><span class="indicator" aria-hidden="true"></span>メールアドレス</label>
+          <input id="email" name="email" type="email" inputmode="email" autocomplete="username" spellcheck="false" aria-describedby="email-error">
+          <p class="field-error" id="email-error"></p>
+        </div>
+        <div class="field" data-field="2">
+          <label for="password"><span class="indicator" aria-hidden="true"></span>パスワード</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" aria-describedby="password-error">
+          <p class="field-error" id="password-error"></p>
+        </div>
+        <div class="field" data-field="3">
+          <button class="board" type="submit">乗船する</button>
+        </div>
+        <p class="status" role="status"></p>
+      </form>
+    </div>
+  </section>
+
+  <div class="flight" aria-hidden="true">
+    <span class="flight-arc">
+      <span class="lamp"><span class="lamp-glow"></span><span class="lamp-core"></span></span>
+    </span>
+  </div>
+</main>
+
+<!-- 背景の粒子は 5 秒を超えて動くので、止める手段を常に置く -->
+<button class="calm" type="button" aria-pressed="false"><span class="calm-mark" aria-hidden="true"></span>背景の動きを止める</button>
+</body>
+</html>

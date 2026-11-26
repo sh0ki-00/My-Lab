@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # skills/frontend/scripts/self-check.sh <自己点検票> — 自己点検票の検査。
 #   結果に数字か PASS があるか、判定が 充足／未確認 か、frontend-gate.sh の出力が貼ってあるか、未確認の節があるか、推測の語が無いか。
+#   画面の型の行（無ければ FAIL、型の外の値も FAIL）。没入の型では、演出の 12 項目の行（motion-measure の 1〜12）、
+#   演出の計測の節の motion-measure の出力、演出の記録とフレームの一覧の置き場も見る。
 # 使い方: self-check.sh <自己点検票>   /   self-check.sh --selftest
 # 判定の本体は frontend_check.py（同じディレクトリ）。出力は FAIL/WARN の行と RESULT: PASS|FAIL。1 件でも FAIL なら終了コード 1。
 set -u

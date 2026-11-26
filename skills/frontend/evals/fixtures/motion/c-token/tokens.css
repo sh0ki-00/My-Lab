@@ -1,0 +1,5 @@
+/* 負例 C のトークン。--duration-2 を prefers-reduced-motion: reduce の中で書き換えていない。 */
+:root {
+  --duration-2: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}

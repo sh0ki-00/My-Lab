@@ -1,0 +1,156 @@
+/* samples/immersive/tokens.css — 没入のサンプル「深海の探査日誌」（架空の個人開発アプリ）のトークン。
+   世界観は「潜水艇の計器盤」（skills/designer/examples/design-plan-dive-log.md の世界観の設定）。動きの値は演出計画書
+   （skills/designer/examples/motion-plan-dive-log.md）のトークンの表の写し。
+   色はデザイン計画書の色の節の名前つきの 6 色と、導出の表の 10 色だけを使う。導出の色は計画書の式（color-mix）の値を 16 進で書く。
+   canvas（scene.js）は色を 16 進で読むので、ここに式を書かない。
+   生の色・px・ms・曲線・書体名はこのファイルにだけ書く。app.css はこの変数だけで描き、scene.js も色をここから読む。
+   拍ごとの時刻と長さは ledger.json（拍の台帳）を正にする。check.mjs が台帳の合計と、ここの --duration-scene などを突き合わせる。 */
+:root {
+  /* 深い海の世界なので、明るい版は持たない。文字と部品の比は、この暗い地で計算してある */
+  color-scheme: dark;
+
+  /* 計画書の名前つきの色 6 つ。比は計画書の色の表の値（WCAG 2 の式） */
+  --surface: #2F5A66; /* 海面。題字の場面の地。目盛りの字と 5.79 対 1 */
+  --deep: #0D1B22; /* 深海。ログインの場面の地と、灯の地に乗る字。灯の上で 9.40 対 1 */
+  --panel: #222B2A; /* 計器盤。目盛りの字と 11.11 対 1 */
+  --ink: #DCE3DD; /* 目盛り。本文、題字、入力した字、ラベル。光の帯とマリンスノーも、この色を薄めて描く */
+  --lamp: #F0B34A; /* 灯。スタートの札の灯、電源ランプ、主ボタンの地、焦点の輪。計器盤と 7.78 対 1 */
+  --warn: #FF8A70; /* 警告灯。誤りの文と、誤りの欄の枠。計器盤と 6.30 対 1 */
+
+  /* 計画書の導出の色 10 個（式は計画書の導出の表） */
+  --ink-sub: #A4ACA7; /* 補助 = color-mix(in srgb, 目盛り 70%, 計器盤)。計器盤と 6.25 対 1 */
+  --panel-well: #152125; /* 入力欄 = color-mix(in srgb, 深海 60%, 計器盤)。目盛りの字と 12.60 対 1 */
+  --field-edge: #767E7B; /* 入力枠 = color-mix(in srgb, 目盛り 45%, 計器盤)。計器盤と 3.48 対 1 */
+  --water-shallow: #869FA2; /* 浅い水 = color-mix(in srgb, 目盛り 50%, 海面)。海面の画面の上端だけ */
+  --water-mid: #1B343D; /* 中ほどの水 = color-mix(in srgb, 海面 40%, 深海) */
+  --panel-rim: #3E4745; /* 盤の縁 = color-mix(in srgb, 目盛り 15%, 計器盤)。計器盤とスタートの札と隅の札の縁、ねじ */
+  --panel-highlight: #313A38; /* 盤の明るい縁 = color-mix(in srgb, 目盛り 8%, 計器盤) */
+  --tick: #5A6260; /* 目盛り線 = color-mix(in srgb, 目盛り 30%, 計器盤)。細かい目盛り */
+  --plate-hover: #ECBD67; /* 主ボタンのホバー = color-mix(in srgb, 灯 80%, 目盛り) */
+  --plate-press: #CE9C44; /* 主ボタンの押し込み = color-mix(in srgb, 灯 85%, 深海) */
+
+  /* 水（canvas が読む）。上から 4 段。海面の版と深い所の版を、深さで混ぜる。深い所の版は 4 段とも深海（計画書の色の節） */
+  --water-surface-1: var(--water-shallow);
+  --water-surface-2: var(--surface);
+  --water-surface-3: var(--water-mid);
+  --water-surface-4: var(--deep);
+  --water-deep-1: var(--deep);
+  --water-deep-2: var(--deep);
+  --water-deep-3: var(--deep);
+  --water-deep-4: var(--deep);
+  /* 真上から弱く差す光と、マリンスノー（canvas が読む。濃さは台帳の ambient の不透明度で決める） */
+  --shaft: var(--ink);
+  --snow: var(--ink);
+  /* canvas が来る前の地。海面と深い所 */
+  --fallback-surface: var(--surface);
+  --fallback-deep: var(--deep);
+
+  /* 灯（スタートの札と、計器盤の電源ランプ）。琥珀の円と、同じ色の光の輪。ネオンの色にしない */
+  --lamp-glow-color: var(--lamp);
+  /* 乗船するボタン。灯の地に深海の字（9.40 対 1） */
+  --plate: var(--lamp);
+  --on-plate: var(--deep);
+  /* 海面の字。題字も説明も目盛りの色 */
+  --title-ink: var(--ink);
+  --title-sub: var(--ink);
+
+  /* 意味の名前 */
+  --text: var(--ink);
+  --text-sub: var(--ink-sub);
+  /* 焦点の輪は灯の色 */
+  --focus: var(--lamp);
+
+  /* 書体。外から読まない。この Mac に入っている書体だけで組み、無い環境では総称の書体に落ちる（計画書の書体の節） */
+  --font-title: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-text: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-num: Menlo, monospace;
+  /* 題字は 56px（狭い幅では 10vw、下限 32px）。計器盤の題は 24px。本文は 16px と 14px（下限 14px）。
+     行の高さは、字の大きさに掛けて整数の px になる値にする（計器盤の位置が端数にならず、seek の絵が毎回同じになる） */
+  --size-title: clamp(32px, 10vw, 56px);
+  --size-panel-title: 24px;
+  --size-lede: 16px;
+  --size-body: 16px;
+  --size-label: 14px;
+  --size-sub: 14px;
+  --leading: 1.5;
+  --leading-title: 1.25;
+  --tracking-title: 0.2em;
+  --tracking-label: 0.04em;
+  --weight-regular: 400;
+  --weight-title: 700;
+  --weight-bold: 600;
+
+  /* 余白は 4px の倍数 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-14: 56px;
+  --gutter: 16px;
+
+  /* 大きさ */
+  --panel-width: 400px;
+  --panel-pad: 28px;
+  --radius-panel: 6px;
+  --radius-control: 4px;
+  --radius-field: 0;
+  --rim: 1px;
+  --control-height: 44px;
+  --start-height: 56px;
+  --start-pad: 24px;
+  --focus-width: 2px;
+  --focus-offset: 3px;
+  --lamp-size: 12px;
+  --lamp-glow-size: 48px;
+  --indicator-size: 6px;
+  --calm-mark-size: 8px;
+  --screw-size: 8px;
+  --screw-inset: 10px;
+  --tick-height: 8px;
+  --tick-gap: 8px;
+  --tick-major: 40px;
+
+  /* 灯の姿。押すと 0.96 倍に沈み、広がった光（1.6 倍、0.2）が灯に集まる（1 倍、0.35）。電源ランプは集まった姿 */
+  --lamp-press-scale: 0.96;
+  --lamp-glow-spread: 1.6;
+  --lamp-glow-rest: 0.2;
+  --lamp-glow-lit: 0.35;
+
+  /* 動き（演出計画書のトークンの表）。応答は 3 段で、どれも 200ms まで */
+  --duration-1: 80ms;
+  --duration-2: 120ms;
+  --duration-3: 180ms;
+  /* 移動と見せ場。没入の型だけ */
+  --duration-move: 400ms;
+  --duration-scene: 1400ms;
+  --duration-scene-repeat: 600ms;
+  --stagger: 60ms;
+  /* 拍の長さと縮小版の長さ（skills/designer/examples/motion-plan-dive-log.md のトークンの表）。
+     拍の時刻と長さは台帳が正で、check.mjs が台帳の拍の長さとこの値を突き合わせる */
+  --dive-water: 880ms;
+  --dive-snow: 640ms;
+  --dive-light-arc: 700ms;
+  --duration-scene-reduced: 150ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-leave: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-arrive: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* 収まる曲線は計画の値のまま残す。48px の上がりでは 4.69px しか行き過ぎないので、
+     計器盤の「6px 行き過ぎて戻る」は台帳の 3 点のキーフレーム（区間の曲線は着くと標準）で描く */
+  --ease-settle: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-1: 0ms;
+    --duration-2: 0ms;
+    --duration-3: 0ms;
+    --duration-move: 0ms;
+    --duration-scene: 150ms;
+    --duration-scene-repeat: 150ms;
+    --stagger: 0ms;
+  }
+}

@@ -7,14 +7,25 @@
 
 ## 動き
 
-動きは場面ごとに ms と曲線を決め、どれも 300ms 未満にする。prefers-reduced-motion（動きを減らす設定）のときは 0ms にし、位置の動きを残さない。transition: all は、動かすつもりの無い属性まで動かすので使わない。時間はトークン（--duration-*）で参照し、縮小版はトークンの側で 0ms に上書きする。
+動きは、応答の動きと場面の演出の 2 種類に分ける。応答の動き（押した、選んだ、開いたへの返事）は、どの型でも場面ごとに ms と曲線を決める。上限は、今の型と既存に合わせる型で 300ms 未満、没入の型で 200ms までである。場面の演出（場面から場面へ移る間の振り付け）は没入の型だけが使う。決まりの全文と、デザイナーの 4 つの区分との対応は `immersive.md` にある。
+
+| 動きの種類 | 使える型 | 長さ | 縮小版（prefers-reduced-motion のとき） |
+|---|---|---|---|
+| 応答の動き | すべての型 | 今の型と既存に合わせる型は 300ms 未満、没入の型は 200ms まで | 0ms。位置の動きを残さない |
+| 場面の演出 | 没入の型だけ | 300ms で縛らない。飛ばせる、縮小版がある、入力を失わない、最初のフレームが 100ms 以内、の 4 つで縛る | 位置の動かない溶け込みにしてよい。終わりの状態は同じにする |
+
+縮小版の分岐は、動きのあるセレクタを同じセレクタで上書きする。分岐の条件は prefers-reduced-motion（動きを減らす設定）である。transition: all は、動かすつもりの無い属性まで動かすので使わない。時間はトークン（--duration-*）で参照し、縮小版はトークンの側で書き換える。
 
 | 決まり | 機械の検査 | 落ちる例 |
 |---|---|---|
-| 時間を数字で書いた指定には、同じファイルに縮小版を置く | motion-lint | transition: transform 240ms で、prefers-reduced-motion が無い |
+| 動きのあるセレクタを、縮小版の分岐が同じセレクタか * で上書きする | motion-lint | transition: transform 240ms に縮小版が無い。分岐が無関係のセレクタだけを上書きしている |
+| 時間のトークンは、縮小版の分岐の中で書き換える | motion-lint | --duration-2: 240ms を、prefers-reduced-motion: reduce の中で書き換えていない |
 | transition: all を書かない | motion-lint | transition: all 0.3s |
-| 時間はトークンで参照する | motion-lint は通す。token-lint の対象外 | transition: transform var(--duration-2) |
-| 色だけの transition は縮小版が無くてもよい | motion-allow.txt | transition: background-color 80ms |
+| 色だけの transition は縮小版が無くてもよい | motion-allow.txt | transition: background-color 80ms（カンマで分けた全部が色か透明度のときだけ通る） |
+| JavaScript の動きは、同じモジュールに縮小版の分岐を持つ。canvas のエンジンは、止める関数を持てば判断を呼ぶ側に任せてよい | motion-lint。縮小版で止まるかは motion-measure の項目 6 | element.animate や、requestAnimationFrame で style を書き換える動きに、prefers-reduced-motion が無い |
+| 500ms を超える JavaScript の動きには、同じモジュールに飛ばす手段を置く | motion-lint | 1,400ms の animate があるのに、finish() も skip の関数も無い。別のファイルの skipWaiting() は数えない |
+| 音は同じモジュールに消音の手段を持ち、自動再生しない | motion-lint | AudioContext に消音のスイッチが無い。色のトークン --muted と video の muted 属性は消音と数えない。audio の autoplay。muted の無い video の autoplay |
+| 回り続ける動きには、同じファイルに止める手段を置く | motion-lint | infinite の animation に、animation-play-state: paused も pause() も無い。別のファイルの関係の無い cancel() では通さない |
 
 ## 国際化
 
@@ -81,3 +92,5 @@
 | OWASP「DOM based XSS Prevention Cheat Sheet」、MDN「Content Security Policy」 | 安全 |
 | typescript-eslint「strict-type-checked」、eslint-plugin-jsx-a11y README | 型と道具 |
 | W3C Design Tokens Community Group「Design Tokens Format Module」（2025.10） | トークン |
+
+場面の演出の行と、JavaScript・音・回り続ける動きの決まりは、2026-11-26 に足した社内の決めである。決まりの全文は `immersive.md` にある。WCAG 2.2 の 2.2.2 と 1.4.2 の本文は開いておらず、手元の知識で書いた。

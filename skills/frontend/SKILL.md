@@ -1,6 +1,6 @@
 ---
 name: frontend
-description: デザイン計画書・トークン・画面仕様を受け取り、性能予算（LCP 2.5 秒・INP 200ms・CLS 0.1 と初期表示の JS 170KB）とアクセシビリティ（axe 違反 0、キーボードで完結）の内側で、計画どおりに画面を実装する。実装計画を 14 節（構成・状態・データ取得・エラー・性能予算・テスト・アクセシビリティ・忠実度・横断事項ほか）で書き、トークン以外の生の値と縮小版の無い動きを機械で落とし、実装後は測った数字だけで自己点検票を書く。検査は frontend-gate.sh の 1 コマンドで束ねる。Use when planning or implementing a screen, component, form or client-side state; when setting performance budgets or front-end CI gates; when writing a self-check with measured numbers; and when checking an implementation against design tokens. Triggers: フロントエンド, 画面実装, 画面を作って, コンポーネント, 部品, フォーム, 状態管理, 実装計画, 性能予算, LCP, INP, CLS, バンドル, JS の大きさ, 自己点検票, アクセシビリティ, a11y, キーボード操作, トークンで描く, 忠実度の報告, React, Next.js, Vue, Playwright.
+description: デザイン計画書・トークン・画面仕様を受け取り、性能予算（LCP 2.5 秒・INP 200ms・CLS 0.1 と初期表示の JS 170KB）とアクセシビリティ（axe 違反 0、キーボードで完結）の内側で、計画どおりに画面を実装する。実装計画を 14 節（構成・状態・データ取得・エラー・性能予算・テスト・アクセシビリティ・忠実度・横断事項ほか）で書き、トークン以外の生の値と縮小版の無い動きを機械で落とし、実装後は測った数字だけで自己点検票を書く。画面の型が没入なら、場面の演出を 3 つのレイヤーで作り、motion-measure で 12 項目を測る。検査は frontend-gate.sh の 1 コマンドで束ねる。Use when planning or implementing a screen, component, form or client-side state; when building or measuring scene animations and transitions; when setting performance budgets or front-end CI gates; when writing a self-check with measured numbers; and when checking an implementation against design tokens. Triggers: フロントエンド, 画面実装, 画面を作って, コンポーネント, 部品, フォーム, 状態管理, 実装計画, 性能予算, LCP, INP, CLS, バンドル, JS の大きさ, 自己点検票, アクセシビリティ, a11y, キーボード操作, トークンで描く, 忠実度の報告, 演出, アニメーション, 遷移, 没入, フレーム落ち, React, Next.js, Vue, Playwright.
 ---
 
 # frontend — 計画どおりの画面を、予算とアクセシビリティの内側で実装し、数字で証明する
@@ -12,10 +12,11 @@ description: デザイン計画書・トークン・画面仕様を受け取り�
 ## 先に読むもの
 
 - `.company/frontend/CLAUDE.md`（ペルソナ）と `.company/DELIVERY.md`。
-- デザイナーの引き渡し `tmp/flow/<件名>/design-plan.md`、`tmp/flow/<件名>/tokens.css`、`tmp/flow/<件名>/screen-spec.md`。無ければ秘書に戻し、計画書の無い画面を作らない。
+- デザイナーの引き渡し `tmp/flow/<件名>/design-plan.md`、`tmp/flow/<件名>/tokens.css`、`tmp/flow/<件名>/screen-spec.md`。没入の型では、見せ場ごとの演出計画書も受ける。置き場は tmp/flow/<件名>/motion-plan-<演出 ID>.md で、時刻ごとの表・守りの表・トークンを持つ。無ければ秘書に戻し、計画書の無い画面を作らない。
 - バックエンドの契約（エラーコードの表と応答時間）。無ければ上限を仮置きにし、未確定に書く。
-- `references/architecture-and-state.md`（動く場所、状態の置き場、取得、2 文のエラー）、`references/performance-budget.md`（3 指標と JS の上限、測定条件）、`references/a11y-and-testing.md`（APG の型、手動 5 項目、1 対 1 のテスト）、`references/cross-cutting.md`（動き・国際化・安全・型・トークン）。
-- `templates/`（実装計画、自己点検票、Lighthouse CI と size-limit の設定）、`examples/`（注文一覧の実装計画と、見本アプリの自己点検票）。
+- `references/architecture-and-state.md`（動く場所、状態の置き場、取得、2 文のエラー）、`references/performance-budget.md`（3 指標と JS の上限、測定条件、演出の予算）、`references/a11y-and-testing.md`（APG の型、手動 5 項目、1 対 1 のテスト）、`references/cross-cutting.md`（動き・国際化・安全・型・トークン）。
+- 実装計画の「画面の型」が没入のときだけ、`references/immersive.md`（3 つのレイヤー、軽い手段の 5 段、実装の決まり 10 個、試験の約束 window.__scene、計測の 12 項目）。
+- `templates/`（実装計画、自己点検票、Lighthouse CI と size-limit の設定）、`examples/`（今の型は注文一覧の実装計画と、見本アプリの自己点検票。没入の型は深海の探査日誌の実装計画と、samples/immersive の自己点検票）。
 
 ## 判断の観点
 
@@ -24,6 +25,7 @@ description: デザイン計画書・トークン・画面仕様を受け取り�
 3. 役割と名前で操作できるか。APG の型から選び、マウスなしで用事が終わるか。
 4. 計画どおりか。トークン以外の値、縮小版の無い動き、連結した文言、無害化なしの HTML を書いていないか。
 5. 数字で証明したか。測った値と検査の出力だけを書き、「速いはず」「ほぼ同じ」を書かない。
+6. 没入の型なら、演出を測ったか。最初のフレーム・フレームの間隔・飛ばす・縮小版・止める・消音を、motion-measure の 12 項目で見る。
 
 ## 手順
 
@@ -35,8 +37,8 @@ description: デザイン計画書・トークン・画面仕様を受け取り�
 6. テストの対応表を書く。受け入れ条件 1 件にテスト 1 本、レベルとサイズ。不安定の 5 要因の固定法。
 7. アクセシビリティと忠実度、横断事項（動き・国際化・安全・型・トークン）を表にする。
 8. 検査を通す。`scripts/frontend-plan-check.sh <実装計画>` と `tools/check-file.sh`。終わりの印: 両方 PASS。秘書が `editor` で読み手テスト（フロントエンドからは呼べない）。
-9. 承認のあとで実装する。トークンの変数だけで描き、動きはトークンの時間で書く。段階ごとに `scripts/frontend-gate.sh --fast <ディレクトリ>` を回し、赤のまま次へ進まない。
-10. 測る。`scripts/frontend-gate.sh --full <ディレクトリ>`、見本アプリなら `tools/sample-app-test.mjs`。デザイナーの検査 2 つ（fidelity-check と ai-look-check --plan）も回す。
+9. 承認のあとで実装する。トークンの変数だけで描き、動きはトークンの時間で書く。段階ごとに `scripts/frontend-gate.sh --fast <ディレクトリ>` を回し、赤のまま次へ進まない。没入の型では、最初の承認の範囲に、方向の 3 案の静止画と見せ場 1 場面のサンプルを作ることが入っているかを確かめる。見せ場の 1 場面を先に作り、ページに試験の約束（window.__scene）を持たせる。計画と同じ置き場には、計測の設定 motion-measure.json を置く。
+10. 測る。`scripts/frontend-gate.sh --full --plan <実装計画> <ディレクトリ>`、サンプルアプリなら `tools/sample-app-test.mjs`。没入の型では gate が演出の段（`scripts/motion-measure.sh`）を回す。デザイナーの検査 2 つ（fidelity-check と ai-look-check --plan）も回す。没入の型の fidelity-check には `--motion <演出計画書>` を付ける。没入の型では `scripts/motion-measure.sh --config <設定> --frames tmp/flow/<件名>/frames` で 100ms ごとのフレームを撮り、置き場を自己点検票に書いてデザイナーに渡す。
 11. 自己点検票を書く（`templates/self-check.md`）。結果は測った数字か PASS、判定は充足か未確認、ゲートの出力を貼る。終わりの印: `scripts/self-check.sh <自己点検票>` が PASS。
 12. デザイナーに監修を頼む。忠実度の報告（ずれの数、トークン外の値 0、帯 clean）を添える。指摘は採否と理由を記録して直す。
 
@@ -54,7 +56,7 @@ description: デザイン計画書・トークン・画面仕様を受け取り�
 ## 禁止
 
 - 予算を決めずに実装を始める。測定条件の無い数字を書く。「速いはず」「見た目はほぼ同じ」と書く。
-- 生の色・px・書体名を部品に書く。縮小版の無い動き。transition: all。
+- 生の色・px・書体名を部品に書く。縮小版の無い動き。transition: all。飛ばせない演出、止められない背景と音、測っていない「滑らか」。
 - 同じ値を 2 か所に持つ。副作用で派生の状態を作る。文字列を連結した文言。
 - 無害化なしの innerHTML。eval と new Function。鍵をブラウザに出す。
 - 受け入れ条件と結ばないテスト。getByTestId。不安定なテストを再実行で誤魔化す。
@@ -63,7 +65,7 @@ description: デザイン計画書・トークン・画面仕様を受け取り�
 ## 提出前の確認
 
 1. `scripts/frontend-plan-check.sh <実装計画>` と `tools/check-file.sh` が PASS。
-2. `scripts/frontend-gate.sh --full <ディレクトリ>` が PASS（SKIP の段は理由を自己点検票に写す）。
+2. `scripts/frontend-gate.sh --full --plan <実装計画> <ディレクトリ>` が PASS（SKIP の段は理由を自己点検票に写す）。没入の型では演出の段が PASS で、12 項目の出力を自己点検票に貼った。4 倍遅い条件で落ちた項目は、合格の線を変えずに FAIL のまま書く。
 3. `scripts/token-lint.sh` と `scripts/motion-lint.sh` が 0 件。デザイナーの fidelity-check が PASS、ai-look-check の帯が clean。
 4. `scripts/self-check.sh <自己点検票>` が PASS。判定は充足か未確認だけで、結果に数字がある。
 5. 秘書に返す 3 つ（要約・未解決の対立・承認が要る判断）が `skills/secretary/scripts/reply-check.sh` を通る。

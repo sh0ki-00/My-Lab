@@ -11,10 +11,13 @@
 | 対象 | <ディレクトリか URL と、コミットの識別子> |
 | 条件 | <ビルド、回線、CPU、幅、回数と集計> |
 | 計画 | tmp/flow/<件名>/frontend-plan.md |
+| 画面の型 | <実装計画の画面の型を写す> |
+| 演出の記録 | <没入の型だけ。motion-measure の記録の JSON の置き場。ほかの型は行を消す> |
+| フレームの一覧 | <没入の型だけ。motion-measure.sh --frames で撮った置き場（frames.json）。ほかの型は行を消す> |
 
 ## 点検
 
-<点検の項目数と、判定の 2 択（充足か未確認）を 1 文>。結果には測った数字か検査の PASS を書き、推測を書きません。
+<点検の項目数と、判定の 2 択（充足か未確認）を 1 文。18〜29 は没入の型で測る演出の 12 項目（motion-measure と同じ順）で、ほかの型では消す>。結果には測った数字か検査の PASS を書き、推測を書きません。
 
 | # | 観点 | 確かめたこと | 結果 | 判定 |
 |---|---|---|---|---|
@@ -35,14 +38,35 @@
 | 15 | 動き | motion-lint | <n> 件 | 充足 |
 | 16 | 型と lint | tsc、eslint | 誤り <n>、警告 <n> | 充足 |
 | 17 | 依存 | npm audit --audit-level=high | 脆弱性 <n> | 充足 |
+| 18 | 演出の最初のフレーム | motion-measure の 1。押してから最初のフレームまで | <ms>（予算 100ms） | 充足 |
+| 19 | 演出の拍と長さ | motion-measure の 2。台帳の拍との差 | 拍 <n> 本、差は最大 <ms>（許容 ±20ms） | 充足 |
+| 20 | 演出のフレームの間隔 | motion-measure の 3。CPU 等速と 4 倍遅い条件 | 50ms 超 <n> 個、25ms 超 <割合>% | 充足 |
+| 21 | 長いフレームの原因 | motion-measure の 4。LoAF の記録 | <n> 件 | 充足 |
+| 22 | 動かす属性 | motion-measure の 5。台帳で許した属性か | 台帳の外 <n> 本 | 充足 |
+| 23 | 縮小版 | motion-measure の 6。動きを減らす設定で同じ操作 | 位置の動き <n> 本、終わりの状態は <同じ／違う> | 充足 |
+| 24 | 飛ばす | motion-measure の 7。途中でキーを押す | 終わりの状態まで <ms>（予算 300ms） | 充足 |
+| 25 | 焦点と読み上げ | motion-measure の 8。終わりの焦点、title、去った場面 | 焦点 <role と name>、title <題> | 充足 |
+| 26 | 5 秒を超える動き | motion-measure の 9。止める操作のあとの 2 枚 | 差 <n>px | 充足 |
+| 27 | 音 | motion-measure の 10。操作の前、消音、拍との差 | 操作の前 <n> 回、消音で <n> 回 | 充足 |
+| 28 | 閃光 | motion-measure の 11。明るさの反転 | 1 秒に最大 <n> 回（上限 3 回） | 充足 |
+| 29 | 演出のアセットと準備 | motion-measure の 12。brotli 後の大きさと準備の秒 | 演出 <KB>、うち JS <KB>、準備 <秒> | 充足 |
 
 ## ゲートの出力
 
 <いつ、どのコマンドを回したかを 1 文>。
 
 ```text
-$ bash skills/frontend/scripts/frontend-gate.sh --full <ディレクトリ>
+$ bash skills/frontend/scripts/frontend-gate.sh --full --plan tmp/flow/<件名>/frontend-plan.md <ディレクトリ>
 <出力をそのまま貼る。最後の RESULT: の行まで>
+```
+
+## 演出の計測
+
+<没入の型だけ。いつ、どの設定で回したかを 1 文。画面なしのブラウザで測ったことと、GPU での滑らかさは未確認であることを書く。ほかの型は節を消す>。
+
+```text
+$ bash skills/frontend/scripts/motion-measure.sh --config tmp/flow/<件名>/motion-measure.json
+<出力をそのまま貼る。12 項目の RESULT の行、描画の方式、最後の RESULT: の行まで>
 ```
 
 ## 忠実度

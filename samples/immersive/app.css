@@ -1,0 +1,528 @@
+/* samples/immersive/app.css — 没入のサンプル「深海の探査日誌」（架空）の見た目。tokens.css の変数だけで描き、生の色・px・書体名を書かない。
+   層は 3 つ。背景は canvas の .sea（scene.js が描く）、舞台は .stage の 2 つの場面と場面をまたぐ灯 .flight、前景は文字と入力欄とボタン。
+   場面は html の data-scene（surface・diving・panel）で切り替える。見せ場「潜る」の動きは app.js が Web Animations API で付け、
+   ここに置く動きは、応答（ホバー・押し込み・焦点・誤りの文）と、戻るときの View Transitions（移動）と、背景が来たときの溶け込みだけ。
+   応答の長さは計画書の動きの表のとおり。ホバーと押し込みは 80ms、焦点の移りは 120ms、誤りの文は 180ms。キーボードで動かしたときは 0ms。 */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  background-color: var(--fallback-surface);
+}
+
+/* canvas が来る前の深い所の地。海面の地（html の色）の上に重ね、不透明度だけで替える（背景色は動かさない）。
+   見せ場の間は app.js が台帳の拍（b2・s4・r1 の ground）で動かすので、飛ばせば止まる。止まった場面の姿はここで決める */
+.ground {
+  position: fixed;
+  inset: 0;
+  background-color: var(--fallback-deep);
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-scene="panel"] .ground {
+  opacity: 1;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-text);
+  font-size: var(--size-body);
+  line-height: var(--leading);
+  color: var(--text);
+  background-color: transparent;
+}
+
+/* 背景の層。読み込む前は地の色が見え、来たら溶け込む。描く解像度は画面の半分で、ここで画面いっぱいに引き伸ばす（scene.js） */
+.sea {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity var(--duration-move) var(--ease-standard);
+}
+.sea.is-ready {
+  opacity: 1;
+}
+
+/* 舞台の層。2 つの場面は同じ所に重ね、見えない方は visibility で隠す（大きさは変えないので、灯の位置を測れる） */
+.stage {
+  position: fixed;
+  inset: 0;
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--gutter);
+}
+html[data-scene="surface"] .scene-panel,
+html[data-scene="panel"] .scene-surface {
+  visibility: hidden;
+}
+
+/* 海面 */
+.surface-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  text-align: center;
+}
+.logline {
+  margin: 0 0 var(--space-3);
+  font-size: var(--size-sub);
+  letter-spacing: var(--tracking-label);
+  color: var(--title-sub);
+}
+.title {
+  margin: 0;
+  padding-inline-start: var(--tracking-title);
+  font-family: var(--font-title);
+  font-size: var(--size-title);
+  font-weight: var(--weight-title);
+  line-height: var(--leading-title);
+  letter-spacing: var(--tracking-title);
+  color: var(--title-ink);
+  text-wrap: balance;
+}
+.lede {
+  margin: var(--space-4) 0 0;
+  font-size: var(--size-lede);
+  color: var(--title-sub);
+}
+
+/* スタートの札。計器盤の地に目盛りの字で「潜航を始める」。灯は札の左端（計画書のシグネチャ） */
+.start {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--start-height);
+  margin-top: var(--space-14);
+  padding: 0 var(--start-pad) 0 var(--space-5);
+  border: var(--rim) solid var(--panel-rim);
+  border-radius: var(--start-height);
+  background-color: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--size-body);
+  letter-spacing: var(--tracking-label);
+  cursor: pointer;
+  transition: border-color var(--duration-1) var(--ease-standard);
+}
+.start:hover {
+  border-color: var(--field-edge);
+}
+
+/* 灯。スタートの札、場面をまたぐ灯、電源ランプの 3 か所で同じ部品を使う。直径 12px の琥珀の円と、48px の光の輪 */
+.lamp {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--lamp-size);
+  height: var(--lamp-size);
+}
+.lamp-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--lamp-glow-size);
+  height: var(--lamp-glow-size);
+  margin-left: calc(var(--lamp-glow-size) / -2);
+  margin-top: calc(var(--lamp-glow-size) / -2);
+  border-radius: 50%;
+  background-image: radial-gradient(closest-side, var(--lamp-glow-color), transparent);
+  opacity: var(--lamp-glow-rest);
+  transform: scale(var(--lamp-glow-spread));
+  pointer-events: none;
+}
+.lamp-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: var(--lamp);
+}
+/* 押した合図（応答の格）。指を離す前に、灯が沈んで光が集まる */
+html[data-scene="surface"] .start .lamp-core {
+  transition: transform var(--duration-2) var(--ease-standard);
+}
+html[data-scene="surface"] .start .lamp-glow {
+  transition: transform var(--duration-2) var(--ease-standard), opacity var(--duration-2) var(--ease-standard);
+}
+.start.is-pressing .lamp-core {
+  transform: scale(var(--lamp-press-scale));
+}
+.start.is-pressing .lamp-glow {
+  opacity: var(--lamp-glow-lit);
+  transform: scale(1);
+}
+/* 電源ランプは、集まった光の姿で灯り続ける。送信中は光の輪を消し、受け付けを止めたことを示す */
+.power .lamp-core {
+  transform: scale(var(--lamp-press-scale));
+}
+.power .lamp-glow {
+  opacity: var(--lamp-glow-lit);
+  transform: scale(1);
+}
+.power[data-power="busy"] .lamp-glow {
+  opacity: 0;
+}
+
+/* 場面をまたぐ灯（共有要素）。見せ場の初回の版でだけ見え、そのあいだは元の 2 つの灯を隠す */
+.flight {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  visibility: hidden;
+  pointer-events: none;
+}
+.flight,
+.flight-arc,
+.flight .lamp {
+  display: block;
+  width: var(--lamp-size);
+  height: var(--lamp-size);
+}
+html[data-scene="diving"][data-version="full"] .flight {
+  visibility: visible;
+}
+html[data-scene="diving"][data-version="full"] .start .lamp,
+html[data-scene="diving"][data-version="full"] .power .lamp {
+  visibility: hidden;
+}
+
+/* 計器盤（ログインの枠）。つや消しの盤に、ねじと目盛りと電源ランプ */
+.scene-panel {
+  overflow: auto;
+}
+.panel {
+  position: relative;
+  width: min(var(--panel-width), 100%);
+  padding: var(--panel-pad);
+  border: var(--rim) solid var(--panel-rim);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  box-shadow: inset 0 var(--rim) 0 var(--panel-highlight);
+}
+.screw {
+  position: absolute;
+  width: var(--screw-size);
+  height: var(--screw-size);
+  border-radius: 50%;
+  background-color: var(--panel-rim);
+  box-shadow: inset 0 0 0 var(--rim) var(--deep);
+}
+.screw-tl {
+  left: var(--screw-inset);
+  top: var(--screw-inset);
+}
+.screw-tr {
+  right: var(--screw-inset);
+  top: var(--screw-inset);
+}
+.screw-bl {
+  left: var(--screw-inset);
+  bottom: var(--screw-inset);
+}
+.screw-br {
+  right: var(--screw-inset);
+  bottom: var(--screw-inset);
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.power {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.power-label,
+.gauge {
+  margin: 0;
+  font-size: var(--size-sub);
+  letter-spacing: var(--tracking-label);
+  color: var(--text-sub);
+}
+.gauge .num {
+  font-family: var(--font-num);
+  color: var(--ink);
+}
+.ticks {
+  height: var(--tick-height);
+  margin: var(--space-4) 0 var(--space-5);
+  background-image:
+    repeating-linear-gradient(90deg, var(--ink-sub) 0 var(--rim), transparent var(--rim) var(--tick-major)),
+    repeating-linear-gradient(90deg, var(--tick) 0 var(--rim), transparent var(--rim) var(--tick-gap));
+  background-size: 100% 100%, 100% 50%;
+  background-position: left top, left bottom;
+  background-repeat: no-repeat;
+}
+.panel-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: var(--size-panel-title);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
+  color: var(--ink);
+}
+.panel-lede {
+  margin: var(--space-1) 0 var(--space-6);
+  font-size: var(--size-label);
+  color: var(--text-sub);
+}
+
+/* 入力欄と乗船するボタン。入力の順に、上から灯る */
+.login {
+  display: grid;
+  gap: var(--space-4);
+}
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+.field label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--size-label);
+  letter-spacing: var(--tracking-label);
+  /* 計画書の色の表で、ラベルは目盛り（本文と同じ色） */
+  color: var(--text);
+}
+.indicator {
+  width: var(--indicator-size);
+  height: var(--indicator-size);
+  border-radius: 50%;
+  background-color: var(--lamp);
+}
+/* 入力欄は計器の窓なので、角を直角にする（--radius-field）。角を丸めると、焦点の輪の角の画素が描き直しのたびに 1〜2 段ずれ、
+   止まった画面を比べる確かめが揺れた（2026-11-26 に、動きを減らす設定の終わりで確かめた） */
+.field input {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: var(--rim) solid var(--field-edge);
+  border-radius: var(--radius-field);
+  background-color: var(--panel-well);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--size-body);
+  transition: border-color var(--duration-1) var(--ease-standard);
+}
+.field input:hover {
+  border-color: var(--ink-sub);
+}
+/* 誤りの状態。枠を警告灯にし、欄の下に誤りの文を 180ms（着く）で出す。
+   誤りの文の場所は、文が無いときも 2 行ぶん空けておく。文が出ても盤の高さが変わらず、中央寄せの盤が上へ跳ばない（2 回目の監修の指摘 N2）。
+   誤りの文は、幅 375px でも 2 行に収まる長さにしてある */
+.field[data-invalid] input {
+  border-color: var(--warn);
+}
+.field-error {
+  min-height: calc(var(--size-label) * var(--leading) * 2);
+  margin: 0;
+  font-size: var(--size-label);
+  color: var(--warn);
+}
+.field[data-invalid] .field-error {
+  animation: field-error-in var(--duration-3) var(--ease-arrive);
+}
+@keyframes field-error-in {
+  from {
+    opacity: 0;
+  }
+}
+/* 透明の枠は、強制カラー（OS の高コントラストの表示）で枠として見える */
+.board {
+  width: 100%;
+  min-height: var(--control-height);
+  margin-top: var(--space-2);
+  border: var(--rim) solid transparent;
+  border-radius: var(--radius-control);
+  background-color: var(--plate);
+  color: var(--on-plate);
+  font: inherit;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  cursor: pointer;
+  transition: background-color var(--duration-1) var(--ease-standard);
+}
+.board:hover {
+  background-color: var(--plate-hover);
+}
+.board:active {
+  background-color: var(--plate-press);
+}
+/* 状態の文（送信中）も、2 行ぶんの場所を先に取っておく（指摘 N2） */
+.status {
+  min-height: calc(var(--size-label) * var(--leading) * 2);
+  margin: 0;
+  font-size: var(--size-label);
+  color: var(--text-sub);
+}
+
+/* 背景の動きを止める（WCAG 2.2 の 2.2.2）。画面の右下に、高さ 44px の字の札で常に置く。
+   押した状態は、印の形（丸から四角）と色と字の色の 3 つで示す */
+.calm {
+  position: fixed;
+  right: var(--gutter);
+  bottom: var(--gutter);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: var(--rim) solid var(--panel-rim);
+  border-radius: var(--radius-control);
+  background-color: var(--panel);
+  color: var(--text-sub);
+  font: inherit;
+  font-size: var(--size-sub);
+  cursor: pointer;
+  transition: border-color var(--duration-1) var(--ease-standard);
+}
+.calm:hover {
+  border-color: var(--field-edge);
+}
+.calm-mark {
+  width: var(--calm-mark-size);
+  height: var(--calm-mark-size);
+  border-radius: 50%;
+  background-color: var(--field-edge);
+}
+.calm[aria-pressed="true"] {
+  color: var(--ink);
+}
+.calm[aria-pressed="true"] .calm-mark {
+  border-radius: 0;
+  background-color: var(--lamp);
+}
+
+/* 焦点の輪は灯の色。ポインターで焦点を移したときだけ 120ms で灯り、キーボードで移したときは 0ms（計画書の動きの表） */
+.start:focus-visible,
+.calm:focus-visible,
+.board:focus-visible,
+.field input:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+@media (forced-colors: none) {
+  html[data-modality="pointer"] .field input {
+    outline: var(--focus-width) solid transparent;
+    outline-offset: var(--focus-offset);
+    transition: border-color var(--duration-1) var(--ease-standard), outline-color var(--duration-2) var(--ease-standard);
+  }
+  html[data-modality="pointer"] .field input:focus-visible {
+    outline-color: var(--focus);
+  }
+}
+
+/* 強制カラー: 灯と印は OS の色の縁で描き、消えないようにする */
+@media (forced-colors: active) {
+  .lamp-core,
+  .indicator,
+  .calm-mark {
+    border: var(--rim) solid CanvasText;
+  }
+}
+
+/* 戻るとき（計器盤から海面へ）は View Transitions。灯に同じ名前を付け、電源ランプからスタートの札へ戻す */
+html[data-scene="surface"] .start .lamp,
+html[data-scene="panel"] .power .lamp {
+  view-transition-name: lamp;
+}
+/* 灯の組は、あとから出る海面の層（surface-layer）より上に描く。名前の組は古い絵の順に並び、新しい絵にだけある海面の層が最後に来るので、
+   重ねの順を決めないと、200ms から現れるスタートの札の地が飛んでいる灯を覆う */
+::view-transition-group(lamp) {
+  z-index: 1;
+  animation-duration: var(--duration-move);
+  animation-timing-function: var(--ease-standard);
+}
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--duration-move);
+  animation-timing-function: var(--ease-standard);
+}
+/* 戻るの入れ替えの順（演出計画書の「戻るの入れ替えの順」、2 回目の監修の指摘 N1）。
+   root に残るのは水とマリンスノー（canvas）と地の板と隅の札で、上の 400ms・標準で位置を動かさずに溶け込む。
+   2 つの場面には別の名前を付け、見えている方だけを撮らせる。盤の層は 0〜200ms に去るの曲線で消え、
+   海面の層は 200〜400ms に着くの曲線で現れる。境の 200ms は --duration-move の半分なので、2 つの場面の字は同じフレームに出ない */
+html[data-scene="panel"] .scene-panel {
+  view-transition-name: board-layer;
+}
+html[data-scene="surface"] .scene-surface {
+  view-transition-name: surface-layer;
+}
+::view-transition-old(board-layer) {
+  animation: return-leave calc(var(--duration-move) / 2) var(--ease-leave) both;
+}
+::view-transition-new(surface-layer) {
+  animation: return-arrive calc(var(--duration-move) / 2) var(--ease-arrive) calc(var(--duration-move) / 2) both;
+}
+@keyframes return-leave {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes return-arrive {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 試験の seek の間は、途中の遷移を止めて、同じ時刻なら同じ絵にする */
+html.is-seeking,
+html.is-seeking *,
+html.is-seeking *::before,
+html.is-seeking *::after {
+  transition: none !important;
+}
+
+/* 動きを減らす設定。位置と大きさは動かさず、溶け込みだけにする */
+@media (prefers-reduced-motion: reduce) {
+  html[data-scene="surface"] .start .lamp-core,
+  html[data-scene="surface"] .start .lamp-glow {
+    transition: none;
+  }
+  .start.is-pressing .lamp-core {
+    transform: none;
+  }
+  .start.is-pressing .lamp-glow {
+    transform: scale(var(--lamp-glow-spread));
+  }
+  html[data-scene="surface"] .start .lamp,
+  html[data-scene="panel"] .power .lamp {
+    view-transition-name: none;
+  }
+  /* 戻るの縮小版は 150ms。水は 150ms で溶け込み、盤の層は 0〜75ms、海面の層は 75〜150ms で、曲線は標準。
+     灯は名前を外したので位置を動かさず、電源ランプは盤と一緒に消え、札の灯は札と一緒に灯る */
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--duration-scene-reduced);
+  }
+  ::view-transition-old(board-layer) {
+    animation-duration: calc(var(--duration-scene-reduced) / 2);
+    animation-timing-function: var(--ease-standard);
+  }
+  ::view-transition-new(surface-layer) {
+    animation-duration: calc(var(--duration-scene-reduced) / 2);
+    animation-delay: calc(var(--duration-scene-reduced) / 2);
+    animation-timing-function: var(--ease-standard);
+  }
+}

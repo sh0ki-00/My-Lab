@@ -1,0 +1,232 @@
+{
+  "id": "scene-start-login",
+  "name": "潜る",
+  "app": "深海の探査日誌（架空の個人開発アプリ）",
+  "source": "skills/designer/examples/motion-plan-dive-log.md の時刻ごとの表とトークンの表",
+  "rule": "拍の時刻と長さは、この台帳を正にする。app.js（舞台）と scene.js（背景）と check.mjs（試験）が同じファイルを読む。数値は架空のサンプルの値",
+  "tokens": {
+    "full": "--duration-scene",
+    "short": "--duration-scene-repeat",
+    "reduced": "--duration-scene",
+    "stagger": "--stagger",
+    "reduced_ms": "--duration-scene-reduced",
+    "beats": { "b2": "--dive-water", "b3": "--dive-snow", "b5": "--dive-light-arc" },
+    "ease": {
+      "standard": "--ease-standard",
+      "leave": "--ease-leave",
+      "arrive": "--ease-arrive",
+      "settle": "--ease-settle"
+    }
+  },
+  "layers": [
+    { "name": "水", "order": 1, "means": "canvas（scene.js）。canvas が来る前は、地の層（.ground）の不透明度" },
+    { "name": "マリンスノー", "order": 2, "means": "canvas（scene.js）" },
+    { "name": "題字", "order": 3, "means": "DOM と Web Animations API" },
+    { "name": "計器盤", "order": 4, "means": "DOM と Web Animations API" },
+    { "name": "灯", "order": 5, "means": "DOM と Web Animations API（共有要素）" }
+  ],
+  "trigger": { "role": "button", "name": "潜航を始める", "selector": "#start" },
+  "allowed_props": ["transform", "opacity", "background-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "outline-color"],
+  "allowed_note": "拍に当たらない動きは、応答の動き（ボタンと入力欄のホバーと押し込み 80ms、焦点の輪 120ms）の色だけ。位置は動かさない",
+  "title": "ログイン ・ 深海の探査日誌",
+  "inert": ["#surface"],
+  "shared": {
+    "name": "灯",
+    "from": "スタートのボタンの灯",
+    "to": "計器盤の電源ランプ",
+    "els": ["start-lamp", "flight", "power-lamp"]
+  },
+  "versions": {
+    "full": {
+      "when": "初回",
+      "total_ms": 1400,
+      "focus_ms": 1400,
+      "beats": [
+        {
+          "id": "b1", "at_ms": 0, "ms": 120, "phase": "入り", "layer": "灯", "ease": "standard",
+          "change": "0.96 倍に沈み、周りの光が灯に集まる", "tells": "押せた",
+          "tracks": [
+            { "id": "b1.core", "el": "flight-core", "at_ms": 0, "ms": 120, "ease": "standard", "scale": [1, 0.96], "press": true, "props": ["transform"] },
+            { "id": "b1.glow", "el": "flight-glow", "at_ms": 0, "ms": 120, "ease": "standard", "scale": [1.6, 1], "opacity": [0.2, 0.35], "press": true, "props": ["transform", "opacity"] }
+          ]
+        },
+        {
+          "id": "b2", "at_ms": 120, "ms": 880, "phase": "入り", "layer": "水", "ease": "standard",
+          "change": "明るい帯が上へ動き始め、全体が暗くなる", "tells": "沈み始めた",
+          "note": "ground は canvas が来る前の地。背景色は動かさず、深い所の色の板を不透明度で重ねる。canvas が来たあとは、その下に隠れる",
+          "tracks": [
+            { "id": "b2.depth", "engine": "sea", "param": "depth", "at_ms": 120, "ms": 880, "ease": "standard", "from": 0, "to": 1 },
+            { "id": "b2.ground", "el": "ground", "at_ms": 120, "ms": 880, "ease": "standard", "opacity": [0, 1], "props": ["opacity"] }
+          ]
+        },
+        {
+          "id": "b3", "at_ms": 160, "ms": 640, "phase": "見せ場", "layer": "マリンスノー", "ease": "leave",
+          "change": "上へ流れる速さが、1 倍から 3 倍になる", "tells": "潜る速さ",
+          "tracks": [
+            { "id": "b3.speed", "engine": "sea", "param": "speed", "at_ms": 160, "ms": 640, "ease": "leave", "from": 1, "to": 3 }
+          ]
+        },
+        {
+          "id": "b4", "at_ms": 200, "ms": 400, "phase": "見せ場", "layer": "題字", "ease": "leave",
+          "change": "上へ 120px 流れ、薄れて 8px ぼける", "tells": "海面を離れた",
+          "tracks": [
+            { "id": "b4.title", "el": "title", "at_ms": 200, "ms": 400, "ease": "leave", "y": [0, -120], "opacity": [1, 0], "blur": [0, 8], "props": ["transform", "opacity", "filter"] }
+          ]
+        },
+        {
+          "id": "b5", "at_ms": 200, "ms": 700, "phase": "見せ場", "layer": "灯", "ease": "standard", "shared": true,
+          "change": "スタートの札の左端から計器盤の左上へ、弧を描いて動く", "tells": "同じ灯が、次の場面まで付いて来る",
+          "tracks": [
+            { "id": "b5.arc", "el": "flight-arc", "at_ms": 200, "ms": 700, "ease": "standard", "path": "arc", "to": "power-lamp", "land_below_px": 48, "bend": [-0.35, 1.25], "samples": 24, "props": ["transform"] }
+          ]
+        },
+        {
+          "id": "b6", "at_ms": 800, "ms": 400, "phase": "収まり", "layer": "水とマリンスノー", "ease": "arrive",
+          "change": "速さが 3 倍から 0.5 倍に落ちる", "tells": "着いた",
+          "tracks": [
+            { "id": "b6.speed", "engine": "sea", "param": "speed", "at_ms": 800, "ms": 400, "ease": "arrive", "from": 3, "to": 0.5 }
+          ]
+        },
+        {
+          "id": "b7", "at_ms": 900, "ms": 400, "phase": "収まり", "layer": "計器盤", "ease": "settle",
+          "change": "下から 48px 上がり、6px 行き過ぎて戻る", "tells": "計器盤が起きた",
+          "note": "盤の字は、盤の不透明度が 1 になってから出す（7.6 節の所見）。灯は盤と同じ動きで乗り、終わりに電源ランプへ渡す",
+          "tracks": [
+            { "id": "b7.panel", "el": "panel", "at_ms": 900, "ms": 400, "ease": "settle", "keys": [{ "o": 0, "y": 48, "ease": "arrive" }, { "o": 0.57, "y": -6, "ease": "standard" }, { "o": 1, "y": 0 }], "props": ["transform"] },
+            { "id": "b7.plate", "el": "panel", "at_ms": 900, "ms": 100, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "b7.ride", "el": "flight", "at_ms": 900, "ms": 400, "ease": "settle", "keys": [{ "o": 0, "y": 0, "ease": "arrive" }, { "o": 0.57, "y": -54, "ease": "standard" }, { "o": 1, "y": -48 }], "props": ["transform"] },
+            { "id": "b7.text", "el": "panel-text", "at_ms": 1000, "ms": 100, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] }
+          ]
+        },
+        {
+          "id": "b8", "at_ms": 1100, "ms": 180, "phase": "収まり", "layer": "入力欄", "ease": "arrive", "stagger_ms": 60,
+          "change": "入力欄 2 つと「乗船する」が、60ms ずつずれて灯る", "tells": "入力の順",
+          "tracks": [
+            { "id": "b8.field-1", "el": "field-1", "at_ms": 1100, "ms": 180, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "b8.field-2", "el": "field-2", "at_ms": 1160, "ms": 180, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "b8.field-3", "el": "field-3", "at_ms": 1220, "ms": 180, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] }
+          ]
+        },
+        {
+          "id": "b9", "at_ms": 1400, "ms": 0, "phase": "収まり", "layer": "入力欄", "focus": "email",
+          "change": "1 つ目の入力欄に焦点が入り、すぐ打てる", "tells": "次の操作",
+          "tracks": []
+        }
+      ]
+    },
+    "short": {
+      "when": "2 回目から（同じ利用の中）と、背景の準備が間に合わないとき",
+      "total_ms": 600,
+      "focus_ms": 600,
+      "beats": [
+        {
+          "id": "s1", "at_ms": 0, "ms": 120, "phase": "入り", "layer": "灯", "ease": "standard",
+          "change": "0.96 倍に沈み、周りの光が灯に集まる。押した合図（応答）なので短い版にも残す", "tells": "押せた",
+          "tracks": [
+            { "id": "s1.core", "el": "start-core", "at_ms": 0, "ms": 120, "ease": "standard", "scale": [1, 0.96], "press": true, "props": ["transform"] },
+            { "id": "s1.glow", "el": "start-glow", "at_ms": 0, "ms": 120, "ease": "standard", "scale": [1.6, 1], "opacity": [0.2, 0.35], "press": true, "props": ["transform", "opacity"] }
+          ]
+        },
+        {
+          "id": "s2", "at_ms": 0, "ms": 200, "phase": "見せ場", "layer": "題字", "ease": "leave",
+          "change": "上へ 120px 流れ、薄れて 8px ぼける。盤の地が出る 200ms までに消し、題字と盤を重ねない（監修記録の指摘 13）", "tells": "海面を離れた",
+          "tracks": [
+            { "id": "s2.title", "el": "title", "at_ms": 0, "ms": 200, "ease": "leave", "y": [0, -120], "opacity": [1, 0], "blur": [0, 8], "props": ["transform", "opacity", "filter"] }
+          ]
+        },
+        {
+          "id": "s3", "at_ms": 200, "ms": 400, "phase": "収まり", "layer": "計器盤", "ease": "settle",
+          "change": "下から 48px 上がり、6px 行き過ぎて戻る。入力欄は盤と一緒に出る", "tells": "計器盤が起きた",
+          "tracks": [
+            { "id": "s3.panel", "el": "panel", "at_ms": 200, "ms": 400, "ease": "settle", "keys": [{ "o": 0, "y": 48, "ease": "arrive" }, { "o": 0.57, "y": -6, "ease": "standard" }, { "o": 1, "y": 0 }], "props": ["transform"] },
+            { "id": "s3.plate", "el": "panel", "at_ms": 200, "ms": 100, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "s3.text", "el": "panel-text", "at_ms": 300, "ms": 100, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "s3.field-1", "el": "field-1", "at_ms": 300, "ms": 100, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "s3.field-2", "el": "field-2", "at_ms": 300, "ms": 100, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "s3.field-3", "el": "field-3", "at_ms": 300, "ms": 100, "ease": "arrive", "opacity": [0, 1], "props": ["opacity"] }
+          ]
+        },
+        {
+          "id": "s4", "at_ms": 0, "ms": 600, "phase": "収まり", "layer": "水とマリンスノー", "ease": "standard",
+          "change": "位置を動かさず、海面の水から深い水へ溶け込む。流れる速さは 1 倍から 0.5 倍へ", "tells": "着いた",
+          "note": "背景は位置を動かさずに、600ms で深い水へ溶け込む（演出計画書の守りの表の「2 回目以降」）",
+          "tracks": [
+            { "id": "s4.mix", "engine": "sea", "param": "mix", "at_ms": 0, "ms": 600, "ease": "standard", "from": 0, "to": 1 },
+            { "id": "s4.speed", "engine": "sea", "param": "speed", "at_ms": 0, "ms": 600, "ease": "arrive", "from": 1, "to": 0.5 },
+            { "id": "s4.ground", "el": "ground", "at_ms": 0, "ms": 600, "ease": "standard", "opacity": [0, 1], "props": ["opacity"] }
+          ]
+        },
+        {
+          "id": "s5", "at_ms": 600, "ms": 0, "phase": "収まり", "layer": "入力欄", "focus": "email",
+          "change": "1 つ目の入力欄に焦点が入る", "tells": "次の操作",
+          "tracks": []
+        }
+      ]
+    },
+    "reduced": {
+      "when": "動きを減らす設定（prefers-reduced-motion: reduce）",
+      "total_ms": 150,
+      "focus_ms": 150,
+      "beats": [
+        {
+          "id": "r1", "at_ms": 0, "ms": 150, "phase": "溶け込み", "layer": "海面と計器盤", "ease": "standard",
+          "change": "位置と大きさは動かさず、海面が薄れて計器盤が現れる。マリンスノーは止めたまま", "tells": "場面が替わった",
+          "tracks": [
+            { "id": "r1.surface", "el": "surface", "at_ms": 0, "ms": 150, "ease": "standard", "opacity": [1, 0], "props": ["opacity"] },
+            { "id": "r1.panel", "el": "panel-scene", "at_ms": 0, "ms": 150, "ease": "standard", "opacity": [0, 1], "props": ["opacity"] },
+            { "id": "r1.mix", "engine": "sea", "param": "mix", "at_ms": 0, "ms": 150, "ease": "standard", "from": 0, "to": 1 },
+            { "id": "r1.ground", "el": "ground", "at_ms": 0, "ms": 150, "ease": "standard", "opacity": [0, 1], "props": ["opacity"] }
+          ]
+        },
+        {
+          "id": "r2", "at_ms": 150, "ms": 0, "phase": "溶け込み", "layer": "入力欄", "focus": "email",
+          "change": "1 つ目の入力欄に焦点が入る", "tells": "次の操作",
+          "tracks": []
+        }
+      ]
+    }
+  },
+  "guards": [
+    { "condition": "動きを減らす設定", "means": "位置と大きさは動かさない。150ms の溶け込みで計器盤に替え、焦点は同じ入力欄に入れる。マリンスノーは止める", "version": "reduced", "check": "縮小版" },
+    { "condition": "飛ばす手段", "means": "途中でどのキーを押しても、どこを押しても、100ms 以内に最後の状態へ進む。先に打った字は 1 つ目の入力欄に入る", "version": "full", "check": "飛ばす" },
+    { "condition": "2 回目以降", "means": "同じ利用の中では 600ms の短い版にする。題字の退場と、計器盤の収まりだけを残す", "version": "short", "check": "2 回目" },
+    { "condition": "素材が間に合わないとき", "means": "押してから 100ms 以内に、灯だけは必ず動く。残りは短い版に替える", "version": "short", "check": "素材の遅れ" },
+    { "condition": "終わりの焦点", "means": "1 つ目の入力欄。読み上げには「ログイン」の題を伝える（フォームの名前と title）", "version": "all", "check": "終わりの焦点" },
+    { "condition": "環境の動き", "means": "マリンスノーは 5 秒を超えて続くので、画面の右下に「背景の動きを止める」を置く", "version": "all", "check": "動きを止める" },
+    { "condition": "点滅と音", "means": "明るさの大きな切り替わりは 0 回。音は入れない", "version": "all", "check": "点滅" }
+  ],
+  "skip": {
+    "key": "Enter",
+    "at_ms": 200,
+    "by": ["keydown", "pointerdown"],
+    "within_ms": 100,
+    "ignore": "キーの押しっぱなしの繰り返し",
+    "typed": "字のキーは、1 つ目の入力欄に入る。Enter・Space・Tab は字にしない"
+  },
+  "focus": { "selector": "#email", "role": "textbox", "name": "メールアドレス" },
+  "ambient": {
+    "seed": 214,
+    "speed_px_per_ms": 0.025,
+    "panel_speed": 0.5,
+    "area_per_flake": 7000,
+    "radius_px": [0.6, 2.2],
+    "alpha": [0.18, 0.62],
+    "wobble_px": 5,
+    "period_ms": [4200, 9000],
+    "streak_px": 9,
+    "band_rise": 0.6,
+    "water_stops": [0, 0.22, 0.6, 1],
+    "shafts": {
+      "x": [0.2, 0.48, 0.76],
+      "top_w": 0.07,
+      "bottom_w": 0.2,
+      "slant": 0.1,
+      "length": 0.75,
+      "alpha": 0.07,
+      "sway": 0.015,
+      "period_ms": [9000, 11000, 13000]
+    },
+    "stop": { "role": "button", "name": "背景の動きを止める", "selector": ".calm" },
+    "flash_max_per_s": 3
+  }
+}

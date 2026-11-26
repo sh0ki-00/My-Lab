@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- 正例: 没入の型の場面の書き方。縮小版、飛ばす手段、止める操作、消音のスイッチがそろっている。 -->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>正例の場面</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <video class="loop" src="loop.mp4" autoplay muted loop playsinline controls></video>
+  <h1 class="title">深海の探査日誌</h1>
+  <div class="frame">計器盤</div>
+  <button type="button" class="start">スタート</button>
+  <button type="button" class="stop" aria-pressed="false">背景の動きを止める</button>
+  <button type="button" class="mute" aria-pressed="true">音を出す</button>
+  <script type="module" src="scene.js"></script>
+  <script type="module" src="sound.js"></script>
+</body>
+</html>

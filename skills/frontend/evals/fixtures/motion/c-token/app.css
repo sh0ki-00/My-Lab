@@ -1,0 +1,2 @@
+/* 負例 C: 時間はトークンで書いたが、トークンの側（tokens.css）に縮小版の上書きが無い。拡張の前は素通りした。 */
+.pane { transform: translateX(0); transition: transform var(--duration-2) var(--ease-standard); }
