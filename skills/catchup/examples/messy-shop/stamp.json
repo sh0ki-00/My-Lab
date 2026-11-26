@@ -1,0 +1,172 @@
+{
+ "at": "2026-11-26T13:10:32+09:00",
+ "commit": "46cf84d",
+ "files": {
+  "app/MEMO.txt": {
+   "lines": 9,
+   "sha256": "f419362d00718dacf698ecea8b97370f9e212397487dd97d1a6b383eb439c7de"
+  },
+  "app/batch_carrier.py": {
+   "lines": 30,
+   "sha256": "7e808a04048da81b52f9db63929153df99d12e7913f7d872157ea4046b14bd09"
+  },
+  "app/batch_nightly.py": {
+   "lines": 26,
+   "sha256": "62d3c5f2b3bf18c05ecd8d02079969ba4cdacb2d83370690d0c875c45f86da6a"
+  },
+  "app/config.py": {
+   "lines": 15,
+   "sha256": "d772220c27f9cf7d378e53c720793030f7a334aec748e3e8e09fa9846381777f"
+  },
+  "app/customers.py": {
+   "lines": 27,
+   "sha256": "9573eeb4926ba8932445375af62556a3bf69f4c3f6a92b8cfb75a96bf9c2bcd5"
+  },
+  "app/db.py": {
+   "lines": 34,
+   "sha256": "99a39907f43c9df74387eaf4d23e65a07a5777ebafb964b6a3aeaeb84a1fdc96"
+  },
+  "app/jobs.py": {
+   "lines": 17,
+   "sha256": "b3749e6d3d3103aa99e42e228c0ceb4d026fcd7429a606703fbe7c6cc6229b11"
+  },
+  "app/legacy.py": {
+   "lines": 14,
+   "sha256": "9019410b4189c0475007b78a78dc9e65fca3651ee7b04b0380c6898db28b57d3"
+  },
+  "app/mail_report.py": {
+   "lines": 37,
+   "sha256": "1980db362e16076722f751a10b0661d96d9d506e430b8ef622baa48119d41ad3"
+  },
+  "app/migrations/001_init.sql": {
+   "lines": 58,
+   "sha256": "f449ec4ba6ebd21068759c5a0a6af7b797788139ee678a46c9dc0f98bbc0d458"
+  },
+  "app/models.py": {
+   "lines": 42,
+   "sha256": "aa0fa05d747be1855978bd3447d0a1f576ebcf2e6704b8daa293e4c2353d69d1"
+  },
+  "app/orders.py": {
+   "lines": 91,
+   "sha256": "4e06cd7daf3a2ec5759c5cdc5717ad80478ef0dcd4c8d59ce61af761a7b62b9f"
+  },
+  "app/preorder.py": {
+   "lines": 18,
+   "sha256": "e9aeefb81d0d0d27eaf9d736afefeed0eb133d8522134e2723963d5240176b85"
+  },
+  "app/reports.py": {
+   "lines": 101,
+   "sha256": "159ba5361ae0e32f550715e8b8749beb4ab11e597b8e419b1837671213361680"
+  },
+  "app/stats.py": {
+   "lines": 19,
+   "sha256": "7f0326d6684bc9b1a814e9f4ecd6a8da28b5f4acdc1545120e4327f5e17f4f1a"
+  },
+  "app/views.py": {
+   "lines": 183,
+   "sha256": "251f229e9618a68b7ed05d24a88082814fd27fe99d3bda39ce2f52950258efb6"
+  }
+ },
+ "hash": "abcbb7057ceb3452766b9e76e8f5b4b2318d5ef712e4649a9d879991cd58a4a1",
+ "sections": {
+  "データ": [
+   "app/MEMO.txt",
+   "app/batch_carrier.py",
+   "app/batch_nightly.py",
+   "app/config.py",
+   "app/customers.py",
+   "app/db.py",
+   "app/legacy.py",
+   "app/mail_report.py",
+   "app/migrations/001_init.sql",
+   "app/models.py",
+   "app/orders.py",
+   "app/preorder.py",
+   "app/reports.py",
+   "app/stats.py",
+   "app/views.py"
+  ],
+  "入口": [
+   "app/MEMO.txt",
+   "app/batch_carrier.py",
+   "app/batch_nightly.py",
+   "app/config.py",
+   "app/customers.py",
+   "app/mail_report.py",
+   "app/orders.py",
+   "app/preorder.py",
+   "app/reports.py",
+   "app/stats.py",
+   "app/views.py"
+  ],
+  "入口の 1 枚": [],
+  "構成と動かし方": [
+   "app/MEMO.txt",
+   "app/config.py",
+   "app/db.py",
+   "app/jobs.py",
+   "app/mail_report.py",
+   "app/reports.py",
+   "app/views.py"
+  ],
+  "罠": [
+   "app/batch_nightly.py",
+   "app/db.py",
+   "app/legacy.py",
+   "app/mail_report.py",
+   "app/models.py",
+   "app/orders.py",
+   "app/reports.py",
+   "app/stats.py",
+   "app/views.py"
+  ],
+  "語彙": [
+   "app/batch_carrier.py",
+   "app/batch_nightly.py",
+   "app/config.py",
+   "app/customers.py",
+   "app/mail_report.py",
+   "app/models.py",
+   "app/orders.py",
+   "app/preorder.py",
+   "app/reports.py",
+   "app/views.py"
+  ],
+  "開発の形": [
+   "app/MEMO.txt",
+   "app/models.py",
+   "app/views.py"
+  ]
+ },
+ "tool": "map-check",
+ "tree": {
+  "exclude": [
+   "answers",
+   "questions.md",
+   "build.py",
+   "score.py",
+   "README.md"
+  ],
+  "files": [
+   "app/MEMO.txt",
+   "app/batch_carrier.py",
+   "app/batch_nightly.py",
+   "app/config.py",
+   "app/customers.py",
+   "app/db.py",
+   "app/jobs.py",
+   "app/legacy.py",
+   "app/mail_report.py",
+   "app/models.py",
+   "app/orders.py",
+   "app/preorder.py",
+   "app/reports.py",
+   "app/stats.py",
+   "app/views.py",
+   "app/migrations/001_init.sql",
+   "app/migrations/002_deleted_at.sql",
+   "app/migrations/003_shipped_at.sql",
+   "app/migrations/004_daily_stats.sql"
+  ]
+ }
+}

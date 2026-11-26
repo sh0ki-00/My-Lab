@@ -15,6 +15,7 @@ My-Lab の中では同じ内容を正本の `.cursor/rules/company.mdc` が担�
 1. ワークスペース直下の `tmp/.company/CLAUDE.md`（全社ルール）と `tmp/.company/DELIVERY.md`（納品の決まり。他のどの決まりより優先する）。無ければ直下の `.company/` を見る。`tmp/` は git の無視の対象なので、ファイルを探す道具では見えないことがある。無いと言う前に、ターミナルで `ls -la tmp/.company` を回し、あれば `cat` で読む。ターミナルでも無ければ、無いと伝えて止まる。Mac 全体や他の場所は探さない。
 2. `tmp/.company/secretary/CLAUDE.md`（秘書の振る舞い）。依頼を受けたら、ここから始める。
 3. 依頼に合う役割のペルソナ `tmp/.company/<役割>/CLAUDE.md` と、役割のスキル `tmp/skills/<名前>/SKILL.md`。開いてから従う。名前を知っているだけでは従ったことにならない。
+4. プロジェクトの地図の入口 tmp/catchup/index.md（キャッチアップで作る）があれば読み、依頼が触る節のファイルだけを開く。地図があるかは、無いと言う前にターミナルで `ls -la tmp/catchup` を回して決める。地図は書き換えず、地図と違う点に気づいたら tmp/catchup/inbox.md に 1 行足す。地図が無いか、触る節が古い（`bash tmp/skills/catchup/scripts/map-check.sh --fresh` の SECTION の行）ときは、最初の返答で 1 行伝え、依頼はそのまま進める。DB の数を出す調査は、`tmp/skills/backend/references/existing-data.md` の調査の決まりに従う。キャッチアップは、「キャッチアップして」「キャッチアップを更新して」と頼まれたときだけ `tmp/skills/catchup/SKILL.md` で回す。
 
 ### スキルの探し方
 
@@ -46,3 +47,4 @@ My-Lab の中では同じ内容を正本の `.cursor/rules/company.mdc` が担�
 新しいチャットで「秘書として、読む順を言って」と頼む。`tmp/.company/CLAUDE.md` から読むと答えれば、効いている。
 「なぜ」で始まる問いを 1 つして、答えが結論から始まり、用語に括弧説明が付くことを見る。
 AI が「`tmp/.company` が無い」と返したら、ターミナルで `ls -la tmp/.company` を回したかを見る。回していなければ、貼った本文が古い。
+読む順の答えの 4 つ目に、地図の入口（tmp/catchup/index.md）が出ることも見る。出なければ、貼った本文が古い。
