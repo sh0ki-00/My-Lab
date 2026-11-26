@@ -50,9 +50,9 @@ My-Lab の中では、開くだけで動きます。他のプロジェクトで�
 | 場面 | 手順 |
 |---|---|
 | My-Lab を Claude Code で開く | `CLAUDE.md` が `AGENTS.md` を読み、`.claude/settings.json` が承認の規則と hooks を登録する。`/verify` が候補に出る |
-| My-Lab を Cursor で開く | `.cursor/rules/company.mdc` が常時ルール。スキルは `.cursor/skills`（`skills/` へのリンク）。Cursor の hooks は 2026-11-10 に社長の指示で外した（`.cursor/hooks.json` と Mac 全体の登録は空）。戻すときは `./install.sh` と、`.cursor/hooks.json` の登録の復元 |
-| 他のプロジェクトで使う | `./deploy.sh <プロジェクト>` で `tmp/` に写す（手でコピーしても同じ）。Cursor の User Rules に `tmp/cursor-user-rule.md` の本文を 1 回貼る。検証は `bash tmp/tools/project-verify.sh --fast`（既定は AI が書いた `tmp/` の文書だけ。プロジェクトの試験は `tmp/verify-commands.txt` に 1 行 1 命令で書いたときだけ回す） |
-| この Mac に hooks を登録する（1 回） | `./install.sh --dry-run` で中身を見てから `./install.sh`。Claude Code の `PreToolUse` には Bash の判定と Write・Edit の門の 2 本が入る。旧 cradle のリンクを外すときは `--remove-old-links`。常時ルールには書き込まない |
+| My-Lab を Cursor で開く | `.cursor/rules/company.mdc` が常時ルール。スキルは `.cursor/skills`（`skills/` へのリンク）。Cursor の hooks は 2026-11-10 に依頼者の指示で外した（`.cursor/hooks.json` と Mac 全体の登録は空）。外しているあいだは、返答と commit 文の git の語の言い換えの検査も、Cursor では効かない。戻すかは依頼者が決める。戻すときは `./install.sh` と、`.cursor/hooks.json` の登録の復元 |
+| 他のプロジェクトで使う | `./deploy.sh <プロジェクト>` で `tmp/` に写す（手でコピーしても同じ）。Cursor の User Rules に `tmp/cursor-user-rule.md` の本文を 1 回貼る。検証は `bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>`（引数で渡した文書だけを検査する。何も検査しない回は WARN（終了コード 3）で、PASS の記録にならない。プロジェクトの試験は `tmp/verify-commands.txt` に 1 行 1 命令で書いたときだけ回す） |
+| この Mac に hooks を登録する（1 回） | `./install.sh --dry-run` で中身を見てから `./install.sh`。Claude Code の `PreToolUse` には Bash の判定と Write・Edit の門の 2 本が入る。Cursor には `beforeShellExecution`・`afterFileEdit`・`afterAgentResponse`（返答の言い換えを見る）・`stop` の 4 本が入る。今は Cursor の hooks を外してあるので（上の行）、`./install.sh` を回すと Cursor の登録も戻る。戻すかは依頼者が決める。旧 cradle のリンクを外すときは `--remove-old-links`。常時ルールには書き込まない |
 
 ## 5. 守り
 
@@ -65,18 +65,20 @@ hooks の判定本体が、コマンドの文字列を見て 3 つの判定を�
 | 守りの設定（root 所有の `/usr/local/etc/company-guard/mode`。無いときは互換の `~/.cursor/company-guard.mode`）と `~/.cursor` への書き込み・削除・権限の変更 | 拒否（deny）。社長が `sudo` で書く |
 | Write・Edit で `~/.cursor/`、`~/.claude/settings.json`、`~/.claude/hooks/`、`~/.claude/CLAUDE.md`、守りの設定の置き場、My-Lab の `hooks/`・`.claude/settings.json`・`.cursor/hooks.json` を書く | 拒否（deny）。シェルを通らない道も閉じる |
 | 符号化した命令を復号してシェルに渡す書き方 | 確認（ask）。中身を照合できない |
-| 読むだけか、取り消せる操作 | 許可 |
+| commit 文・PR 文・Issue 文に、git の語の言い換えがある（`-F`・`--file`・`--body-file` のファイルも、命令の作業場所と `cd`・`git -C` の先から読む） | 拒否（deny）。語を直して打ち直す。打ち直した命令は確認になる |
+| クラウドにつなぐコマンド（aws、terraform、kubectl ほか。読むだけのコマンドも含む） | 確認（ask）。開発環境でだけ、そのたびに承認を得る。名前で拾う網なので、包みのスクリプト（`npm run deploy` など）も承認を得てから回す |
+| 読むだけか、取り消せる操作（クラウドにつなぐコマンドを除く） | 許可 |
 
 命令の文字列の照合は隠し方のすべてを見つけられないので、芯は置き場の所有者で守ります。守りの設定は root 所有の `/usr/local/etc/company-guard/mode` に置き、AI の利用者権限では書けません。置き場があるのにファイルが無い・読めない・中身が壊れているときは、拒否に倒します（fail-closed）。
 
 ## 6. 検証
 
-作業の最後に `bash tools/verify-all.sh --fast` が hooks から自動で走り、commit の承認を求める前に `--full` を回します。道具が無いことによる SKIP は FAIL と同じに扱います。
+Write・Edit でファイルを書いたセッションでは、作業の最後に `bash tools/verify-all.sh --fast` が hooks から自動で走ります。Bash のコマンドだけで書いたときは、自分で回します。commit の承認を求める前には、`--full` を回します。道具が無いことによる SKIP は FAIL と同じに扱います。
 
 | 命令 | 回すもの | 所要 |
 |---|---|---|
 | `--fast` | 形式、文体・資料・図、固有の検査の自己試験、hooks の自己試験、参照の実在、スクリプトの静的検査 | 数十秒 |
-| `--full` | 上に加えて、図の実描画、試験ケース、配置の試験、見本アプリの実測、秘密と依存（gitleaks・trivy・semgrep） | 数分。記録を `docs/verify/<日付>.md` に書く |
+| `--full` | 上に加えて、図の実描画、試験ケース、配置の試験と `tools/tests/` の試験、見本アプリの実測、秘密と依存（gitleaks・trivy・semgrep） | 数分。記録を `docs/verify/<日付>.md` に書く |
 
 ## 7. 段階と状態
 

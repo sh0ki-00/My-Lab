@@ -5,6 +5,10 @@
         security_check.py roe <RoE.md>...         範囲・許可・連絡先・期間・止める条件・やらないこと
         security_check.py matrix <行列.md>...     攻撃の段階ごとの ログ・検知・通知・検証
         security_check.py <report|roe|matrix> --selftest
+roe の範囲の表の宛先は、手元（127.0.0.1・localhost・::1）だけを通す。所有の確認があっても、ほかの宛先は「範囲外の宛先」で落とす。
+  攻撃の相手は、ソースコードから手元で起こしたアプリだけ。クラウドの環境は、検証環境でも対象にしない（改善提案書 7.2 節）。
+  宛先の列は、scheme つきの URL・host:port・IP・名前.名前 の形を拾う。宛先を拾えない文（「自社の検証環境」など）も落とす。
+  網を使わない行は、宛先の列に「網を使わない」と書く。ほかの列（所有の確認の列を除く）の scheme つきの URL も、手元だけを通す。
 --roe を渡すと、報告を RoE の範囲の表（宛先と写しの置き場の列）と突き合わせる。
   RoE の範囲外: 再現・再検証の命令の宛先（host と port）が、範囲の表に無い。
   再検証の写し: 再検証の宛先が、再現の宛先と別の写しを立てる宛先になっている（直した写しを確かめていない）。
@@ -25,6 +29,15 @@ import tempfile
 PLACEHOLDER = re.compile(r"<[^<>\n]{1,80}>")
 LOOPBACK = {"127.0.0.1", "localhost", "::1", "[::1]"}
 URL_RX = re.compile(r"https?://(\[[0-9a-fA-F:]+\]|[A-Za-z0-9._-]+)")
+# RoE の範囲の表の宛先（roe-check）。手元とみなすのは、この 3 つだけ（0.0.0.0 や 127.0.0.2 も外）
+LOCAL_DEST = {"127.0.0.1", "localhost", "::1"}
+SCHEME_URL_RX = re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://([^\s/|`'\"<>()（）、。]+)")
+HOST_PORT_RX = re.compile(r"(?<![\w.:/@\[-])(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9.-]*):\d{1,5}\b")
+IPV6_RX = re.compile(r"\[[0-9A-Fa-f:.]+\]")
+IPV4_RX = re.compile(r"(?<![\w.])\d{1,3}(?:\.\d{1,3}){3}(?![\w.])")
+DOMAIN_RX = re.compile(r"(?<![\w.@/-])(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}(?![\w.-])")
+BARE_LOCAL_RX = re.compile(r"(?<![\w.:-])(localhost|::1)(?![\w.:-])", re.I)
+NO_NET = ("網を使わない", "通信しない")
 DATE_RX = re.compile(r"\b(20\d\d)-(\d\d)-(\d\d)\b")
 BASE_METRICS = ["AV", "AC", "AT", "PR", "UI", "VC", "VI", "VA", "SC", "SI", "SA"]
 # 再現と再検証の命令に置かない書き方。攻撃のコードを報告に書かない決まり（ペルソナの禁止）を機械で見る。
@@ -314,6 +327,57 @@ def check_report(text: str, scope=None, bases=()):
 ROE_KEYS = ["範囲", "許可", "連絡先", "期間", "止める条件", "やらないこと"]
 
 
+def host_of(netloc: str) -> str:
+    """user@host:port や [IPv6]:port から host を取り、小文字にそろえる。"""
+    h = netloc.rsplit("@", 1)[-1]
+    if h.startswith("["):
+        h = h[1:h.index("]")] if "]" in h else h[1:]
+    else:
+        h = h.split(":", 1)[0]
+    return h.lower().rstrip(".")
+
+
+def url_hosts(text: str):
+    """scheme つきの URL（http・https のほか、postgres:// や s3:// も）の host。"""
+    return [host_of(m.group(1)) for m in SCHEME_URL_RX.finditer(text)]
+
+
+def dest_hosts(text: str):
+    """宛先の列の 1 つのセルから host を拾う。URL、host:port、[IPv6]、IPv4、名前.名前 の形、localhost と ::1。"""
+    out = url_hosts(text)
+    rest = SCHEME_URL_RX.sub(" ", text)
+    out += [host_of(m.group(0)) for m in HOST_PORT_RX.finditer(rest)]
+    rest = HOST_PORT_RX.sub(" ", rest)
+    out += [h.strip("[]").lower() for h in IPV6_RX.findall(rest)]
+    rest = IPV6_RX.sub(" ", rest)
+    out += IPV4_RX.findall(rest)
+    rest = IPV4_RX.sub(" ", rest)
+    out += [h.lower().rstrip(".") for h in DOMAIN_RX.findall(rest)]
+    out += [h.lower() for h in BARE_LOCAL_RX.findall(rest)]
+    return out
+
+
+def no_net(text: str) -> bool:
+    """宛先の列が、網を使わない行（空、-、なし、「網を使わない」）か。"""
+    t = text.strip().strip("`").strip()
+    return t in ("", "-", "—", "なし", "無し") or any(w in t for w in NO_NET)
+
+
+def scope_remote(cells, oi, di):
+    """範囲の表の 1 行から、手元でない宛先を返す（重なりは 1 つに）と、宛先の列が手元と読めないかを返す。"""
+    found = []
+    for i, c in enumerate(cells):
+        if i == oi:
+            continue  # 所有の確認の列（持ち主を示す証拠の URL）は宛先でない
+        found += dest_hosts(c) if i == di else url_hosts(c)
+    remote = []
+    for h in found:
+        if h not in LOCAL_DEST and h not in remote:
+            remote.append(h)
+    unreadable = di is not None and di < len(cells) and not dest_hosts(cells[di]) and not no_net(cells[di])
+    return remote, unreadable
+
+
 def check_roe(text: str):
     issues = []
     secs = sections(parse(text), 2)
@@ -331,17 +395,24 @@ def check_roe(text: str):
         if key == "範囲":
             head = rows[0][1] if rows else []
             oi = next((i for i, c in enumerate(head) if "所有" in c), None)
+            di = next((i for i, c in enumerate(head) if "宛先" in c), None)
             if not rows or oi is None or len(rows) < 2:
                 issues.append((s["no"], key, "範囲の表（対象と所有の確認の列）が無い"))
             else:
+                if di is None:
+                    issues.append((rows[0][0], key, "範囲の表に宛先の列が無い。宛先を 127.0.0.1・localhost・::1 で書く（網を使わない行は「網を使わない」）"))
                 for no, cells in rows[1:]:
-                    line = " | ".join(cells)
                     owned = oi < len(cells) and cells[oi] not in ("", "-", "なし") and not PLACEHOLDER.search(cells[oi])
                     if not owned:
                         issues.append((no, "所有の確認", f"対象「{cells[0]}」に所有の確認が無い"))
-                    for h in outside_hosts(line):
-                        if not owned:
-                            issues.append((no, "範囲外の宛先", f"{h} は手元でなく、所有の確認も無い"))
+                    # 宛先は手元だけ。所有の確認があっても落とす（クラウドの環境は、検証環境でも対象にしない）
+                    remote, unreadable = scope_remote(cells, oi, di)
+                    for h in remote:
+                        issues.append((no, "範囲外の宛先", f"{h} は手元でない。宛先は 127.0.0.1・localhost・::1 だけで、"
+                                                          "所有の確認があってもクラウドの環境（検証環境を含む）は範囲に書かない"))
+                    if unreadable:
+                        issues.append((no, "範囲外の宛先", f"宛先「{cells[di]}」を手元の宛先と読めない。127.0.0.1・localhost・::1 で書く"
+                                                          "（網を使わない行は「網を使わない」）"))
         elif key == "許可":
             if not re.search(r"署名", body) or not DATE_RX.search(body):
                 issues.append((s["no"], key, "許可に署名した人と日付（2026-11-08 の形）が無い"))
@@ -479,6 +550,16 @@ GOOD_ROE = """# RoE
 - 第三者の資産に向けること。
 - 負荷をかけて止める試験。
 """
+GOOD_ROE_ROW = "| 見本の API | http://127.0.0.1:18080 | 持ち主のリポジトリの写し |"
+
+
+def roe_rows(*rows):
+    """GOOD_ROE の範囲の表の行を、渡した行に差し替える（差し替える行が無ければ止まる）。"""
+    if GOOD_ROE_ROW not in GOOD_ROE:
+        raise ValueError("GOOD_ROE に差し替える範囲の行が無い")
+    return GOOD_ROE.replace(GOOD_ROE_ROW, "\n".join(rows))
+
+
 GOOD_MATRIX = """# 行列
 
 | 段階 | ログ | 検知 | 通知 | 検証 |
@@ -573,6 +654,21 @@ def selftest(which):
             ("止める条件が 1 つ", GOOD_ROE.replace("- 見本のデータが壊れた。\n", ""), ["止める条件"]),
             ("やらないことに本番が無い", GOOD_ROE.replace("- 本番での試験。", "- 夜間の試験。"), ["やらないこと"]),
             ("期間の節が無い", GOOD_ROE.replace("## 期間", "## 日程"), ["期間"]),
+            # 宛先は手元だけ。所有の確認があっても、クラウドの環境（検証環境を含む）と外の宛先は落とす
+            ("クラウドの検証環境は所有の確認があっても落ちる",
+             roe_rows("| 店の検証環境 | https://stg.shop.example.com | 持ち主のアカウントの検証環境 |"), ["範囲外の宛先"]),
+            ("外の宛先を IP と port で書いても落ちる", roe_rows("| 検証の DB | 10.0.5.20:5432 | 持ち主のアカウントの検証環境 |"), ["範囲外の宛先"]),
+            ("外の宛先を名前だけで書いても落ちる", roe_rows("| 検証の API | stg-api.internal.example.com | 持ち主のアカウントの検証環境 |"), ["範囲外の宛先"]),
+            ("宛先を言葉で書くと落ちる", roe_rows("| 検証の API | 自社の検証環境 | 持ち主のアカウントの検証環境 |"), ["範囲外の宛先"]),
+            ("0.0.0.0 は手元とみなさない", roe_rows("| 見本の API | http://0.0.0.0:18080 | 持ち主のリポジトリの写し |"), ["範囲外の宛先"]),
+            ("宛先の列の外の URL も見る",
+             roe_rows("| 見本の API（元は https://api.shop.example.com） | http://127.0.0.1:18080 | 持ち主のリポジトリの写し |"), ["範囲外の宛先"]),
+            ("localhost と ::1 と網を使わない行は通る",
+             roe_rows("| 見本の API | http://localhost:18080 | 持ち主のリポジトリの写し |", "| 直した写し | http://[::1]:18081 | 持ち主のリポジトリの写し |",
+                      "| 見本のコード | 網を使わない | 持ち主のリポジトリの中の物 |"), []),
+            ("所有の確認の列の URL は宛先に数えない",
+             roe_rows("| 見本の API | 127.0.0.1:18080 | https://github.com/example/shop の写し |"), []),
+            ("範囲の表に宛先の列が無い", GOOD_ROE.replace("| 対象 | 宛先 | 所有の確認 |", "| 対象 | 場所 | 所有の確認 |"), ["範囲"]),
         ]
     else:
         cases = [

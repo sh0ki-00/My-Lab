@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # tools/tests/deployed-checks-test.sh — 写した先（<プロジェクト>/tmp/tools）で、検査の道具が決まりどおりに動くかの試験。
-#   1. check-file.sh は、tmp/ の外のファイル（プロジェクト自身のもの）を検査せずに PASS にする。tmp/ の中の文書は検査する。
+#   1. check-file.sh は、tmp/ の外のファイル（プロジェクト自身のもの）に、現場の語の検査（check-terms）だけを回す。tmp/ の中の文書は全部の検査を回す。
 #   2. project-verify.sh は、写した先の PASS でだけ tmp/.verify/last-pass を更新する。Stop の hook は、変更の無い 2 回目を回さない。
-#   3. project-verify.sh は、空白と日本語を含む文書のパスを 1 本のまま check-file と check-refs に渡す。
-#   4. project-verify.sh は、最後に検証が通った印より新しい文書だけを FAIL に数え、前からある文書は範囲外の行で見せる。--baseline は写した時点の印を置く。
+#   3. project-verify.sh は、引数で渡した、空白と日本語を含む文書のパスを 1 本のまま check-file と check-refs に渡す。
+#   4. project-verify.sh は、引数で渡した文書だけを検査する。引数が無ければ文書を検査しない。--baseline は移した時点の印を置く。
+#      文書も命令も無く何も検査しない回は、PASS にせず WARN（終了コード 3）で終わり、印を書かない。
+#      細かい場面（改善提案書 13 章の V-1〜V-4）は tools/tests/project-verify-scope-test.sh が確かめる。
 #   5. check-file.sh は、写した先で AI が書く資料（tmp/flow、tmp/ISSUE_*）と雛形で「秘書」「社長」の語を落とす。「」の引用は通す。My-Lab の tmp/flow では見ない。
+#   6. check-file.sh は、tools/ja-terms.txt の現場の語を、.md 以外の文字のファイルでも落とす。「」の中は通す。
+#      移した先のプロジェクト自身のファイルは、git の HEAD から足した行だけを見る。追跡していないファイルは全体を見る。
+#      HEAD を作るため、使い捨てのリポジトリ（mktemp の下）でだけ git add と git commit を回す。
 # 偽のプロジェクトは手で作る（git init、tools/ を tmp/tools に写す、tmp/DEPLOYED.md を書く）。deploy.sh は使わない。
 # hooks/ は使い捨ての場所に写して回す。本物の HOME と、My-Lab の tmp/.verify には書かない。
 # 場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。
@@ -14,7 +19,6 @@ LAB="$(cd "$(dirname "$0")/../.." && pwd -P)" || exit 1
 NAME="deployed-checks-test"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 RUN_PATH="/opt/homebrew/bin:/usr/bin:/bin"
-SKIP_MARK="写した先のプロジェクト自身のファイルは検査の対象外"
 EN_TEXT="This service handles order intake for the shop and stores every order in PostgreSQL for later reporting."
 total=0; failed=0
 
@@ -75,12 +79,25 @@ persona_doc() {
 # check <LANG> <root> <ファイル> → root で、その root の写しの check-file.sh を回す（hooks と同じ呼び方）
 check() { (cd "$2" && in_env "$1" /bin/bash "$2/tmp/tools/check-file.sh" "$3" 2>&1); }
 
-# verify <LANG> <root> [道具の場所] → root で project-verify.sh --fast を回す
+# verify <LANG> <root> [道具の場所] → root で project-verify.sh --fast を回す（文書の引数なし）
 verify() { (cd "$2" && in_env "$1" /bin/bash "${3:-tmp/tools}/project-verify.sh" --fast 2>&1); }
+
+# verify_docs <LANG> <root> <文書...> → root で project-verify.sh --fast に、文書を引数で渡して回す
+verify_docs() { local l="$1" r="$2"; shift 2; (cd "$r" && in_env "$l" /bin/bash tmp/tools/project-verify.sh --fast -- "$@" 2>&1); }
+
+# terms_only <出力> → 現場の語の検査（check-terms）だけが回って通った（文体・資料・shellcheck・jq などは回っていない）
+terms_only() {
+  printf '%s\n' "$1" | grep -q '^RESULT: PASS check-terms ' && ! printf '%s\n' "$1" | grep '^RESULT:' | grep -qv '^RESULT: PASS check-terms '
+}
 
 # postedit <LANG> <root> <ファイル> → 写した Claude Code の PostToolUse 接続口に、Edit の入力を 1 回送る
 postedit() {
   printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$3" "$2" | in_env "$1" /bin/bash "$H/claude-postedit.sh" --global 2>&1
+}
+
+# postedit_s <LANG> <root> <ファイル> → postedit と同じ入力に、stop_hook と同じ session_id を付けて送る（そのセッションが書いた記録を残す）
+postedit_s() {
+  printf '{"session_id":"deployed-checks","tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$3" "$2" | in_env "$1" /bin/bash "$H/claude-postedit.sh" --global 2>&1
 }
 
 # stop_hook <LANG> <root> → 写した Claude Code の Stop 接続口に、Stop の入力を 1 回送る
@@ -97,7 +114,7 @@ exists() { if [ -e "$1" ]; then printf 'ある'; else printf '無い'; fi; }
 # newer <印> <ファイル> → ファイルを印より 2 秒新しい時刻にする（同じ秒に書いた文書は「新しい」と見えない）
 newer() { python3 -I -c 'import os, sys; t = os.stat(sys.argv[1]).st_mtime + 2; os.utime(sys.argv[2], (t, t))' "$1" "$2"; }
 
-# 1. check-file.sh: 写した先では、tmp/ の外のファイルを検査しない（deploy-5）
+# 1. check-file.sh: 移した先では、tmp/ の外のファイルに現場の語の検査だけを回す（deploy-5。2026-11-26 に現場の語を足した）
 cases_check_file() {
   local L="$1" B="$2" s="@$1" P f label out rc out2 rc2
   P="$B/check file プロジェクト"
@@ -112,16 +129,16 @@ EOF
   printf '# セットアップ\n\nこの文書は、開発の準備の手順を書きます。\n' > "$P/docs/setup.md"
   printf '# Note\n\n%s\n' "$EN_TEXT" > "$P/tmp/flow/bad/note.md"
 
-  # プロジェクト自身のファイルは、hooks と同じ絶対パスで渡しても、検査せずに PASS
+  # プロジェクト自身のファイルは、hooks と同じ絶対パスで渡しても、現場の語の検査だけを回して PASS（英文・コメント入りの JSON・shellcheck の指摘は見ない）
   for f in README.md tsconfig.json scripts/list.sh docs/setup.md; do
     case "$f" in README.md) label=readme ;; tsconfig.json) label=tsconfig ;; scripts/*) label=script ;; *) label=docs ;; esac
     out="$(check "$L" "$P" "$P/$f")"; rc=$?
-    if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF "$SKIP_MARK"; then ok "project-$label$s"
-    else ng "project-$label$s" "rc=${rc}。プロジェクト自身の ${f} を検査した: $(first_fail "$out")"; fi
+    if [ "$rc" -eq 0 ] && terms_only "$out"; then ok "project-$label$s"
+    else ng "project-$label$s" "rc=${rc}。プロジェクト自身の ${f} に、現場の語のほかの検査を回した: $(first_fail "$out")"; fi
   done
   out="$(check "$L" "$P" README.md)"; rc=$?
-  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF "$SKIP_MARK"; then ok "project-relative$s"
-  else ng "project-relative$s" "rc=${rc}。相対パスの README.md を検査した: $(first_fail "$out")"; fi
+  if [ "$rc" -eq 0 ] && terms_only "$out"; then ok "project-relative$s"
+  else ng "project-relative$s" "rc=${rc}。相対パスの README.md に、現場の語のほかの検査を回した: $(first_fail "$out")"; fi
 
   # tmp/ の中の文書は、これまでどおり検査する
   out="$(check "$L" "$P" "$P/tmp/flow/bad/note.md")"; rc=$?
@@ -169,9 +186,9 @@ cases_last_pass() {
   unit_test "$P" 1
   commands_file "$P" "$UNITTEST_CMD"
   out="$(verify "$L" "$P")"; rc=$?
-  # 文書が 1 本も無い置き場でも、bash 3.2 の set -u で落ちない
+  # 文書の引数が無くても、bash 3.2 の set -u で落ちない。文書は 1 本も検査しない
   if printf '%s\n' "$out" | grep -q 'unbound variable'; then ng "no-docs$s" "文書が無いと set -u で落ちる"
-  elif [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -qF 'tmp の文書'; then ok "no-docs$s"
+  elif [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qxF '文書の指定なし（検査した文書 0 本）'; then ok "no-docs$s"
   else ng "no-docs$s" "rc=${rc}: $(first_fail "$out")"; fi
   if [ "$rc" -eq 0 ] && [ -f "$P/tmp/.verify/last-pass" ]; then
     # ファイルの一覧（tmp/.verify/last-pass.list）は Stop の hook が書く。印だけで一覧が無いうちは、hooks は「変わった」と見る（分からないときは回す）
@@ -185,7 +202,8 @@ cases_last_pass() {
     else ok "last-pass$s"; fi
   else ng "last-pass$s" "rc=${rc}。PASS のあとの tmp/.verify/last-pass が$(exists "$P/tmp/.verify/last-pass")"; fi
 
-  # 写した Stop の hook: 1 回目は回り、変更の無い 2 回目は回らず、直したあとの 3 回目は回る
+  # 写した Stop の hook: 何も書いていないセッションでは回らない。書いたセッションでは、1 回目は回り、
+  #   変更の無い 2 回目は回らず、直したあとの 3 回目は回る
   P="$B/verify stop"
   V="$P/tmp/.verify"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
@@ -193,6 +211,10 @@ cases_last_pass() {
   commands_file "$P" "$UNITTEST_CMD"
   mkdir -p "$P/src"
   printf 'x = 1\n' > "$P/src/app.py"
+  out="$(stop_hook "$L" "$P")"
+  if [ ! -f "$V/last-fast.txt" ] && [ -z "$out" ]; then ok "stop-skips-no-writes$s"
+  else ng "stop-skips-no-writes$s" "何も書いていないセッションの Stop で、命令を回した: $(printf '%s' "$out" | head -c 120)"; fi
+  postedit_s "$L" "$P" "$P/src/app.py" >/dev/null
   out="$(stop_hook "$L" "$P")"
   ran1=no; [ -f "$V/last-fast.txt" ] && ran1=yes
   rm -f "$V/last-fast.txt"
@@ -226,46 +248,49 @@ cases_last_pass() {
   out="$(verify "$L" "$P")"; rc=$?
   if [ "$rc" -eq 1 ] && [ ! -e "$P/tmp/.verify/last-pass" ]; then ok "no-mark-on-fail$s"
   else ng "no-mark-on-fail$s" "rc=${rc}（1 のはず）。印が$(exists "$P/tmp/.verify/last-pass")"; fi
-  # 命令のファイルが無い置き場では、落ちる試験があっても自動では回さず、PASS（終了コード 0）で印を書く
+  # 命令のファイルも文書の引数も無い置き場では、落ちる試験があっても自動では回さない。何も検査しないので WARN（終了コード 3）で、印を書かない
   P="$B/verify nocmd"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
   unit_test "$P" 2
   mkdir -p "$P/src"
   printf 'x = 1\n' > "$P/src/app.py"
   out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 0 ] && [ -f "$P/tmp/.verify/last-pass" ] && ! printf '%s\n' "$out" | grep -q 'unittest'; then ok "no-commands-pass$s"
-  else ng "no-commands-pass$s" "rc=${rc}（0 のはず）。印が$(exists "$P/tmp/.verify/last-pass")。$(first_fail "$out")"; fi
+  if [ "$rc" -eq 3 ] && [ ! -e "$P/tmp/.verify/last-pass" ] && ! printf '%s\n' "$out" | grep -q 'unittest' \
+     && printf '%s\n' "$out" | grep -q '^RESULT: WARN project-verify --fast'; then ok "no-commands-warn$s"
+  else ng "no-commands-warn$s" "rc=${rc}（3 のはず）。印が$(exists "$P/tmp/.verify/last-pass")。$(first_fail "$out")"; fi
   P="$B/lab"
   unit_test "$P" 1
   out="$(verify "$L" "$P" tools)"; rc=$?
-  if [ "$rc" -eq 0 ] && [ ! -e "$P/tmp/.verify/last-pass" ] && [ -f "$P/tmp/.verify/project-verify-last-fast.txt" ]; then ok "no-mark-in-lab$s"
-  else ng "no-mark-in-lab$s" "rc=${rc}（0 のはず）。My-Lab の形で印が$(exists "$P/tmp/.verify/last-pass")"; fi
+  if [ "$rc" -eq 3 ] && [ ! -e "$P/tmp/.verify/last-pass" ] && [ -f "$P/tmp/.verify/project-verify-last-fast.txt" ]; then ok "no-mark-in-lab$s"
+  else ng "no-mark-in-lab$s" "rc=${rc}（3 のはず）。My-Lab の形で印が$(exists "$P/tmp/.verify/last-pass")"; fi
 }
 
-# 3. project-verify.sh: 空白と日本語を含む文書のパスを、1 本のまま渡す（deploy-8）
+# 3. project-verify.sh: 引数で渡した、空白と日本語を含む文書のパスを、1 本のまま渡す（deploy-8）
 cases_doc_paths() {
-  local L="$1" B="$2" s="@$1" P D out rc bt='`'
+  local L="$1" B="$2" s="@$1" P D N I out rc bt='`'
   P="$B/verify docs"
   D="$P/tmp/flow/2026-11-09 ログイン改修"
+  N="tmp/flow/2026-11-09 ログイン改修/note.md"
+  I="tmp/ISSUE_2026-11-09_login fix.md"
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
   unit_test "$P" 1
   mkdir -p "$D"
   good_doc "$D/note.md"
-  good_doc "$P/tmp/ISSUE_2026-11-09_login fix.md"
-  out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF 'RESULT: PASS check-file（tmp の文書 2 本）' \
-     && printf '%s\n' "$out" | grep -qF 'RESULT: PASS check-refs（tmp の文書 2 本）'; then ok "doc-path-space$s"
+  good_doc "$P/$I"
+  out="$(verify_docs "$L" "$P" "$N" "$I")"; rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF 'RESULT: PASS check-file（渡した文書 2 本）' \
+     && printf '%s\n' "$out" | grep -qF 'RESULT: PASS check-refs（渡した文書 2 本）'; then ok "doc-path-space$s"
   else ng "doc-path-space$s" "rc=${rc}（0 のはず）: $(first_fail "$out")"; fi
-  # 無いファイルを指す行を足すと、その文書の check-refs が FAIL を出す（切れた名前を読み飛ばさない）
-  # 通ったあとに変えていない ISSUE の文書は範囲外なので、範囲の中は 1 本
+  # 無いファイルを指す行を足すと、その文書の check-refs が FAIL を出す（切れた名前を読み飛ばさない）。渡すのは note.md の 1 本
   printf '\n手順は %sscripts/deploy-prod.sh%s に書きます。\n' "$bt" "$bt" >> "$D/note.md"
-  out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -F 'FAIL check-refs（tmp の文書 1 本）:' | grep -F 'ログイン改修/note.md' | grep -qF 'scripts/deploy-prod.sh'; then
+  out="$(verify_docs "$L" "$P" "$N")"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -F 'FAIL check-refs（渡した文書 1 本）:' | grep -F 'ログイン改修/note.md' | grep -qF 'scripts/deploy-prod.sh'; then
     ok "doc-path-space-refs$s"
   else ng "doc-path-space-refs$s" "rc=${rc}（1 のはず）。check-refs が壊れた参照を示さない: $(printf '%s\n' "$out" | grep -F 'check-refs' | head -1)"; fi
 }
 
-# 4. project-verify.sh: 最後に検証が通った印より新しい文書だけを FAIL に数え、前からある文書は範囲外として見せる（2026-11-11 の引き戻しの輪の直し）
+# 4. project-verify.sh: 文書は引数で渡したものだけを検査する（改善提案書 13 章。2026-11-11 の範囲外の行と WARN は無くした）
+#    印（tmp/.verify/last-pass）の新しさでは決めない。細かい場面は tools/tests/project-verify-scope-test.sh
 cases_scope() {
   local L="$1" B="$2" s="@$1" P V out rc
   P="$B/verify scope"
@@ -273,42 +298,33 @@ cases_scope() {
   new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
   mkdir -p "$P/tmp/flow/old" "$P/tmp/flow/new"
   printf '# Old\n\n%s\n' "$EN_TEXT" > "$P/tmp/flow/old/note.md"
-  # 印が無ければ、これまでどおり全部を検査して FAIL
+  # 印が無く、落ちる文書があっても、引数が無ければ文書を 1 本も検査しない。名前も出さない。何も検査しないので WARN（終了コード 3）
   out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file（tmp の文書 1 本）'; then ok "no-mark-all-in-scope$s"
-  else ng "no-mark-all-in-scope$s" "rc=${rc}（1 のはず）: $(first_fail "$out")"; fi
-  # 写した時点の印を置く（deploy.sh が呼ぶ --baseline）。前からある文書は範囲外になり、FAIL に数えず WARN の 1 行で見せて PASS
+  if [ "$rc" -eq 3 ] && printf '%s\n' "$out" | grep -qxF '文書の指定なし（検査した文書 0 本）' && ! printf '%s\n' "$out" | grep -q 'old/note.md' \
+     && ! printf '%s\n' "$out" | grep -q '^RESULT: [A-Z]* check-'; then ok "no-args-no-docs$s"
+  else ng "no-args-no-docs$s" "rc=${rc}（3 のはず）: $(first_fail "$out")"; fi
+  # 移した時点の印を置く（deploy.sh が呼ぶ --baseline）。検査は回さない
   out="$( (cd "$P" && in_env "$L" /bin/bash tmp/tools/project-verify.sh --baseline 2>&1) )"; rc=$?
-  if [ "$rc" -eq 0 ] && [ -f "$V/last-pass" ] && [ -f "$V/last-pass.list" ] && grep -qxF './tmp/flow/old/note.md' "$V/last-pass.list"; then ok "baseline-writes-mark$s"
+  if [ "$rc" -eq 0 ] && [ -f "$V/last-pass" ] && [ -f "$V/last-pass.list" ] && grep -qxF './tmp/flow/old/note.md' "$V/last-pass.list" \
+     && printf '%s\n' "$out" | grep -qF '引数で渡したものだけ'; then ok "baseline-writes-mark$s"
   else ng "baseline-writes-mark$s" "rc=${rc}（0 のはず）。印が$(exists "$V/last-pass")、一覧が$(exists "$V/last-pass.list")"; fi
-  out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^WARN 範囲外 check-file' && printf '%s\n' "$out" | grep '^範囲外 ' | grep -q 'old/note.md' \
-     && ! printf '%s\n' "$out" | grep -q '^FAIL ' && printf '%s\n' "$out" | grep -q '^RESULT: PASS project-verify --fast'; then ok "old-doc-outside$s"
-  else ng "old-doc-outside$s" "rc=${rc}（0 のはず）: $(printf '%s\n' "$out" | grep -E '^(FAIL|RESULT|WARN)' | head -2 | tr '\n' ' ')"; fi
-  if grep -q '^WARN 範囲外' "$V/last-fast.txt" 2>/dev/null; then ok "outside-recorded$s"
-  else ng "outside-recorded$s" "記録 tmp/.verify/last-fast.txt に範囲外の WARN 行が無い"; fi
-  # 印より新しい文書は範囲の中。落ちれば FAIL（終了コード 1）。範囲外の文書は FAIL の行に出ない
+  # 印より新しい文書でも、引数に無ければ検査しない（前は範囲の中に数えた）
   printf '# New\n\n%s\n' "$EN_TEXT" > "$P/tmp/flow/new/note.md"
   newer "$V/last-pass" "$P/tmp/flow/new/note.md"
   out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file（tmp の文書 1 本）' && printf '%s\n' "$out" | grep '^FAIL check-file' | grep -q 'new/note.md' \
-     && ! printf '%s\n' "$out" | grep '^FAIL check-file' | grep -q 'old/note.md'; then ok "new-doc-in-scope$s"
-  else ng "new-doc-in-scope$s" "rc=${rc}（1 のはず）: $(first_fail "$out")"; fi
-  # 直して通れば印が進む。印より古くなった文書は、次は範囲外に戻る。前からある文書は触っていないので範囲外のまま
+  if [ "$rc" -eq 3 ] && ! printf '%s\n' "$out" | grep -q 'note.md' && ! grep -q 'note.md' "$V/last-fast.txt" 2>/dev/null; then ok "newer-doc-not-checked$s"
+  else ng "newer-doc-not-checked$s" "rc=${rc}（3 のはず）。渡していない文書を検査した: $(first_fail "$out")"; fi
+  # 渡せば検査する。落ちれば FAIL で、渡していない文書の名前は出ない
+  out="$(verify_docs "$L" "$P" tmp/flow/new/note.md)"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file（渡した文書 1 本）' && printf '%s\n' "$out" | grep '^FAIL check-file' | grep -q 'new/note.md' \
+     && ! printf '%s\n' "$out" | grep -q 'old/note.md'; then ok "passed-doc-checked$s"
+  else ng "passed-doc-checked$s" "rc=${rc}（1 のはず）: $(first_fail "$out")"; fi
+  # 直して渡せば PASS。印より古い文書でも、渡せば検査する
   good_doc "$P/tmp/flow/new/note.md"
-  newer "$V/last-pass" "$P/tmp/flow/new/note.md"
-  out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^RESULT: PASS check-file（tmp の文書 1 本）'; then ok "fixed-doc-passes$s"
-  else ng "fixed-doc-passes$s" "rc=${rc}（0 のはず）: $(first_fail "$out")"; fi
   newer "$P/tmp/flow/new/note.md" "$V/last-pass"   # 時間が進んだことにする（印が文書より新しい）
-  out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q 'RESULT: PASS check-file'; then ok "passed-doc-outside$s"
-  else ng "passed-doc-outside$s" "rc=${rc}（0 のはず）。通った文書が次も範囲に入る: $(printf '%s\n' "$out" | grep RESULT | head -1)"; fi
-  # 前からある文書を直したら（印より新しくなる）範囲に入る
-  newer "$V/last-pass" "$P/tmp/flow/old/note.md"
-  out="$(verify "$L" "$P")"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep '^FAIL check-file' | grep -q 'old/note.md'; then ok "touched-old-doc-in-scope$s"
-  else ng "touched-old-doc-in-scope$s" "rc=${rc}（1 のはず）: $(first_fail "$out")"; fi
+  out="$(verify_docs "$L" "$P" tmp/flow/new/note.md)"; rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^RESULT: PASS check-file（渡した文書 1 本）'; then ok "fixed-doc-passes$s"
+  else ng "fixed-doc-passes$s" "rc=${rc}（0 のはず）: $(first_fail "$out")"; fi
   # --baseline は My-Lab の形では止まる（終了コード 2）。印は書かない
   out="$( (cd "$B/lab" && in_env "$L" /bin/bash tools/project-verify.sh --baseline 2>&1) )"; rc=$?
   if [ "$rc" -eq 2 ] && [ ! -e "$B/lab/tmp/.verify/last-pass" ]; then ok "baseline-refused-in-lab$s"
@@ -334,7 +350,7 @@ cases_persona() {
   out="$(check "$L" "$P" "$P/tmp/ISSUE_2026-11-13_x.md")"; rc=$?
   if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q '\[秘書・社長の語\]'; then ok "persona-issue-fail$s"
   else ng "persona-issue-fail$s" "rc=${rc}。Issue 文の「秘書」が落ちない: $(first_fail "$out")"; fi
-  out="$(verify "$L" "$P")"; rc=$?
+  out="$(verify_docs "$L" "$P" tmp/flow/p/bad.md tmp/flow/p/quote.md tmp/ISSUE_2026-11-13_x.md)"; rc=$?
   if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '\[秘書・社長の語\]'; then ok "persona-verify-fail$s"
   else ng "persona-verify-fail$s" "rc=${rc}（1 のはず）。project-verify が語を示さない: $(first_fail "$out")"; fi
   # My-Lab の形: tmp/flow は一式そのものを書く場所なので見ない。雛形と完成例は見る
@@ -350,6 +366,82 @@ cases_persona() {
   else ng "persona-lab-template-fail$s" "rc=${rc}。My-Lab の雛形の「社長」が落ちない: $(first_fail "$out")"; fi
 }
 
+# git_fixture <リポジトリ> <git の引数...> → 使い捨てのリポジトリ（mktemp の下）で git を回す。偽の HOME で、system の設定を読まず、
+#   一時ディレクトリより上のリポジトリを探さない。名前と署名は -c で渡す。出力は捨てる
+git_fixture() {
+  local r="$1"; shift
+  env -i HOME="$FH" PATH="$RUN_PATH" LANG=C GIT_CONFIG_NOSYSTEM=1 GIT_CEILING_DIRECTORIES="$T" \
+    git -C "$r" -c user.name=deployed-checks -c user.email=deployed-checks@example.invalid -c commit.gpgsign=false "$@" >/dev/null 2>&1
+}
+
+# 6. check-file.sh: 現場の語（tools/ja-terms.txt）を、.md 以外の文字のファイルでも落とす（2026-11-26 の依頼）
+#    移した先のプロジェクト自身のファイルは、git の HEAD から足した行だけを見る。追跡していないファイルは全体を見る
+cases_terms() {
+  local L="$1" B="$2" s="@$1" P W lab out rc out2 rc2
+  W="$(printf '\346\236\235')"   # 現場の語の例。この試験の文に、語をそのまま書かない
+  P="$B/terms プロジェクト"
+  new_project "$P" mark || ng "setup$s" "偽のプロジェクトを作れない（${P}）"
+  mkdir -p "$P/src" "$P/docs"
+  printf '#!/bin/sh\n# 作業用の%sを切る（前からある行）\necho ok\n' "$W" > "$P/src/old.sh"
+  printf '# 説明\n\n前からある%sの行です。\n' "$W" > "$P/docs/old.md"
+  if ! { git_fixture "$P" add src/old.sh docs/old.md && git_fixture "$P" commit -q -m init; }; then
+    ng "setup$s" "使い捨てのリポジトリに HEAD を作れない（${P}）"; return
+  fi
+  # 追跡していて、HEAD から変えていないファイル: 前からある行の語は数えない
+  out="$(check "$L" "$P" "$P/src/old.sh")"; rc=$?
+  if [ "$rc" -eq 0 ] && terms_only "$out" && printf '%s\n' "$out" | grep -qF '足した 0 行を見た'; then ok "terms-project-unchanged$s"
+  else ng "terms-project-unchanged$s" "rc=${rc}（0 のはず）。前からある行を数えた: $(first_fail "$out")"; fi
+  # 足した行の語は落とす。出る行番号は足した行（4 行目）だけ
+  printf '# 新しい%sの行\n' "$W" >> "$P/src/old.sh"
+  out="$(check "$L" "$P" "$P/src/old.sh")"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -qF "$P/src/old.sh:4 [現場の語]" && ! printf '%s\n' "$out" | grep -qF "$P/src/old.sh:2 " \
+     && ! printf '%s\n' "$out" | grep -q 'shellcheck'; then ok "terms-project-added-line$s"
+  else ng "terms-project-added-line$s" "rc=${rc}（1 のはず）。足した行だけを落とさない: $(first_fail "$out")"; fi
+  # .md も同じ見方（足した行だけ。「」の中は数えない。文体の検査は回さない）
+  printf '\n「%s」とは書かない。\n' "$W" >> "$P/docs/old.md"
+  out="$(check "$L" "$P" "$P/docs/old.md")"; rc=$?
+  if [ "$rc" -eq 0 ] && terms_only "$out" && printf '%s\n' "$out" | grep -qF '足した 2 行を見た'; then ok "terms-project-md$s"
+  else ng "terms-project-md$s" "rc=${rc}（0 のはず）: $(first_fail "$out")"; fi
+  # 追跡していないファイルは全体を見る
+  printf 'x\n作業用の%s\n' "$W" > "$P/src/new.txt"
+  out="$(check "$L" "$P" "$P/src/new.txt")"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -qF "$P/src/new.txt:2 [現場の語]"; then ok "terms-project-untracked$s"
+  else ng "terms-project-untracked$s" "rc=${rc}（1 のはず）。追跡していないファイルを全体で見ない: $(first_fail "$out")"; fi
+  # hooks を通しても同じ。足した行に語があれば止める（終了コード 2）
+  out="$(postedit "$L" "$P" "$P/src/old.sh")"; rc=$?
+  if [ "$rc" -eq 2 ]; then ok "terms-postedit-project$s"
+  else ng "terms-postedit-project$s" "足した行に語があるのに、hook が終了コード ${rc} を返した（2 のはず）"; fi
+  # 移した一式の中（tmp/）の .txt は、全体を見る
+  printf '作業用の%s\n' "$W" > "$P/tmp/notes.txt"
+  out="$(check "$L" "$P" "$P/tmp/notes.txt")"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -qF "$P/tmp/notes.txt:1 [現場の語]"; then ok "terms-tmp-txt$s"
+  else ng "terms-tmp-txt$s" "rc=${rc}（1 のはず）。tmp/ の .txt を見ない: $(first_fail "$out")"; fi
+  # 拡張子の一覧に無い文字のファイル（.ts .tsx .go .rb .sql .vue）も、語を落とす。NUL の字を含むファイルは対象外
+  for x in ts tsx go rb sql vue; do
+    printf '// x\n// 作業用の%sを切る\n' "$W" > "$P/src/lang.$x"
+    out="$(check "$L" "$P" "$P/src/lang.$x")"; rc=$?
+    if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -qF "$P/src/lang.$x:2 [現場の語]"; then ok "terms-ext-$x$s"
+    else ng "terms-ext-$x$s" "rc=${rc}（1 のはず）。.${x} の語を落とさない: $(first_fail "$out")"; fi
+  done
+  printf 'x\000%s\n' "$W" > "$P/src/blob.bin"
+  out="$(check "$L" "$P" "$P/src/blob.bin")"; rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '検査の対象外'; then ok "terms-binary-skip$s"
+  else ng "terms-binary-skip$s" "rc=${rc}（0 のはず）。NUL の字を含むファイルを検査した: $(first_fail "$out")"; fi
+  # My-Lab の形: .sh のコメントの語は落とし、「」の中は通す。.md は禁則語として落とす
+  lab="$B/lab"
+  mkdir -p "$lab/scratch"
+  printf '#!/bin/sh\n# 作業用の%sを切る\n' "$W" > "$lab/scratch/bad.sh"
+  printf '#!/bin/sh\n# 「%s」とは書かない\n' "$W" > "$lab/scratch/quote.sh"
+  printf '# メモ\n\n作業用の%sを切ります。\n' "$W" > "$lab/scratch/note.md"
+  out="$( (cd "$lab" && in_env "$L" /bin/bash "$lab/tools/check-file.sh" "$lab/scratch/bad.sh" 2>&1) )"; rc=$?
+  out2="$( (cd "$lab" && in_env "$L" /bin/bash "$lab/tools/check-file.sh" "$lab/scratch/quote.sh" 2>&1) )"; rc2=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q '\[現場の語\]' && [ "$rc2" -eq 0 ]; then ok "terms-lab-sh$s"
+  else ng "terms-lab-sh$s" "コメントの語で rc=${rc}（1 のはず）、「」の中で rc=${rc2}（0 のはず）"; fi
+  out="$( (cd "$lab" && in_env "$L" /bin/bash "$lab/tools/check-file.sh" "$lab/scratch/note.md" 2>&1) )"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q '\[禁則語\]'; then ok "terms-lab-md$s"
+  else ng "terms-lab-md$s" "rc=${rc}（1 のはず）。.md の語が禁則語で落ちない: $(first_fail "$out")"; fi
+}
+
 for L in C ja_JP.UTF-8; do
   i=$((i + 1))
   B="$T/$i"
@@ -360,5 +452,6 @@ for L in C ja_JP.UTF-8; do
   cases_doc_paths "$L" "$B"
   cases_scope "$L" "$B"
   cases_persona "$L" "$B"
+  cases_terms "$L" "$B"
 done
 finish

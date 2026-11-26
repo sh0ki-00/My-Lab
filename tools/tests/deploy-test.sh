@@ -6,7 +6,7 @@
 #   確かめること: tmp がリンクか正本そのもの・正本の中・.git の中・印（tmp/DEPLOYED.md）の無い自前の tmp/tools などでは、何も変えずに止まる。
 #   exclude は git が読む所（worktree なら共通の .git/info/exclude）に、写した tmp/ だけを外す行で足し、改行の無い最後の行を壊さない。
 #   外れたかは git check-ignore で確かめ、DEPLOYED.md の git の行にはしたことを書く。先頭が - のパスと CDPATH でも、渡した場所に写す。
-#   写した直後に印（tmp/.verify/last-pass）と一覧を置き、前からある tmp/ の文書を検証の範囲外にする。
+#   写した直後に印（tmp/.verify/last-pass）と一覧を置く。文書は、移した先の検証が引数で渡されたものだけを検査する。
 #   場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。bash は社長の機械と同じ /bin/bash（3.2）を使う。
 # 出力: 場面ごとに PASS <場面> [<LANG>] か FAIL <場面> [<LANG>] <理由>。最後に RESULT 行。1 件でも FAIL なら終了コード 1。
 set -u
@@ -322,7 +322,7 @@ case_home_untouched() {  # HOME の下に何も書かない
 }
 
 # ---- 場面: 写した時点の印（2026-11-11 の引き戻しの輪の直し）
-case_baseline() {  # 写した直後に印（tmp/.verify/last-pass）と一覧を置く。前からある tmp/ の文書は、写した先の検証で範囲外になる
+case_baseline() {  # 写した直後に印（tmp/.verify/last-pass）と一覧を置く。前からある tmp/ の文書は、引数で渡さない限り検査されない
   local P="$BOX/proj" V
   mkdir -p "$P/tmp/flow/old" && g init -q "$P" || return 1
   printf '# Old\n\nThis note was written before the deploy.\n' > "$P/tmp/flow/old/note.md"
@@ -334,7 +334,7 @@ case_baseline() {  # 写した直後に印（tmp/.verify/last-pass）と一覧�
   need "一覧に tmp/DEPLOYED.md が無い" grep -qxF './tmp/DEPLOYED.md' "$V/last-pass.list" || return 1
   need "一覧に前からある文書が無い" grep -qxF './tmp/flow/old/note.md' "$V/last-pass.list" || return 1
   need "印より新しいファイルがある" [ -z "$(find "$P" -newer "$V/last-pass" -type f -not -path '*/.git/*' -not -path '*/.verify/*' | head -1)" ] || return 1
-  need "前からある文書が範囲外になると知らせない: $(printf '%s\n' "$OUT" | tail -1)" said '範囲外' || return 1
+  need "文書は引数で渡したものだけを検査すると知らせない: $(printf '%s\n' "$OUT" | tail -1)" said '引数で渡したものだけ' || return 1
 }
 
 # ---- 実行

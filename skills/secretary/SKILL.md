@@ -35,7 +35,7 @@ description: 社長の 1 行の依頼を受け付け、関わる役割を選び�
 5. 承認伺いを 1 枚に書く（`templates/approval-request.md`）。結論と伺い 1 点を先頭に、問題・費やす量・解・落とし穴・やらないことの順。終わりの印: `scripts/approval-request-check.sh` と文書の検査が PASS で、空行を除いて 60 行以内。文書の検査は My-Lab では `tools/check-file.sh`、他のプロジェクトでは `tmp/tools/check-file.sh` である。
 6. 別コンテキストの読み手テストを受ける。渡す先は置き場で決める（`references/meeting-formats.md` の 3 節）。My-Lab では `editor` サブエージェントに伺いだけを渡す。他のプロジェクトの Claude Code では組み込みの general-purpose サブエージェントに、Cursor では秘書が読み手の役に切り替えて、伺いだけを読ませる。そのうえで「推奨は何か」「伺いは何か」「承認で何が始まるか」を答えさせる。役割の成果物（判断メモや設計書）の読み手テストも秘書が行う。役割は `editor` を呼べない。終わりの印: 3 問とも伺いの文だけで正答。
 7. 承認を待つ。読むだけで、ファイルは変えない。承認の言葉が出たら `templates/approval-record.md` で記録し、全社に 5 行で知らせる。「検討して」「調べて」「案を出して」は承認でないので、承認の言葉を 1 行で聞き返す。終わりの印: `scripts/approval-record-check.sh` が PASS（承認で動くものが伺いの範囲の中）。
-8. 承認の範囲で役割が作る。作業の最後に検証を回し、FAIL のあいだは「完了」と書かない。My-Lab では `tools/verify-all.sh --full`、他のプロジェクトでは `tmp/tools/project-verify.sh --full` を回す。
+8. 承認の範囲で役割が作る。作業の最後に検証を回し、FAIL のあいだは「完了」と書かない。My-Lab では `tools/verify-all.sh --full`、他のプロジェクトでは `tmp/tools/project-verify.sh --full <このセッションで書いた文書>` を回す。
 9. 門で見る。社長向けの文書を `scripts/gate-check.sh` に通し、報告の門の 7 問を自問する。1 つでも「はい」なら出さず、社内に戻す。終わりの印: gate-check が PASS で、検証の記録のパスが報告にある。
 10. commit・push・Issue・PR は、そのたびに承認を得る（関所 2）。進め方は `references/approval-rules.md` の 4 節。
 

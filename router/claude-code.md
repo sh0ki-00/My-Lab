@@ -10,7 +10,7 @@ Claude Code は、My-Lab の中では `CLAUDE.md`（`AGENTS.md` を取り込む 
 |---|---|---|
 | 常時ルール | `CLAUDE.md` → `AGENTS.md` | 秘書の起動、読む順、返答の書き方、守りの表 |
 | 承認の規則 | `.claude/settings.json` の `permissions.ask` | `git commit`・`git push`・Issue と PR の作成を確認ダイアログにする（2 重の守りの 1 つ目） |
-| hooks | `.claude/settings.json` の `hooks` | `PreToolUse`（Bash は判定本体で ask/deny。Write・Edit は守りの設定と hooks の登録なら deny）、`PostToolUse`（直したファイルの検査）、`Stop`（`verify-all.sh --fast`。FAIL なら終われない） |
+| hooks | `.claude/settings.json` の `hooks` | `PreToolUse`（Bash は判定本体で ask/deny。Write・Edit は守りの設定と hooks の登録なら deny）、`PostToolUse`（直したファイルの検査）、`Stop`（返答の言い換えの書き直しと、`verify-all.sh --fast`。検証は Write・Edit で書いたセッションだけ。FAIL なら終われない） |
 | スキル | `.claude/skills` → `../skills` | `/名前` で呼べる |
 | サブエージェント | `.claude/agents/` | 役割の仕事と、別コンテキストの添削（`editor`） |
 
@@ -22,10 +22,12 @@ Claude Code は、My-Lab の中では `CLAUDE.md`（`AGENTS.md` を取り込む 
 
 | 接続口 | 他のプロジェクトでの働き |
 |---|---|
-| `hooks/claude-pretooluse.sh --global` | どのプロジェクトでも `git commit` などを ask にする。プロジェクト自身の登録があるときは、理由を省いて判定だけ返す（確認の文が 2 回出ない） |
+| `hooks/claude-pretooluse.sh --global` | どのプロジェクトでも `git commit` などを ask にする。commit 文・PR 文・Issue 文の git の語の言い換えは deny、クラウドにつなぐコマンドは ask にする。プロジェクト自身の登録があるときは、理由を省いて判定だけ返す（確認の文が 2 回出ない） |
 | `hooks/claude-preedit.sh --global` | どのプロジェクトでも、Write・Edit で `~/.cursor/`・`~/.claude/settings.json`・`~/.claude/hooks/`・`~/.claude/CLAUDE.md`・守りの設定の置き場（`/usr/local/etc/company-guard/`）・My-Lab の `hooks/` と登録を書かせない（deny） |
 | `hooks/claude-postedit.sh --global` | `tmp/tools/check-file.sh` があれば、直したファイルを検査する |
-| `hooks/claude-stop.sh --global` | `tmp/tools/project-verify.sh --fast` があれば、作業を終える前に回す |
+| `hooks/claude-stop.sh --global` | 返答に git の語の言い換えがあれば、検証より先に書き直させる（書き直しと検証の差し戻しを合わせて 3 回まで）。`tmp/tools/project-verify.sh` があれば、そのセッションが Write・Edit で書いた文書だけを渡して回す。何も書いていないセッションと、文書が 0 本で `tmp/verify-commands.txt` も無いときは回さない |
+
+作業の終わりの検証は、hooks とは別に AI が自分で回す。命令は `bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>` で、引数で渡した文書だけを検査する。何も検査しない回は WARN（終了コード 3）で終わる。Bash のコマンドで書いた文書も、自分で引数に入れる。終わりの検証と添削には、ほかのセッションが書いた文書を入れない（開いて検査しない）。
 
 常時ルールの本文は、`router/cursor-user-rule.md`（写した先では `tmp/cursor-user-rule.md`）の「貼る本文」と同じものを `~/.claude/CLAUDE.md` に社長が貼る。Claude Code は `~/.claude/CLAUDE.md` を全プロジェクトで読む。
 

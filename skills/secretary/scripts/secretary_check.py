@@ -23,6 +23,10 @@ COPIED = ROOT.name == "tmp"
 # 検証の記録。My-Lab は verify-all の docs/verify/、他のプロジェクトは project-verify の tmp/.verify/ の記録。
 VERIFY_RECORD = {False: (re.compile(r"docs/verify/"), "docs/verify/<日付>.md"),
                  True: (re.compile(r"tmp/\.verify/last-(fast|full)\.txt"), "tmp/.verify/last-fast.txt か last-full.txt")}
+# 他のプロジェクトで、報告が指す記録（tmp/.verify/last-*.txt）の中身を読む起点（<プロジェクト>/tmp の 1 つ上）。My-Lab では読まない。
+# 記録の最後の判定の行が PASS でなければ、PASS の記録に数えない。何も検査しない回（WARN）と FAIL の回は、門で落とす。
+RECORD_BASE = ROOT.parent if COPIED else None
+RECORD_VERDICT_RX = re.compile(r"^RESULT: (PASS|FAIL|WARN) project-verify\b")
 ROLES = ["CEO", "デザイナー", "フロントエンド", "バックエンド", "インフラ", "セキュリティ", "SRE"]
 # 成果物の形の語（../references/elicitation.md の 4 節）。受付票の「成果物の形」はこのどれかで始める
 SHAPES = ["チェックリスト", "表", "一覧", "箇条書き", "図", "手順", "一言で", "資料", "指定なし"]
@@ -566,8 +570,19 @@ def check_reply(doc, r):
 
 
 # ---- 門
-def check_gate(doc, r, copied=None):
+def record_verdict(path):
+    """検証の記録の最後の判定の行（RESULT: PASS|FAIL|WARN project-verify …）の語。記録が無いか、判定の行が無ければ None。"""
+    try:
+        lines = pathlib.Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    hits = [m.group(1) for m in (RECORD_VERDICT_RX.match(l.strip()) for l in lines) if m]
+    return hits[-1] if hits else None
+
+
+def check_gate(doc, r, copied=None, record_base=None):
     copied = COPIED if copied is None else copied
+    record_base = RECORD_BASE if record_base is None else record_base
     title = doc.title
     kind = "report" if title.startswith("完了報告") else "request" if title.startswith("承認伺い") else "other"
     for no, l in doc.lines:
@@ -594,6 +609,15 @@ def check_gate(doc, r, copied=None):
         if not rx.search(doc.body):
             where = "他のプロジェクト" if copied else "My-Lab"
             r.fail(0, "検証の記録", f"検証の記録（{where} では {want}）への参照が無い")
+        elif copied and record_base is not None:
+            # 報告が指す記録の中身を見る。最後の判定の行が PASS でなければ、PASS の記録に数えない
+            for rel in sorted({m.group(0) for m in rx.finditer(doc.body)}):
+                v = record_verdict(pathlib.Path(record_base) / rel)
+                if v == "WARN":
+                    r.fail(0, "検証の記録", f"{rel} の最後の判定が WARN（何も検査しない回）。PASS の記録に数えない。"
+                                         "このセッションで書いた文書を引数で渡して回し直す")
+                elif v == "FAIL":
+                    r.fail(0, "検証の記録", f"{rel} の最後の判定が FAIL。PASS の記録になるまで出さない")
         for t in doc.tables:
             k = next((k for k, c in enumerate(t["header"]) if c == "判定"), None)
             if k is None:
@@ -678,7 +702,7 @@ def mutate(src, old, new):
     return src.replace(old, new, 1)
 
 
-def run_check(kind, path, request_path=None, copied=None):
+def run_check(kind, path, request_path=None, copied=None, record_base=None):
     doc = Doc(path)
     r = Report(NAMES[kind], path)
     if kind == "intake":
@@ -690,7 +714,7 @@ def run_check(kind, path, request_path=None, copied=None):
     elif kind == "record":
         check_record(doc, r, request_path)
     elif kind == "gate":
-        check_gate(doc, r, copied)
+        check_gate(doc, r, copied, record_base)
     elif kind == "reply":
         check_reply(doc, r)
     return r
@@ -772,6 +796,12 @@ GATE_RECORD_CASES = [
     (True, "docs/verify/2026-11-08.md", False),
     (True, "tmp/.verify/verify-full.log", False),
 ]
+# 他のプロジェクトで、報告が指す記録の最後の判定の行（記録の中身, 通るか）。何も検査しない回（WARN）と FAIL は PASS の記録に数えない
+GATE_RECORD_BODY_CASES = [
+    ("RESULT: PASS check-file（渡した文書 1 本）\nRESULT: PASS project-verify --full (2 件中 FAIL 0)", True),
+    ("文書の指定なし（検査した文書 0 本）\nRESULT: WARN project-verify --full (0 件中 FAIL 0。検査なし: 検査した文書も、命令も無い)", False),
+    ("RESULT: FAIL check-file（渡した文書 1 本） (rc=1)\nRESULT: FAIL project-verify --full (2 件中 FAIL 1)", False),
+]
 
 ROUTE_CASES = [
     ("管理画面の注文一覧を作り直したい", {"CEO", "デザイナー", "フロントエンド", "バックエンド"}),
@@ -841,7 +871,19 @@ def selftest(kind):
                     ok = False
                     where = "他のプロジェクト" if copied else "My-Lab"
                     print(f"FAIL selftest gate: {where}で記録「{record}」が{'通った' if got else '落ちた'}（期待 {'PASS' if want else 'FAIL'}）")
-            n = 1 + 5 * 2 + len(GATE_RECORD_CASES)
+            rec = tmpd / "tmp" / ".verify" / "last-full.txt"
+            rec.parent.mkdir(parents=True, exist_ok=True)
+            for i, (body, want) in enumerate(GATE_RECORD_BODY_CASES):
+                rec.write_text(f"日時: 2026-11-26 10:00:00（終了 2026-11-26 10:00:05）\n命令: bash tmp/tools/project-verify.sh --full\n{body}\n",
+                               encoding="utf-8")
+                f = tmpd / f"report-body-{i}.md"
+                f.write_text(GOOD_REPORT.format(record="tmp/.verify/last-full.txt"), encoding="utf-8")
+                got = not run_check("gate", str(f), copied=True, record_base=tmpd).fails
+                if got != want:
+                    ok = False
+                    last = body.splitlines()[-1]
+                    print(f"FAIL selftest gate: 記録の最後の行が「{last}」の報告が{'通った' if got else '落ちた'}（期待 {'PASS' if want else 'FAIL'}）")
+            n = 1 + 5 * 2 + len(GATE_RECORD_CASES) + len(GATE_RECORD_BODY_CASES)
         else:
             good = tmpd / EXAMPLES[kind]
             r = run_check(kind, str(good))

@@ -12,7 +12,7 @@ tools: Read, Grep, Glob, Bash, Write, Edit
 
 1. `.company/DELIVERY.md`、`.company/backend/CLAUDE.md`、`skills/backend/SKILL.md` を読む。スキルが無いあいだは、ペルソナと `.company/rules/` に従う。他のプロジェクトでは `tmp/` の下を読む。
 2. 依頼文の問いに、ペルソナの判断の観点で答える。成果物（設計と実装計画、契約、データ設計、移行計画、実装ノート）は出力先に書き、数値は測った値か「架空」を添える。
-3. 書いたファイルは `tools/check-file.sh <ファイル>` を通し、実装は `tools/verify-all.sh --fast`（他のプロジェクトでは `tmp/tools/project-verify.sh --fast`）を通す。
+3. 書いたファイルは `tools/check-file.sh <ファイル>` を通し、実装は `tools/verify-all.sh --fast`（他のプロジェクトでは `tmp/tools/project-verify.sh --fast <このセッションで書いた文書>`）を通す。
 4. 返すのは 3 つだけ。要約（10 行以内）、未解決の対立、承認が要る判断で、型は `skills/secretary/templates/reply-from-role.md` にある。生のログや長い説明は返さない。別のサブエージェント（`editor` を含む）は呼べないので、読み手テストは秘書に任せる。
 
 ## 禁止

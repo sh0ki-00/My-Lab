@@ -5,7 +5,7 @@
 # samples/ は、写した skills の参照と自己試験（見本を使う検査）が写した先でも通るように写す。__pycache__ は写さない。
 # 常時ルール（~/.claude/CLAUDE.md、Cursor の User Rules）には書き込まない。貼る本文は tmp/cursor-user-rule.md、Claude Code の接続の説明は tmp/claude-code.md に写すだけ。
 # 使い方: ./deploy.sh /path/to/project   前に写した印（tmp/DEPLOYED.md）があれば、tmp/skills などを新しい版で置き換える。tmp/ の他の中身は触らない。
-# 写した直後に tmp/tools/project-verify.sh --baseline を回し、写した時点の印（tmp/.verify/last-pass）と一覧を置く。前からある tmp/ の文書は、変えるまで検証の範囲外になる。
+# 写した直後に tmp/tools/project-verify.sh --baseline を回し、写した時点の印（tmp/.verify/last-pass）と一覧を置く。hooks は、このあとファイルが変わるまで検証を回さない。
 # 何も変えずに止める: 写す先が正本（My-Lab）かその中、tmp がリンクか正本そのもの、.git の中、
 #   印が無いのに tmp/skills・tmp/.company・tmp/tools・tmp/samples のどれかがある、tmp/ の下に git が追跡中のファイルがある。
 # exclude に足しても tmp/ が git から外れないときは、その 1 行だけを足して、写さずに止める。
@@ -141,12 +141,14 @@ cat > "$DEST/tmp/DEPLOYED.md" <<EOF
 ## 更新と検証
 
 更新するときは、正本で \`./deploy.sh $DEST\` を回すか、同じものを手でコピーし直します。
-作業を終える前の検証は \`bash tmp/tools/project-verify.sh --fast\` です。結果は \`tmp/.verify/last-fast.txt\` に残ります。hooks（Mac 全体に 1 回登録）が自動で回します。
-作業の終わりの検証は、AI が \`tmp/\` に書いた文書だけを見ます。FAIL に数えるのは、最後に検証が通った印（\`tmp/.verify/last-pass\`）より新しい文書だけです。写した時点で印を置くので、前からある文書は変えるまで範囲外になり、「範囲外」の行で見せます。プロジェクトの lint や試験も回すなら、\`tmp/verify-commands.txt\` に 1 行 1 命令で書きます（例: \`pnpm run lint\`）。
+作業を終える前の検証は \`bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>\` です。結果は \`tmp/.verify/last-fast.txt\` に残ります。
+検査するのは、引数で渡した文書（\`tmp/flow/\` の下の .md、\`tmp/ISSUE_*.md\`、\`tmp/PR_*.md\`）だけです。引数が無ければ、文書は 1 本も検査しません。文書も命令も無い回は、PASS にならず WARN（終了コード 3）で終わります。
+AI は、このセッション（AI との 1 つの会話）で書いた文書を全部渡します。Bash のコマンドで書いた文書も、自分で引数に入れます。終わりの検証と添削には、ほかのセッションが書いた文書を入れません。hooks（Mac 全体に 1 回登録）が回す検証とは別に、AI が自分で回します。
+プロジェクトの lint や試験も回すなら、\`tmp/verify-commands.txt\` に 1 行 1 命令で書きます（例: \`pnpm run lint\`）。この命令は、引数によらず回ります。
 \`tmp/tools/verify-all.sh\` は My-Lab の一式の検証なので、写した先では回さずに止まります。
 EOF
 
-# 写した時点の印を置く。前からある tmp/ の文書は、変えるまで検証の範囲外になる（範囲の決まりは tools/project-verify.sh の冒頭）
+# 写した時点の印を置く。hooks は、このあとファイルが変わるまで検証を回さない（文書の範囲の決まりは tools/project-verify.sh の冒頭）
 bash "$DEST/tmp/tools/project-verify.sh" --baseline
 echo "deploy: ${DEST}/tmp/ に skills・.company・tools・samples・cursor-user-rule.md・claude-code.md を写した（正本 ${LAB}、${VERSION}）"
 if [ -z "$EXCLUDE" ]; then

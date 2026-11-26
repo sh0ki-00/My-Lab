@@ -45,7 +45,7 @@
 
 | # | 手順 | 誰が |
 |---|---|---|
-| 1 | 検証の `--full` を回し、PASS の記録を得る。My-Lab では `tools/verify-all.sh` で、記録は `docs/verify/` の当日の分。他のプロジェクトでは `tmp/tools/project-verify.sh` で、記録は `tmp/.verify/last-full.txt` | 作った役割 |
+| 1 | 検証の `--full` を回し、PASS の記録を得る。My-Lab では `tools/verify-all.sh` で、記録は `docs/verify/` の当日の分。他のプロジェクトでは `tmp/tools/project-verify.sh --full <このセッションで書いた文書>` で、記録は `tmp/.verify/last-full.txt`。何も検査しない回（`RESULT: WARN project-verify`）は、PASS の記録に数えない | 作った役割 |
 | 2 | 門で見て、コミット文と対象ファイルの一覧を社長に示す | 秘書 |
 | 3 | 確認ダイアログで承認する。確認が効かない Cursor では、社長が自分の端末で実行する | 社長 |
 | 4 | 承認されたコマンドだけが実行される。拒否されたら成果物のパスを報告して止まる | 役割 |

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tools/verify-all.sh [--fast|--full] — 11 種類の検証を 1 本で回す（仕様書 9.4 節）。
 #   --fast : 1 形式、2 文体・資料・図、4 固有の検査の自己試験、6 hooks の自己試験、8 参照の実在、9 スクリプトの静的検査
-#   --full : fast に加えて 3 図の実描画、5 試験ケース、7 配置の試験、10 見本アプリの実測、11 秘密と依存
+#   --full : fast に加えて 3 図の実描画、5 試験ケース、7 配置の試験と tools/tests/ の試験、10 見本アプリの実測、11 秘密と依存
 # 出力: 検証ごとの RESULT 行と、最後に RESULT: PASS|FAIL verify-all。1 つでも FAIL なら終了コード 1。
 # 記録: --full は docs/verify/<日付>.md に書く（同じ日は実行の節を足す）。--fast は tmp/.verify/last-fast.txt に書く。
 #       PASS なら tmp/.verify/last-pass を更新する。hooks は、これより新しいファイルがあるか、通ったときの一覧（last-pass.list）とファイルの一覧が違うときに検証を回す。
@@ -11,7 +11,7 @@ TOOLS="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
 ROOT="$(cd "$TOOLS/.." && pwd -P)" || exit 1
 # 他のプロジェクトの tmp/ に写した版では回さない。一式の自己検査になり、記録も tmp/tmp/.verify に書いてしまう。
 if [ "$(basename "$ROOT")" = "tmp" ]; then
-  echo "verify-all: これは My-Lab の一式の検証です。他のプロジェクトでは bash tmp/tools/project-verify.sh --fast（または --full）を使う"
+  echo "verify-all: これは My-Lab の一式の検証です。他のプロジェクトでは bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>（または --full）を使う"
   echo "RESULT: FAIL verify-all (写した先では回さない。tmp/tools/project-verify.sh を使う)"
   exit 2
 fi
@@ -118,7 +118,12 @@ v_hooks() {  # 6 hooks の自己試験。C と、社長の端末と同じ UTF-8 
   LC_ALL=ja_JP.UTF-8 bash hooks/selftest.sh || rc=1
   return $rc
 }
-v_placement() { bash "$TOOLS/placement-test.sh"; }         # 7 配置の試験
+v_placement() {  # 7 配置の試験と、tools/tests/ の試験（手で回していた試験も、ここで毎回回す。試験が無ければ FAIL）
+  local rc=0 t
+  bash "$TOOLS/placement-test.sh" || rc=1
+  for t in "$TOOLS"/tests/*.sh; do bash "$t" || rc=1; done
+  return "$rc"
+}
 v_refs()      { bash "$TOOLS/check-refs.sh"; }             # 8 参照の実在
 v_shellcheck() {  # 9 スクリプトの静的検査: shellcheck と、全角の字の直前の変数（tools/lib/check_var_brace.py）
   local files n rc=0; files="$(sh_files)"; n="$(printf '%s\n' "$files" | wc -l | tr -d ' ')"

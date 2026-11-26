@@ -83,7 +83,8 @@ B='(^|[^[:alnum:]_.-])'                          # 語の始まり（/usr/bin/gi
 G="${B}git( +(-C +[^ ]+|-c +[^ ]+|--?[^ ]+))* +"  # git と、その直後の共通オプション（-C <dir>、-c k=v、--no-pager など）
 A='( |$)'                                         # 語の終わり
 
-ask_president() { out ask "$1"; }  # 社長の承認が要る操作。合図で allow にする道は持たない
+NOTE=""   # ask の理由に書き足す文（2d で本文のファイルを読めなかったときなど）
+ask_president() { out ask "$1${NOTE:+ $NOTE}"; }  # 社長の承認が要る操作。合図で allow にする道は持たない
 
 # 2c. hooks の登録と本体への書き込み・削除・移動・権限の変更も deny。Write・Edit の門（claude-preedit.sh）と同じ場所を、Bash の側でも守る。
 #     場所: ~/.claude/settings.json、~/.claude/hooks/、~/.claude/CLAUDE.md、My-Lab の hooks/ と .claude/settings.json と .cursor/hooks.json。
@@ -97,7 +98,7 @@ ask_president() { out ask "$1"; }  # 社長の承認が要る操作。合図で 
 #       場所を変数に入れる書き方（f=hooks/x）と書き込みの目印（$ へのリダイレクト、上の命令）の組。
 #     読みと検査は allow のまま（cat・ls・diff・grep・git diff・git add・shellcheck・bash hooks/selftest.sh・python3 <台本> hooks/*.sh・
 #       cp hooks/x /tmp/ のように場所が写す元）。大文字小文字は区別しない。
-#     git の merge・checkout <枝>・apply・stash pop で hooks/ の中身が変わる道と、別の命令に分けた書き方は、文字列では見ない。
+#     git の merge・checkout <ブランチ>・apply・stash pop で hooks/ の中身が変わる道と、別の命令に分けた書き方は、文字列では見ない。
 # shellcheck disable=SC2016  # 正規表現の中の $ は字面。展開しない
 LAB="${LAB_ROOT:-$(cd "$(dirname "$0")/.." 2>/dev/null && pwd -P)}"
 if r="$(CDPATH='' cd "$LAB" 2>/dev/null && { /bin/pwd -P 2>/dev/null || pwd -P; })"; then LAB="$r"; fi   # 実体のパスに（無ければ字面のまま）
@@ -136,6 +137,172 @@ if hasi "${PRE}${TP}"; then
     out deny "hooks の登録と本体（~/.claude/settings.json、~/.claude/hooks、~/.claude/CLAUDE.md、My-Lab の hooks/ と .claude/settings.json と .cursor/hooks.json）は社長が自分の端末で書く。AI は読むだけで、書き換えも削除も移動もしない。直す必要があれば、差分を tmp/ に置いて社長に示す。"
   fi
 fi
+
+# 2d. commit 文・PR 文・Issue 文の現場の語の言い換え（git のブランチを別の語にするなど）は deny。3a の確認（ask）より先に返す。
+#     見る命令: git commit・merge・tag、gh pr（create、edit、comment、review、merge）、gh issue（create、edit、comment）、
+#       gh release（create、edit）、gh api（-f・-F・--field・--raw-field・--input で本文を送るとき）。
+#     見る文: 命令の文の全部と、次のファイルの中身（1 本 1 MB まで、20 本まで）。
+#       -F・--file・--body-file・--input に渡したファイル（-aF のようにまとめた短いオプションも）と、gh api の key=@<ファイル>。
+#       $(cat <ファイル>) の <ファイル>。< <ファイル> と cat <ファイル> | の <ファイル> は、-F - や --body-file - のように
+#       本文を標準入力から読む命令のときだけ読む（git commit -m x && cat a | grep y の a のような、本文でないファイルを読まない）。
+#     読み先: 相対パスは、命令の作業場所（hooks が入力の cwd から渡す COMPANY_GUARD_CWD。無ければ COMPANY_GUARD_PROJECT_ROOT、
+#       無ければ今の場所）と、命令の中の cd <場所>（順に積む）と git -C <場所> の先と、プロジェクトの root から読む。あるものを全部読む。
+#       引用符は外し、逆斜線で逃がした字（空白など）は解く。-（標準入力）そのものは読まない。
+#     -F・--file・--body-file・--input のファイルが、どの読み先にも無いか読めないときは、確認（ask）の理由に書き足す。
+#     ファイルの名前は、命令の文を 1 回ずつ走査して拾う（grep -o）。-F が多い長い命令でも、時間が -F の数に比例して伸びない。
+#       拾うのは 200 本まで。超えたら、全部は確かめていないと確認の理由に書き足す。
+#     判定は lib.sh の terms_check（My-Lab の正本 tools/lib/check_ja.py --terms -）に任せ、ここは語の一覧を持たない。
+#       鉤括弧の中とバッククォートの中は数えない。標準入力なので ja-ok の印は見ない（正本の決まり）。
+#       lib.sh は子のシェルで読み、LAB_ROOT ほかを上書きしない。
+#     python3 か正本が無いなど、数えられないときは何もせず、3a の ask に任せる。ほかの命令では python を起こさない。
+q1="'"
+MV="(\"[^\"]*\"|${q1}[^${q1}]*${q1}|([^[:space:];&|()<>\"${q1}\\\\]|\\\\.)+)"   # 値: 引用符の中か、逃がした字を含む 1 語
+unquote() {  # 標準入力の 1 行 1 つの値から、囲みの引用符を外し、引用符の無い値の逆斜線の逃げを解く
+  LC_ALL=C sed -E -e "/^[\"${q1}]/!s/\\\\(.)/\\1/g" -e 's/^"(.*)"$/\1/' -e "s/^${q1}(.*)${q1}\$/\\1/"
+}
+msg_files() {  # 本文を読むファイルの候補を「o<TAB>パス」（オプションで渡したファイル）、「s<TAB>パス」（$(cat) の先）、
+  #             「h<TAB>パス」（< と cat | の先。本文を標準入力から読む命令のときだけ使う）で書く
+  { printf '%s\n' "$CMD" | grep -oE -- "(^|[[:space:];&|(])(-[a-zA-Z]*F|--file|--body-file|--input)(=|[[:space:]]*)${MV}" \
+      | LC_ALL=C sed -E 's/^[[:space:];&|(]?(-[a-zA-Z]*F|--file|--body-file|--input)(=|[[:space:]]*)//' | unquote | sed 's/^/o	/'
+    printf '%s\n' "$CMD" | grep -oE -- "=@${MV}" | LC_ALL=C sed -E 's/^=@//' | unquote | sed 's/^/o	/'
+    printf '%s\n' "$CMD" | grep -oE -- "[\$][(]cat[[:space:]]+${MV}" | LC_ALL=C sed -E 's/^[$][(]cat[[:space:]]+//' | unquote | sed 's/^/s	/'
+    printf '%s\n' "$CMD" | grep -oE -- "(^|[^<])<[[:space:]]*${MV}" | LC_ALL=C sed -E 's/^[^<]?<[[:space:]]*//' | unquote | sed 's/^/h	/'
+    printf '%s\n' "$CMD" | grep -oE -- "(^|[[:space:];&|(])cat[[:space:]]+${MV}[[:space:]]*[|]" \
+      | LC_ALL=C sed -E 's/^[[:space:];&|(]?cat[[:space:]]+//; s/[[:space:]]*[|]$//' | unquote | sed 's/^/h	/'
+  } | LC_ALL=C awk -F'\t' '$2 != "" && $2 != "-" && !seen[$2]++'
+}
+msg_dirs() {  # 本文のファイルを読む場所を 1 行 1 つで書く。命令の作業場所、cd の先（順に積む）、git -C の先、プロジェクトの root
+  local cwd="${COMPANY_GUARD_CWD:-${COMPANY_GUARD_PROJECT_ROOT:-$PWD}}" cur kind d t
+  printf '%s\n' "$cwd"
+  cur="$cwd"
+  while IFS='	' read -r kind d; do
+    [ -n "$d" ] || continue
+    d="$(printf '%s\n' "$d" | unquote)"
+    # shellcheck disable=SC2088  # '~/' は命令の文の字面。展開させずに比べ、$HOME に置き換える
+    case "$d" in /*) t="$d" ;; '~') t="$HOME" ;; '~/'*) t="$HOME/${d#'~/'}" ;; *) t="$cur/$d" ;; esac
+    printf '%s\n' "$t"
+    [ "$kind" = cd ] && cur="$t"
+  done <<EOF
+$(printf '%s\n' "$CMD" | grep -oE -- "(^|[[:space:];&|(])(cd|-C)[[:space:]]+${MV}" \
+    | LC_ALL=C sed -E 's/^[[:space:];&|(]?(cd|-C)[[:space:]]+/\1	/' | head -n 20)
+EOF
+  [ -z "${COMPANY_GUARD_PROJECT_ROOT:-}" ] || printf '%s\n' "$COMPANY_GUARD_PROJECT_ROOT"
+}
+terms_reason() {  # 標準入力の文に言い換えがあれば、deny の理由の文を書いて 0。無いか、数えられなければ 1
+  # shellcheck source=hooks/lib.sh
+  ( . "$(dirname "$0")/lib.sh" || exit 1
+    hits="$(terms_check)" || exit 1
+    printf 'commit 文・PR 文・Issue 文に%sがあります。%sに直してから、もう一度実行してください。' "$(terms_join "$hits" 1)" "$(terms_join "$hits" 2)" )
+}
+if has 'commit|merge|tag|gh +(pr|issue|release|api)' \
+  && { has "${G}(commit|merge|tag)${A}" || has "${B}gh +pr +(create|edit|comment|review|merge)${A}" \
+       || has "${B}gh +issue +(create|edit|comment)${A}" || has "${B}gh +release +(create|edit)${A}" \
+       || has "${B}gh +api( +[^ ]+)* +(-[fF] |--(field|raw-field|input)[= ])"; }; then
+  mtext="$CMD"; nread=0; missing=""; ncand=0; stdin_msg=0
+  has '(^| )(-[a-zA-Z]*F|--file|--body-file|--input)(=| +)-( |$)' && stdin_msg=1   # 本文を標準入力から読む（-F -、--body-file=- ほか）
+  mdirs=()
+  while IFS= read -r d; do
+    if [ -n "$d" ]; then mdirs+=("$d"); fi
+  done <<EOF
+$(msg_dirs | LC_ALL=C awk '!seen[$0]++')
+EOF
+  while IFS='	' read -r kind p; do
+    [ -n "$p" ] || continue
+    if [ "$kind" = h ] && [ "$stdin_msg" = 0 ]; then continue; fi
+    ncand=$((ncand + 1))
+    if [ "$ncand" -gt 200 ]; then NOTE="本文のファイルの候補が多いので、全部は確かめていない。"; break; fi
+    cands=()
+    # shellcheck disable=SC2088  # '~/' は命令の文の字面。展開させずに比べ、$HOME に置き換える
+    case "$p" in
+      /*) cands=("$p") ;;
+      '~/'*) cands=("$HOME/${p#'~/'}") ;;
+      *) if [ "${#mdirs[@]}" -gt 0 ]; then for d in "${mdirs[@]}"; do cands+=("$d/$p"); done; fi ;;
+    esac
+    found=0
+    [ "${#cands[@]}" -gt 0 ] || cands=("$p")   # bash 3.2 は空の配列の "${a[@]}" を set -u で落とす
+    for f in "${cands[@]}"; do
+      [ -f "$f" ] && [ -r "$f" ] || continue
+      found=1
+      [ "$nread" -lt 20 ] || continue
+      nread=$((nread + 1))
+      mtext="$mtext"$'\n'"$(head -c 1048576 "$f" 2>/dev/null)"
+    done
+    if [ "$found" = 0 ] && [ "$kind" = o ]; then missing="${missing}${missing:+、}${p}"; fi
+  done <<EOF
+$(msg_files)
+EOF
+  [ -z "$missing" ] || NOTE="${NOTE}本文のファイル（${missing}）を読めず、現場の語を確かめていない。"
+  if why="$(printf '%s\n' "$mtext" | terms_reason)"; then out deny "$why"; fi
+fi
+
+# 2e. クラウドにつなぐコマンドは、設定によらず ask（S-7）。読むだけのコマンド（aws s3 ls、kubectl get）も含む。
+#     インフラに触る作業は開発環境でだけ行い、そのたびに承認を得る（決まりは .company/rules/evidence-and-safety.md）。
+#     名前で拾う網で、全部ではない。make deploy や npm run deploy のような包みのスクリプトの中身と、curl の宛先は、文字列では見えない。
+#       決まりでは、包みのスクリプトも、クラウドにつながるなら承認を得てから回す。
+#     いつも確認にする名前（CLOUD_ANY）: aws（awscli、aws-cli、aws-vault）、pulumi、kubectl、helm、helmfile、eksctl、skaffold、oc、
+#       argocd、k9s、gcloud、gsutil、bq、google-cloud-cli、cloud-sdk、az、azure-cli、doctl、serverless、sls、sst、amplify、copilot、
+#       eb、firebase、wrangler、flyctl、fly、vercel、netlify、heroku、s3cmd、rclone。
+#     副命令で分ける名前（CLOUD_SUB。通す副命令のほかは確認）: terraform と tofu（fmt・validate）、terragrunt（hclfmt）、
+#       packer（fmt）、sam（build・init・local）、cdk と aws-cdk（init・doctor・docs・acknowledge・notices・context）、
+#       cdktf（synth・init・get）。どの名前も、help と version の副命令と、-help・--help・-h・-version・--version だけの呼び出しは通す。
+#       cdk の synth と list は、文脈の取得で AWS に問い合わせることがあるので確認にする。前に -chdir=<場所> のようなオプションがあってもよい。
+#     名前の始まりは、行頭・空白・; & | ( ` と / の直後。sh -c "aws …"、xargs aws、npx cdk deploy、パスの最後の名前
+#       （/usr/local/aws-cli/aws、./node_modules/.bin/cdk、docker run の像 amazon/aws-cli、infra/aws）を拾う。
+#       名前の終わりは、空白・; & | ) ` : と行末。$(which aws)、`which aws`、像の版つきの hashicorp/terraform:1.9 も拾う。
+#       パスの途中の名前（infra/aws/main.tf）、隠しの名前（~/.aws）、名前の一部（aws_s3_bucket、helm-chart.md）は見ない。
+#     cd terraform、grep aws、iac-scan.sh terraform のように、名前が引数にあるだけの命令も ask になる（取りこぼさない側に倒す）。
+#     今の deny（2・2b・2c・2d）のあと、3a の ask の前に置く。git push と同じ命令にあれば、クラウドの理由を先に見せる。
+#     大文字小文字は区別しない（APFS では AWS も aws として動く）。
+# shellcheck disable=SC2016  # ` は正規表現の字面（命令の置き換えの区切り）。展開しない
+CB='(^|[ ;&|(`/])'    # クラウドのコマンドの名前の始まり
+# shellcheck disable=SC2016  # 同上
+CE='([ ;&|)`:]|$)'    # 名前の終わり
+CLOUD_ANY='aws|awscli|aws-cli|aws-vault|pulumi|kubectl|helm|helmfile|eksctl|skaffold|oc|argocd|k9s|gcloud|gsutil|bq|google-cloud-cli|cloud-sdk|az|azure-cli|doctl|serverless|sls|sst|amplify|copilot|eb|firebase|wrangler|flyctl|fly|vercel|netlify|heroku|s3cmd|rclone'
+CLOUD_SUB='terraform|tofu|terragrunt|packer|sam|cdk|aws-cdk|cdktf'
+cloud_sub_ok() {  # cloud_sub_ok <名前から始まる命令の切れ端> → 通す副命令（か help・version だけの呼び出し）なら 0
+  local m w name sub="" flag=0 ok
+  m="$(lower "$1")"
+  case "$m" in [\ \;\&\|\(\`/]*) m="${m:1}" ;; esac
+  set -f
+  # shellcheck disable=SC2086  # 語に分けるため、わざと引用符で囲まない。グロブは set -f で広げない
+  set -- $m
+  set +f
+  [ "$#" -gt 0 ] || return 1
+  name="${1%%[@:]*}"; shift
+  for w in "$@"; do
+    case "$w" in
+      -help|--help|-h|-version|--version) flag=1 ;;
+      -*) ;;
+      *) sub="$w"; break ;;
+    esac
+  done
+  if [ -z "$sub" ]; then [ "$flag" = 1 ]; return; fi
+  case "$sub" in help|version) return 0 ;; esac
+  case "$name" in
+    terraform|tofu) ok='fmt validate' ;;
+    terragrunt) ok='hclfmt' ;;
+    packer) ok='fmt' ;;
+    sam) ok='build init local' ;;
+    cdk|aws-cdk) ok='init doctor docs doc acknowledge ack notices context' ;;
+    cdktf) ok='synth init get' ;;
+    *) return 1 ;;
+  esac
+  case " $ok " in *" $sub "*) return 0 ;; esac
+  return 1
+}
+cloud=0
+if hasi "${CB}(${CLOUD_ANY})${CE}"; then
+  cloud=1
+elif hasi "${CB}(${CLOUD_SUB})(@[^ ;&|()\`]*)?${CE}"; then
+  # 現れるたびに、名前から ; & | ) ` の前までを切り出して見る。同じ命令に 2 つあっても、片方の fmt で通さない
+  while IFS= read -r m; do
+    [ -n "$m" ] || continue
+    if ! cloud_sub_ok "$m"; then cloud=1; break; fi
+  done <<EOF
+$(printf '%s' "$flat" | grep -Eoi -- "${CB}(${CLOUD_SUB})(@[^ ;&|()\`]*|:[^ ;&|()\`]*)?${CE}[^;&|)\`]*")
+EOF
+fi
+[ "$cloud" = 1 ] && ask_president "クラウドにつなぐコマンドは、開発環境でだけ、そのたびに承認を得て回す（読むだけのコマンドも含む）。承認を伺う文に、環境の名前と、読むだけか書き換えるかを書く。"
 
 # 3a. 関所 2: 外に出る操作
 has "${G}commit${A}"      && ask_president "commit は関所 2。社長の承認があれば実行し、なければ中止する。"
