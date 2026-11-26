@@ -29,7 +29,7 @@ description: 差分を読まなくても「何を・なぜ・どう確かめた�
 1. 差分を読み直し、目的が 1 つか、400 行以内かを見る。終わりの印: 目的が 1 文で言え、`git diff --stat` の合計が 400 行以内（超えるなら分割の案を書く）。
 2. 題名を決める。型（feat・fix・docs・refactor・perf・test・build・ci・chore）、対象、命令形の 1 文で 60 字以内。終わりの印: `fix(admin-orders): 〜を〜に変える` の形になっている。
 3. `templates/pr-template.md` を `tmp/PR_<番号>.md` に写し、上から埋める。関連 Issue は `Closes #番号`。方針の表には却下した案と理由を必ず書く。終わりの印: `<…>` が 1 つも無い。
-4. 検証を回し、結果を書く。`bash tools/verify-all.sh --full`（他のプロジェクトでは `bash tmp/tools/project-verify.sh --full`）と、完了の条件ごとの確認。終わりの印: 検証の表の全行に、コマンドと出た値がある。
+4. 検証を回し、結果を書く。`bash tools/verify-all.sh --full`（他のプロジェクトでは `bash tmp/tools/project-verify.sh --full <このセッションで書いた文書>`）と、完了の条件ごとの確認。終わりの印: 検証の表の全行に、コマンドと出た値がある。
 5. `scripts/pr-check.sh <ファイル> --diff-lines <行数>` と `tools/check-file.sh <ファイル>` を通す。終わりの印: どちらも `RESULT: PASS`。
 6. `skills/ja-fluent/scripts/fluency-check.sh <ファイル>` を通し、文の運びを直す。終わりの印: `RESULT: PASS`。
 7. 別コンテキスト（Claude Code は `editor`、Cursor は新しいチャット）に PR 文だけを渡し、「何を・なぜ・どう確かめたか・どこを見るか」の 4 問に答えさせる。終わりの印: 4 問とも PR 文だけで正答。

@@ -2,6 +2,7 @@
 # install.sh [--dry-run] [--remove-old-links] — この Mac に 1 回だけ行う接続。
 #   1) ~/.claude/settings.json と ~/.cursor/hooks.json に、この正本の hooks（--global）を登録する。
 #      Claude Code の PreToolUse は 2 本（Bash の判定と、Write・Edit で守りの設定と hooks の登録を書かせない門）。
+#      Cursor は 4 本（beforeShellExecution、afterFileEdit、afterAgentResponse（返答の言い換えを見る）、stop）。
 #      旧 cradle の登録（cradle-guard-*.sh）と、自分の古い登録（置き場は問わない）は外す。他の設定はそのまま残す。
 #      2 つの中身を先に作って確かめる。どちらかが読めなければ、何も書かずに止まる。空か空白だけのファイルは {} とみなす。
 #      書き換える前に <ファイル>.bak.<日時>.<番号> を作る。中身が変わらなければ、書き換えも退避もしない。
@@ -22,7 +23,7 @@ for a in "$@"; do
   esac
 done
 command -v jq >/dev/null 2>&1 || { echo "FAIL install: jq が要る（brew install jq）"; exit 1; }
-for x in claude-pretooluse claude-preedit claude-postedit claude-stop cursor-before-shell cursor-after-edit cursor-stop; do
+for x in claude-pretooluse claude-preedit claude-postedit claude-stop cursor-before-shell cursor-after-edit cursor-after-response cursor-stop; do
   [ -f "$H/$x.sh" ] || { echo "FAIL install: ${H}/${x}.sh が無い。何も書き換えていない（リンク経由なら、正本の install.sh を直に回す）"; exit 1; }
 done
 CL="$HOME/.claude/settings.json"
@@ -61,12 +62,13 @@ new_claude() {  # 既存の設定を読み、旧 cradle と自分の古い登録
 new_cursor() {
   local s; s="$(src "$CU")" || return 1
   jq -s --arg h "$H" "$JQ_LIB"'
-    def mine($c): ($c | test("cradle-guard")) or ($c | test("/hooks/cursor-(before-shell|after-edit|stop)\\.sh[\\x27\"]?\\s+--global$"));
+    def mine($c): ($c | test("cradle-guard")) or ($c | test("/hooks/cursor-(before-shell|after-edit|after-response|stop)\\.sh[\\x27\"]?\\s+--global$"));
     def clean(ev): ((.hooks // {})[ev] // []) | map(select(mine(.command // "") | not));
     top
     | .version = 1 | .hooks = (.hooks // {})
     | .hooks.beforeShellExecution = clean("beforeShellExecution") + [{command: cmd("cursor-before-shell.sh"), failClosed: true, timeout: 20}]
     | .hooks.afterFileEdit        = clean("afterFileEdit")        + [{command: cmd("cursor-after-edit.sh"), timeout: 120}]
+    | .hooks.afterAgentResponse   = clean("afterAgentResponse")   + [{command: cmd("cursor-after-response.sh"), timeout: 10}]
     | .hooks.stop                 = clean("stop")                 + [{command: cmd("cursor-stop.sh"), timeout: 600, loop_limit: 3}]' < "$s"
 }
 

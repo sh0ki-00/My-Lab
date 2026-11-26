@@ -1,16 +1,26 @@
 #!/usr/bin/env bash
 # tools/check-file.sh <ファイル>... — 直したファイルの検査を、種類で選んで回す。hooks が編集の直後に呼ぶ。
-#   .md .mdc : check-ja（文体）。資料（docs/、tmp/flow/、tmp/ISSUE_*、tmp/PR_*、README.md、skills/*/references|examples）なら check-doc。
+#   .md .mdc : check-ja（文体。禁則語として、tools/ja-terms.txt の現場の語の言い換えも見る）。
+#              資料（docs/、tmp/flow/、tmp/ISSUE_*、tmp/PR_*、README.md、skills/*/references|examples）なら check-doc。
 #              図（```mermaid）があれば check-mermaid。ja-fluent のスキルがあれば fluency-check（文の運び）
-#              雛形と完成例（skills/*/templates|examples）と、写した先で AI が書く資料（tmp/flow/、tmp/ISSUE_*、tmp/PR_*）
+#              雛形と完成例（skills/*/templates|examples）と、移した先で AI が書く資料（tmp/flow/、tmp/ISSUE_*、tmp/PR_*）
 #              なら check-persona（「秘書」「社長」の語。決まりは .company/rules/documents.md の 5 節）
+#   .md 以外の文字のファイル（.sh .py .mjs .js .cjs .json .txt .tsv .yml .yaml .css .html .toml と、一覧に無い拡張子でも
+#              NUL の字を含まない文字のファイル。.ts .tsx .go .rb .sql .vue など）:
+#              check-terms（tools/lib/check_ja.py --terms。tools/ja-terms.txt の語だけを見る）と、種類ごとの次の検査
 #   .sh      : bash -n と shellcheck と、全角の字の直前の変数の波括弧
 #   .py      : 構文（ast）
-#   .mjs .js : node --check
+#   .mjs .js .cjs : node --check
 #   .json    : jq
 #   .yml .yaml : YAML の構文（ruby）。.github/ISSUE_TEMPLATE なら Issue フォームの検査も
-# 写した先（<プロジェクト>/tmp/tools にあり、tmp/DEPLOYED.md がある）では、tmp/ の外のファイルは検査しない。
-#   プロジェクト自身のファイル（英語の README、コメント入りの tsconfig.json、既存の台本）を、頼まれずに直させないため。
+# 移した先（<プロジェクト>/tmp/tools にあり、tmp/DEPLOYED.md がある）で、tmp/ の外のファイル（プロジェクト自身のもの）は、
+#   git の HEAD から足した行だけを check-terms で見る（.md も同じ）。ほかの検査は回さない。
+#   英語の README、コメント入りの tsconfig.json、既存のスクリプトを、頼まれずに直させないため。
+#   git が無いとき、git の作業ツリーの外のファイル、追跡していないファイル、commit が 1 つも無いときは、全体を check-terms で見る。
+#   足した行は HEAD との差分で数えるので、人やほかのセッションが書いた、まだ commit していない行も入る。
+#   自分が書いていない行や、git の意味でない語（プロジェクト自身の用語）で落ちたときは、書き換えずに依頼者に伺う
+#   （読み方は skills/verify/references/checks.md の 1 節）。編集の前の中身との差分で見る直しは、まだ入れていない。
+#   文字でない種類（画像など、NUL の字を含むファイル）と、空のファイルは検査しない。
 # 1 つでも FAIL なら終了コード 1。WARN の行は結果に通すが、終了コードには数えない。道具が無いことによる SKIP は FAIL と同じに扱う。
 set -u
 TOOLS="$(cd "$(dirname "$0")" && { /bin/pwd -P 2>/dev/null || pwd -P; })"
@@ -40,7 +50,15 @@ is_doc() {
   return 1
 }
 
-persona_target() {  # persona_target <ファイル> → 「秘書」「社長」の語を見る文書か（雛形と完成例、写した先で AI が書く資料）
+is_text() {  # is_text <ファイル> → 現場の語を見る、文字のファイルか。主な拡張子か、NUL の字を含まない文字のファイル
+  case "$1" in
+    *.md|*.mdc|*.sh|*.py|*.mjs|*.js|*.cjs|*.json|*.txt|*.tsv|*.yml|*.yaml|*.css|*.html|*.toml) return 0 ;;
+  esac
+  # 一覧に無い拡張子（.ts .go .rb .sql .vue など）は中身で決める。grep -I は NUL の字を含むファイルを文字でないと見て、当たりにしない
+  LC_ALL=C grep -Iq . "$1" 2>/dev/null
+}
+
+persona_target() {  # persona_target <ファイル> → 「秘書」「社長」の語を見る文書か（雛形と完成例、移した先で AI が書く資料）
   local rp
   rp="$(real_path "$1")" || return 1
   case "$rp" in
@@ -74,12 +92,50 @@ run() {  # run <名前> <ファイル> <コマンド...> → FAIL なら fail �
   fi
 }
 
+terms() {  # terms <ファイル> → 現場の語の検査（ファイル全体）
+  python3 -I "$TOOLS/lib/check_ja.py" --terms -- "$1"
+}
+
+added_lines() {  # added_lines <実体のパス> → git の HEAD から足した行の番号を「,」区切りで書く（足した行が無ければ空）
+  # git が無い、作業ツリーの外、追跡していない、HEAD が無い（commit が 1 つも無い）、diff が取れないときは終了コード 1
+  local d b out
+  command -v git >/dev/null 2>&1 || return 1
+  d="$(dirname "$1")"; b="$(basename "$1")"
+  git -C "$d" --literal-pathspecs ls-files --error-unmatch -- "$b" >/dev/null 2>&1 || return 1
+  git -C "$d" rev-parse -q --verify HEAD >/dev/null 2>&1 || return 1
+  out="$(git -C "$d" --literal-pathspecs diff --no-color --no-ext-diff --no-textconv -U0 HEAD -- "$b" 2>/dev/null)" || return 1
+  # 塊の見出し「@@ -a,b +c,d @@」から新しい側の行番号を数え、「+」の行の番号だけを書く（awk は文字の設定によらない C で回す）
+  printf '%s\n' "$out" | LC_ALL=C awk '
+    /^@@ / { h = $0; sub(/^@@ -[0-9]+(,[0-9]+)? [+]/, "", h); n = h + 0; inh = 1; next }
+    !inh { next }
+    /^[+]/ { printf "%s%d", sep, n; sep = ","; n++; next }
+    /^ / { n++ }
+  '
+}
+
+# shellcheck disable=SC2329  # run が名前で呼ぶ
+terms_added() {  # terms_added <ファイル> → 移した先のプロジェクト自身のファイル。git の HEAD から足した行だけを見る（追跡外などは全体）
+  local f="$1" rp lines
+  rp="$(real_path "$f")" || rp="$f"
+  if lines="$(added_lines "$rp")"; then
+    python3 -I "$TOOLS/lib/check_ja.py" --terms --added-lines "$lines" -- "$f"
+  else
+    terms "$f"
+  fi
+}
+
 for f in "$@"; do
   [ -f "$f" ] || { printf 'FAIL %s [無い] ファイルが無い\n' "$f"; fail=$((fail + 1)); continue; }
   if [ "$DEPLOYED" -eq 1 ]; then
     case "$(real_path "$f")" in
       "$ROOT"/*) ;;
-      *) printf 'RESULT: PASS check-file %s（写した先のプロジェクト自身のファイルは検査の対象外）\n' "$f"; continue ;;
+      *)
+        if is_text "$f"; then
+          run check-terms "$f" terms_added "$f"
+        else
+          printf 'RESULT: PASS check-file %s（移した先のプロジェクト自身のファイルで、現場の語を見る種類でもないので検査の対象外）\n' "$f"
+        fi
+        continue ;;
     esac
   fi
   case "$f" in
@@ -92,21 +148,26 @@ for f in "$@"; do
       if [ -f "$ROOT/skills/ja-fluent/scripts/fluency-check.sh" ]; then run fluency-check "$f" bash "$ROOT/skills/ja-fluent/scripts/fluency-check.sh" "$f"; fi
       ;;
     *.sh)
+      run check-terms "$f" terms "$f"
       run bash-n "$f" bash -n "$f"
       if need shellcheck "$f"; then run shellcheck "$f" shellcheck -x -P "$ROOT" "$f"; else fail=$((fail + 1)); fi
       # 全角の字の直前の変数は、UTF-8 の設定の bash が字の一部まで名前と読む（set -u なら落ちる）。${名前} と書く
       run var-brace "$f" python3 -I "$TOOLS/lib/check_var_brace.py" "$f"
       ;;
     *.py)
+      run check-terms "$f" terms "$f"
       run python-syntax "$f" python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1], encoding="utf-8").read(), sys.argv[1])' "$f"
       ;;
     *.mjs|*.js|*.cjs)
+      run check-terms "$f" terms "$f"
       run node-check "$f" node --check "$f"
       ;;
     *.json)
+      run check-terms "$f" terms "$f"
       if need jq "$f"; then run json "$f" jq -e . "$f"; else fail=$((fail + 1)); fi
       ;;
     *.yml|*.yaml)
+      run check-terms "$f" terms "$f"
       if need ruby "$f"; then
         run yaml "$f" ruby -ryaml -e 'YAML.load_file(ARGV[0]); puts "ok"' "$f"
         case "$f" in
@@ -115,8 +176,15 @@ for f in "$@"; do
         esac
       else fail=$((fail + 1)); fi
       ;;
+    *.txt|*.tsv|*.css|*.html|*.toml)
+      run check-terms "$f" terms "$f"
+      ;;
     *)
-      printf 'RESULT: PASS check-file %s（検査の対象外）\n' "$f"
+      if is_text "$f"; then
+        run check-terms "$f" terms "$f"
+      else
+        printf 'RESULT: PASS check-file %s（文字のファイルでないので検査の対象外）\n' "$f"
+      fi
       ;;
   esac
 done

@@ -22,10 +22,11 @@ description: 作業の最後に検証を全部回し、結果を読み、FAIL �
 3. 条件ごとに対になっているか。受け入れ条件 1 件に、確認コマンド 1 つと結果 1 行。対が無い条件は「未確認」に理由を付けて書く。
 4. 直し方が原因に向いているか。検査を緩めて通すのは直したことにならない。検査が間違っているなら、その理由を記録に残して社長に伺う。
 5. 記録を指しているか。報告は `docs/verify/<日付>.md` の記録を指す。他のプロジェクトでは `tmp/.verify/last-fast.txt` か `tmp/.verify/last-full.txt` を指す。
+6. 他のプロジェクトでは、渡した文書が揃っているか。検証は引数で渡した文書だけを検査する。このセッションで書いた文書は全部渡し、ほかのセッションが書いた文書は渡さない。セッションは AI との 1 つの会話で、依頼をまたいで続く（Claude Code の session_id、Cursor の会話）。
 
 ## 手順
 
-1. 回す。My-Lab では `bash tools/verify-all.sh --fast`、commit の前は `--full`。他のプロジェクトでは `bash tmp/tools/project-verify.sh --fast`、commit の前は `--full`。終わりの印: `RESULT: PASS|FAIL verify-all` か `RESULT: … project-verify` の行が出る。
+1. 回す。My-Lab では `bash tools/verify-all.sh --fast`、commit の前は `--full`。他のプロジェクトでは `bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>`、commit の前は `--fast` を `--full` に替える。Bash のコマンドで書いた文書も、自分で引数に入れる。引数が無ければ、文書は 1 本も検査されない。文書も命令も無い回は、PASS にならず `RESULT: WARN project-verify`（終了コード 3）で終わる。終わりの印: `RESULT: PASS|FAIL verify-all` か `RESULT: … project-verify` の行が出る。
 2. 読む。FAIL の行を上から順に `references/checks.md` の表に当て、原因の種類（文体・形式・図・スクリプト・配置・依存）を決める。終わりの印: FAIL ごとに直す場所が 1 つ決まる。
 3. 直す。原因の場所を直し、その 1 ファイルを `tools/check-file.sh <ファイル>` で確かめ、手順 1 に戻る。終わりの印: 全体が PASS。3 回直しても通らないなら、検査の誤りか要件の矛盾を疑い、記録を付けて社長に伺う。
 4. 対にする。受け入れ条件の表を作り、1 件ごとに確認コマンドと結果の抜粋を書く。確かめられない条件は「未確認（理由）」と書く。終わりの印: 表の全行に結果か理由がある。
@@ -45,11 +46,13 @@ description: 作業の最後に検証を全部回し、結果を読み、FAIL �
 - 検証を回さずに「完了」「確認済み」「動作確認」と書くこと。
 - SKIP を PASS と数えること。道具が無いなら FAIL と同じに扱う。
 - 検査を緩めて通すこと。検査の誤りは記録に残して社長に伺う。
+- 他のプロジェクトの終わりの検証と添削に、ほかのセッションが書いた文書を入れること（開いて検査すること）。依頼で読むよう言われた文書は読んでよい。
+- 何も検査しなかった回（`RESULT: WARN project-verify`、検査した文書 0 本）を、文書を書いた作業の証拠や commit の前の PASS の記録にすること。
 - 測っていない数値や、実行していない検証の結果を書くこと。「動くはず」「と思われる」を報告に書くこと。
 - `git commit`・`git push`・Issue と PR の作成を、社長の承認なしに行うこと。報告はファイルに書いて止まる。
 
 ## 提出前の確認
 
-1. `bash tools/verify-all.sh --fast`（他のプロジェクトでは `bash tmp/tools/project-verify.sh --fast`）が PASS。
+1. `bash tools/verify-all.sh --fast`（他のプロジェクトでは `bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>`）が PASS。
 2. `bash skills/verify/scripts/report-check.sh <完了報告>` が PASS。
 3. 別コンテキストの読み手テスト（My-Lab では `editor`）で判定が「出せる」。残した指摘には理由を添える。

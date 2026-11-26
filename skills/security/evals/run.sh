@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# skills/security/evals/run.sh — security の試験ケース（cases.md の 7 件）。機械で判定できる分だけを回す。
+# skills/security/evals/run.sh — security の試験ケース（cases.md の 8 件）。機械で判定できる分だけを回す。
 #   1) 完成例と雛形: 完成例は 4 つの検査を通り、雛形は穴埋めのままなので落ちる。
 #   2) RoE の負例 fixtures/bad-roe.md が、7 つの決まりで名指しで落ちる。
 #   3) 報告の負例 fixtures/bad-report.md が、7 つの決まりで名指しで落ちる。
@@ -7,6 +7,7 @@
 #   5) 検知の行列の負例 fixtures/bad-matrix.md が、4 つの決まりで落ちる。
 #   6) 報告が指す見本の試験 3 本が通る（網を使わない）。
 #   7) 写しの負例 fixtures/bad-copy-report.md が、--roe で RoE の範囲と突き合わせて 4 つの決まりで落ち、--roe なしでは通る。
+#   8) RoE の負例 fixtures/bad-cloud-roe.md が、所有の確認と署名がそろっていても、手元の外の宛先だけで落ちる。
 # 出力: ケースごとの行と、最後に RESULT: PASS|FAIL evals security (<合格>/<全部>)。
 set -u
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
@@ -74,6 +75,13 @@ copy_rules=("RoE の範囲外" 再検証の写し 試験の置き場 立てる�
 for rule in "${copy_rules[@]}"; do
   judge "fixtures/bad-copy-report.md が --roe で「${rule}」で落ちる" PASS "$(cd "$ROOT" && has report-check "\\[$rule\\]" --roe "$FX/bad-copy-roe.md" "$FX/bad-copy-report.md")"
 done
+
+# 8) 宛先は手元（127.0.0.1・localhost・::1）だけ。クラウドの環境は、検証環境でも所有の確認があっても範囲に書けない
+judge "fixtures/bad-cloud-roe.md は roe-check を通らない" FAIL "$(verdict roe-check "$FX/bad-cloud-roe.md")"
+cloud_out="$(bash "$S/roe-check.sh" "$FX/bad-cloud-roe.md" 2>&1)"
+if printf '%s\n' "$cloud_out" | grep -q '\[範囲外の宛先\]' \
+   && ! printf '%s\n' "$cloud_out" | grep -qE '\[(所有の確認|許可|連絡先|期間|止める条件|やらないこと|範囲)\]'; then r=PASS; else r=FAIL; fi
+judge "fixtures/bad-cloud-roe.md は所有の確認と署名があっても「範囲外の宛先」だけで落ちる" PASS "$r"
 
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals security ($pass/$total)"; exit 0; fi
 echo "RESULT: FAIL evals security ($pass/$total)"; exit 1

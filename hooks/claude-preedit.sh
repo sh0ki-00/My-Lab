@@ -8,6 +8,8 @@
 #   さらに、書く先が名前を 2 つ以上持つファイル（ハードリンク）なら deny。別の名前（ln ~/.claude/settings.json /tmp/x）から同じ中身を
 #   書き換える道を、パスの比較では見分けられないため。
 # 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、理由を省いて判定だけ返す。
+# セッションの始まりの印（tmp/.verify/sessions/<名前>.start）も置く。終わりの検証の範囲に使い、判定には使わない。
+#   子のシェルで置き、失敗しても判定に響かない。
 # shellcheck disable=SC2088  # 文の中の ~/ は人に見せる表記で、展開させない
 set -u
 # shellcheck source=hooks/lib.sh
@@ -15,6 +17,7 @@ set -u
 
 GLOBAL=0; [ "${1:-}" = "--global" ] && GLOBAL=1
 input="$(cat)"
+( session_mark "$input" ) >/dev/null 2>&1 || :
 tool="$(json_get tool_name "$input")"
 case "$tool" in Write|Edit|MultiEdit|NotebookEdit) ;; *) exit 0 ;; esac
 file="$(json_get tool_input.file_path "$input")"

@@ -2,7 +2,7 @@
 # shellcheck disable=SC2329  # 場面の関数は、名前を組み立てて呼ぶ（下の「実行」）
 # tools/tests/install-test.sh [<install.sh>] — install.sh の試験。偽の HOME で回し、本物の HOME には触れない。
 #   引数で試す install.sh を選べる（既定は My-Lab の install.sh）。直す前の版と比べるときに使う。
-#   置き場ごとに install.sh の写しと、身代わりの hooks 7 本（呼ばれた名前と引数を出すだけ）を置く。試すのは install.sh だけ。
+#   置き場ごとに install.sh の写しと、身代わりの hooks 8 本（呼ばれた名前と引数を出すだけ）を置く。試すのは install.sh だけ。
 #   場面は全部、LANG=C と LANG=ja_JP.UTF-8 の 2 通りで回す。bash は社長の機械と同じ /bin/bash（3.2）を使う。
 # 出力: 場面ごとに PASS <場面> [<LANG>] か FAIL <場面> [<LANG>] <理由>。最後に RESULT 行。1 件でも FAIL なら終了コード 1。
 set -u
@@ -30,10 +30,10 @@ T="$(cd -- "$T" && pwd -P)" || abort "一時ディレクトリに入れない"  
 if printf '%s' "$T" | LC_ALL=C grep -q '[^A-Za-z0-9_./@%+=:,-]'; then abort "一時ディレクトリのパスに空白か記号がある（${T}）。TMPDIR を変えて回す"; fi
 
 # ---- 部品
-mklab() {  # mklab <置き場> → install.sh の写しと、身代わりの hooks 7 本を置く
+mklab() {  # mklab <置き場> → install.sh の写しと、身代わりの hooks 8 本を置く
   local d="$1" n
   mkdir -p "$d/hooks" && cp "$SUT" "$d/install.sh" || return 1
-  for n in claude-pretooluse claude-preedit claude-postedit claude-stop cursor-before-shell cursor-after-edit cursor-stop; do
+  for n in claude-pretooluse claude-preedit claude-postedit claude-stop cursor-before-shell cursor-after-edit cursor-after-response cursor-stop; do
     cat > "$d/hooks/$n.sh" <<'EOF'
 #!/bin/bash
 echo "ran $(basename "$0") $*"
@@ -55,12 +55,12 @@ cmds() {  # cmds <ファイル> <イベント> [<matcher>] → そのイベン�
   jq -r --arg e "$2" --arg m "${3:-}" '(.hooks[$e] // [])[] | if (type == "object" and has("hooks")) then (select($m == "" or .matcher == $m) | .hooks[].command) else .command end' "$1" 2>/dev/null
 }
 
-# <ツール>:<イベント>:<matcher（無ければ空）>:<接続口の名前>。Claude の PreToolUse は Bash と Edit の 2 組
-EVENTS="claude:PreToolUse:Bash:claude-pretooluse claude:PreToolUse:Edit|Write|MultiEdit|NotebookEdit:claude-preedit claude:PostToolUse::claude-postedit claude:Stop::claude-stop cursor:beforeShellExecution::cursor-before-shell cursor:afterFileEdit::cursor-after-edit cursor:stop::cursor-stop"
+# <ツール>:<イベント>:<matcher（無ければ空）>:<hook の名前>。Claude の PreToolUse は Bash と Edit の 2 組。Cursor は返答を見る afterAgentResponse も
+EVENTS="claude:PreToolUse:Bash:claude-pretooluse claude:PreToolUse:Edit|Write|MultiEdit|NotebookEdit:claude-preedit claude:PostToolUse::claude-postedit claude:Stop::claude-stop cursor:beforeShellExecution::cursor-before-shell cursor:afterFileEdit::cursor-after-edit cursor:afterAgentResponse::cursor-after-response cursor:stop::cursor-stop"
 split_spec() { tool="${1%%:*}"; rest="${1#*:}"; e="${rest%%:*}"; rest="${rest#*:}"; m="${rest%%:*}"; n="${rest#*:}"; }   # split_spec <spec> → tool e m n
 file_of() { case "$1" in claude) printf '%s\n' "$2/.claude/settings.json" ;; *) printf '%s\n' "$2/.cursor/hooks.json" ;; esac; }
 
-one_each() {  # one_each <偽の HOME> <hooks の置き場> → 7 つの組に命令が 1 本ずつあり、字面が「bash <置き場>/<名前>.sh --global」
+one_each() {  # one_each <偽の HOME> <hooks の置き場> → 8 つの組に命令が 1 本ずつあり、字面が「bash <置き場>/<名前>.sh --global」
   local fh="$1" h="$2" spec tool rest e m n got
   for spec in $EVENTS; do
     split_spec "$spec"
@@ -69,7 +69,7 @@ one_each() {  # one_each <偽の HOME> <hooks の置き場> → 7 つの組に�
   done
 }
 
-runs_each() {  # runs_each <偽の HOME> → 7 つの組に命令が 1 本ずつあり、sh -c で走らせると身代わりが名前と --global を受け取る
+runs_each() {  # runs_each <偽の HOME> → 8 つの組に命令が 1 本ずつあり、sh -c で走らせると身代わりが名前と --global を受け取る
   local fh="$1" spec tool rest e m n got out
   for spec in $EVENTS; do
     split_spec "$spec"
@@ -117,7 +117,7 @@ case_basic() {  # 登録の中身（字面・timeout・failClosed・loop_limit�
   local lab="$W/lab/My-Lab"
   mklab "$lab" && home claude cursor || return 1
   printf '%s\n' '{"model":"keep","permissions":{"allow":["Bash(ls:*)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/x/cradle-guard-claude.sh"}]},{"matcher":"Bash","hooks":[{"type":"command","command":"/opt/tool/hooks/claude-stop.sh"},{"type":"command","command":"bash /opt/tool/hooks/claude-stop-helper.sh --global"}]}]}}' > "$FH/.claude/settings.json"
-  printf '%s\n' '{"version":1,"hooks":{"beforeShellExecution":[{"command":"/x/cradle-guard-cursor.sh"}],"afterFileEdit":[{"command":"/opt/tool/after.sh"}]}}' > "$FH/.cursor/hooks.json"
+  printf '%s\n' '{"version":1,"hooks":{"beforeShellExecution":[{"command":"/x/cradle-guard-cursor.sh"}],"afterFileEdit":[{"command":"/opt/tool/after.sh"}],"afterAgentResponse":[{"command":"/opt/tool/hooks/cursor-after-response-log.sh"}]}}' > "$FH/.cursor/hooks.json"
   run "$FH" "$W" /bin/bash "$lab/install.sh"
   [ "$RC" -eq 0 ] || { REASON="終了コード ${RC}: $(last)"; return 1; }
   jq -e --arg h "$lab/hooks" '.model == "keep" and .permissions.allow == ["Bash(ls:*)"]
@@ -130,6 +130,7 @@ case_basic() {  # 登録の中身（字面・timeout・failClosed・loop_limit�
   jq -e --arg h "$lab/hooks" '.version == 1
     and (.hooks.beforeShellExecution == [{command: "bash \($h)/cursor-before-shell.sh --global", failClosed: true, timeout: 20}])
     and (.hooks.afterFileEdit == [{command: "/opt/tool/after.sh"}, {command: "bash \($h)/cursor-after-edit.sh --global", timeout: 120}])
+    and (.hooks.afterAgentResponse == [{command: "/opt/tool/hooks/cursor-after-response-log.sh"}, {command: "bash \($h)/cursor-after-response.sh --global", timeout: 10}])
     and (.hooks.stop == [{command: "bash \($h)/cursor-stop.sh --global", timeout: 600, loop_limit: 3}])' \
     "$FH/.cursor/hooks.json" >/dev/null 2>&1 || { REASON="Cursor の登録が想定と違う"; return 1; }
 }

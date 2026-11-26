@@ -2,7 +2,8 @@
 # tools/placement-test.sh — 配置の試験（仕様書 9.4 節の 7）。
 #   使い捨てのリポジトリに deploy.sh を流し、tmp/ に skills・.company・tools が揃う、git status に tmp/ が出ない、
 #   User Rules の本文が指す tmp/ のパスが写しの中に実在する、写しの project-verify.sh が動く、を確かめる。
-#   命令のファイル（tmp/verify-commands.txt）が無い置き場では project-verify が PASS を返し、プロジェクトの試験は回らないことも確かめる。
+#   写しの project-verify.sh は、引数で渡した文書だけを検査する。命令のファイル（tmp/verify-commands.txt）も文書の引数も無い置き場では
+#   project-verify が WARN（終了コード 3）を返し、プロジェクトの試験は回らないことも確かめる。
 #   命令を書けばその命令が回り、落ちる命令と違反のある文書では FAIL になることも確かめる。
 #   写した説明の文書（tmp/claude-code.md、tmp/cursor-user-rule.md）に、写した先の check-refs が FAIL を出さないことも確かめる。
 #   さらに HOME を使い捨ての場所に向けて install.sh を回し、hooks が登録され、旧 cradle の登録が外れ、他の設定が残り、
@@ -52,18 +53,17 @@ out="$(cd "$P" && bash tmp/tools/check-refs.sh tmp/claude-code.md tmp/cursor-use
 # DEPLOYED.md の変更の数は、ファイルの本数で書く（git status の行の数ではない）
 grep -q 'git status で [0-9]* 行' "$P/tmp/DEPLOYED.md" && bad 版 "DEPLOYED.md が git status の行の数を書く"
 
-# 3. 写しの project-verify.sh が、tmp/ の文書を検査する。package.json の scripts は、命令のファイルが無ければ回さない
+# 3. 写しの project-verify.sh が、引数で渡した tmp/ の文書を検査する。package.json の scripts は、命令のファイルが無ければ回さない
 printf '{"name":"t","private":true,"scripts":{"lint":"echo lint ok","test":"echo test ok"}}\n' > "$P/package.json"
 mkdir -p "$P/tmp/flow/sample"
 printf '# 調査の覚え書き\n\n> **3 行でわかる要約**\n> 1. これは配置の試験で使う見本の文書です。\n> 2. 文体と資料の型の検査を通ることを確かめます。\n> 3. 次に、検査の結果を見ます。\n\n## 1. 目的\n\n写した道具が文書を検査できることを確かめます。短い文書なので、図と表は要りません。\n' > "$P/tmp/flow/sample/note.md"
-# 写した時点の印（tmp/.verify/last-pass）と同じ秒に書いた文書は範囲外に見える。印より新しい時刻にする（文書の新しさを確かめる試験ではない）
-[ -f "$P/tmp/.verify/last-pass" ] && python3 -I -c 'import os, sys; t = os.stat(sys.argv[1]).st_mtime + 2; os.utime(sys.argv[2], (t, t))' "$P/tmp/.verify/last-pass" "$P/tmp/flow/sample/note.md"
-out="$(cd "$P" && bash tmp/tools/project-verify.sh --fast 2>&1)" || bad project-verify "$(printf '%s\n' "$out" | grep -E '^FAIL' | head -3)"
+out="$(cd "$P" && bash tmp/tools/project-verify.sh --fast -- tmp/flow/sample/note.md 2>&1)" || bad project-verify "$(printf '%s\n' "$out" | grep -E '^FAIL' | head -3)"
 printf '%s\n' "$out" | grep -q 'npm run' && bad project-verify "命令のファイルが無いのに package.json の scripts を回す"
 printf '%s\n' "$out" | grep -q 'RESULT: PASS check-file' || bad project-verify "文書に check-file を回さない"
 printf '%s\n' "$out" | grep -q 'RESULT: PASS check-refs' || bad project-verify "文書に check-refs を回さない"
 grep -q '^RESULT: PASS project-verify --fast' "$P/tmp/.verify/last-fast.txt" 2>/dev/null || bad project-verify "tmp/.verify/last-fast.txt に RESULT 行が無い"
-# 3b. 命令のファイル（tmp/verify-commands.txt）が無い置き場は PASS（終了コード 0）で、プロジェクトの試験は回らない
+# 3b. 命令のファイル（tmp/verify-commands.txt）も文書の引数も無い置き場は WARN（終了コード 3）で、プロジェクトの試験は回らない
+#     何も検査していない回を PASS にしない（tools/project-verify.sh の冒頭）。
 #     tests/ には落ちる試験を置く。自動で回れば FAIL になるので、回っていないことが分かる
 Q="$T/bare"
 mkdir -p "$Q/src" "$Q/tests"
@@ -72,9 +72,9 @@ printf 'x = 1\n' > "$Q/src/app.py"
 printf 'import unittest\n\n\nclass T(unittest.TestCase):\n    def test_one(self):\n        self.assertEqual(1, 2)\n' > "$Q/tests/test_app.py"
 bash "$LAB/deploy.sh" "$Q" >/dev/null 2>&1 || bad deploy "bare への deploy が落ちた"
 out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
-{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^RESULT: PASS project-verify --fast' && ! printf '%s\n' "$out" | grep -q 'unittest'; } \
-  || bad project-verify "命令のファイルが無い置き場で PASS（終了コード 0）にならないか、プロジェクトの試験を自動で回す（rc=${rc}）"
-[ -f "$Q/tmp/.verify/last-pass" ] || bad project-verify "命令のファイルが無い置き場の PASS で、tmp/.verify/last-pass を書かない"
+{ [ "$rc" -eq 3 ] && printf '%s\n' "$out" | grep -q '^RESULT: WARN project-verify --fast' && ! printf '%s\n' "$out" | grep -q 'unittest'; } \
+  || bad project-verify "命令のファイルも文書の引数も無い置き場で WARN（終了コード 3）にならないか、プロジェクトの試験を自動で回す（rc=${rc}）"
+[ -f "$Q/tmp/.verify/last-pass" ] || bad project-verify "deploy.sh の --baseline が、写した時点の印 tmp/.verify/last-pass を置かない"
 # 通る命令を書くと、その命令が回って PASS。# で始まる行と空行は飛ばす
 printf '# 検証の命令\n\necho lint ok\n' > "$Q/tmp/verify-commands.txt"
 out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
@@ -88,8 +88,7 @@ out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
 printf 'echo lint ok\n' > "$Q/tmp/verify-commands.txt"
 mkdir -p "$Q/tmp/flow/bad"
 printf '# Note\n\nThis service handles order intake for the shop and stores every order in PostgreSQL for later reporting.\n' > "$Q/tmp/flow/bad/note.md"
-[ -f "$Q/tmp/.verify/last-pass" ] && python3 -I -c 'import os, sys; t = os.stat(sys.argv[1]).st_mtime + 2; os.utime(sys.argv[2], (t, t))' "$Q/tmp/.verify/last-pass" "$Q/tmp/flow/bad/note.md"
-out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast 2>&1)"; rc=$?
+out="$(cd "$Q" && bash tmp/tools/project-verify.sh --fast -- tmp/flow/bad/note.md 2>&1)"; rc=$?
 { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^RESULT: FAIL check-file'; } || bad project-verify "違反のある文書で FAIL（終了コード 1）にならない（rc=${rc}）"
 
 # 4. hooks の部品が写しの中の道具を見つける

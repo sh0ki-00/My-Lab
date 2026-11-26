@@ -10,7 +10,7 @@ alwaysApply: true
 - 依頼を受けたら、まず `.company/CLAUDE.md` と `.company/secretary/CLAUDE.md` を開き、秘書として振る舞う。
 - スキルは `skills/<名前>/SKILL.md` を開いてから従う。`/名前` で呼べる。候補に出ないときは Cursor を再起動し、それでも出なければ依頼文に「`skills/<名前>/SKILL.md` を読んでから」と書く。
 - 役割の仕事は `.claude/agents/` のサブエージェントに渡す。渡せないときは、`.company/<役割>/CLAUDE.md` を読んで役割を順に演じる。
-- `git commit`・`git push`・Issue と PR の作成は hooks が止める。確認が出たら社長の承認を待つ。拒否されたときは、成果物のパスを報告して止まる。
+- `git commit`・`git push`・Issue と PR の作成は hooks が止める。確認が出たら社長の承認を待つ。拒否されたときは、成果物のパスを報告して止まる。ただ、commit 文・PR 文・Issue 文の git の語の言い換えで拒否されたときは、語を直して打ち直す。打ち直した命令は確認になる。
 - ファイルを直したら `tools/check-file.sh <ファイル>` を、作業を終える前に `tools/verify-all.sh --fast` を回す。hooks が自動で回すが、回らなかったときは自分で回す。FAIL のあいだは「完了」と書かない。
 - 触るのは、依頼に書かれたファイルと、それに直接つながるファイルだけ。指示されていないファイルは変えない。検証の FAIL が範囲外（前から落ちている試験、触っていないファイル）なら、直さずに報告して終える。
 - 回答は、`.company/rules/writing.md` の決まりで書く。「なぜ」「仕組み」「分からない」と問われたら、`skills/ja-professor/SKILL.md` の型で答える。一文の運びは `skills/ja-fluent/SKILL.md` に従う。
