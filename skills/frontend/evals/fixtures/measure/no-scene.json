@@ -1,0 +1,63 @@
+{
+ "tool": "motion-measure",
+ "version": 1,
+ "note": "架空の記録。window.__scene の無いページの負例で、測った値ではない",
+ "measured_at": "2026-11-26T00:00:00.000Z",
+ "target": {
+  "scene": "start-to-login",
+  "url": "http://127.0.0.1:0/",
+  "dir": null
+ },
+ "browser": {
+  "name": "chromium",
+  "version": "架空",
+  "headless": true,
+  "fictional": true,
+  "webgl_renderer": null,
+  "software": null
+ },
+ "viewport": {
+  "width": 1280,
+  "height": 800
+ },
+ "budget": {
+  "first_frame_ms": 100,
+  "frame_long_ms": 50,
+  "frame_slow_ms": 25,
+  "frame_slow_ratio": 0.05,
+  "beat_tolerance_ms": 20,
+  "props": [
+   "transform",
+   "opacity"
+  ],
+  "skip_ms": 300,
+  "flash_per_second": 3,
+  "sound_tolerance_ms": 20,
+  "initial_js_kb": 170,
+  "deferred_kb": 600,
+  "deferred_js_kb": 170,
+  "ready_ms": 3000,
+  "ambient_wait_ms": 5000,
+  "flash_step_ms": 33
+ },
+ "contract": {
+  "found": false,
+  "missing": [
+   "__scene"
+  ]
+ },
+ "ledger": null,
+ "loaf_supported": true,
+ "runs": [
+  {
+   "cpu": 1,
+   "run": 1,
+   "error": "window.__scene が無い"
+  }
+ ],
+ "reduced": null,
+ "ambient": null,
+ "sound_muted": null,
+ "flash": null,
+ "assets": null
+}

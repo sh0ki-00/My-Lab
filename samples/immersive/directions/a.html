@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>方向 A ・ 潜水艇の計器盤 ・ 深海の探査日誌</title>
+<link rel="icon" href="data:,">
+<style>
+  /* 方向 A「潜水艇の計器盤」の静止画。サンプル（samples/immersive/）が動かしているのは、この方向。
+     生の値は :root にだけ書き、下の規則は変数だけで描く。外の素材は読まない。動きは無い */
+  :root {
+    color-scheme: dark;
+    --water-1: #86A6A9;
+    --water-2: #2D5966;
+    --water-3: #12323C;
+    --water-4: #071A21;
+    --shaft: #DDE9E4;
+    --snow: #D3DDD7;
+    --panel: #1E2622;
+    --panel-rim: #3A453E;
+    --tick: #59635B;
+    --ink: #E6E1D3;
+    --ink-sub: #A9B1A6;
+    --title-ink: #EEE8D6;
+    --title-sub: #CBD4CD;
+    --lamp: #F0B24A;
+    --lamp-hot: #FFE6AE;
+    --lamp-ring: #8A6326;
+    --lamp-glow: rgb(240 178 74 / 0.55);
+    --font-title: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+    --font-text: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", sans-serif;
+    --font-num: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+    --size-title: clamp(40px, 9vw, 88px);
+    --size-lede: 16px;
+    --size-body: 15px;
+    --size-sub: 12px;
+    --gutter: 16px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-14: 56px;
+    --rim: 1px;
+    --radius: 6px;
+    --start-height: 56px;
+    --start-pad: 24px;
+    --lamp-size: 18px;
+    --lamp-glow-size: 56px;
+    --note-width: 300px;
+    --strip-height: 44px;
+    --tick-gap: 8px;
+    --tick-major: 40px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background-color: var(--water-4); }
+  body { font-family: var(--font-text); color: var(--ink); }
+  .world { position: fixed; inset: 0; width: 100%; height: 100%; }
+  .w1 { stop-color: var(--water-1); }
+  .w2 { stop-color: var(--water-2); }
+  .w3 { stop-color: var(--water-3); }
+  .w4 { stop-color: var(--water-4); }
+  .sh0 { stop-color: var(--shaft); stop-opacity: 0.09; }
+  .sh1 { stop-color: var(--shaft); stop-opacity: 0; }
+  .snow { fill: var(--snow); }
+  .still {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: var(--gutter);
+  }
+  .note {
+    max-width: var(--note-width);
+    padding: var(--space-3) var(--space-4);
+    border: var(--rim) solid var(--panel-rim);
+    border-radius: var(--radius);
+    background-color: var(--panel);
+  }
+  .note p { margin: 0; font-size: var(--size-sub); line-height: 1.6; color: var(--ink-sub); }
+  .note .note-name { color: var(--ink); font-weight: 600; }
+  .content { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: var(--space-5) 0; }
+  .logline { margin: 0 0 var(--space-3); font-size: var(--size-sub); letter-spacing: 0.04em; color: var(--title-sub); }
+  h1 {
+    margin: 0;
+    padding-inline-start: 0.12em;
+    font-family: var(--font-title);
+    font-size: var(--size-title);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: 0.12em;
+    color: var(--title-ink);
+    text-wrap: balance;
+  }
+  .lede { margin: var(--space-4) 0 0; font-size: var(--size-lede); color: var(--title-sub); }
+  .start {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--start-height);
+    margin-top: var(--space-14);
+    padding: 0 var(--start-pad) 0 var(--space-5);
+    border: var(--rim) solid var(--panel-rim);
+    border-radius: var(--start-height);
+    background-color: var(--panel);
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--size-body);
+    letter-spacing: 0.04em;
+  }
+  .lamp { position: relative; display: inline-block; width: var(--lamp-size); height: var(--lamp-size); }
+  .lamp::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--lamp-glow-size);
+    height: var(--lamp-glow-size);
+    margin-left: calc(var(--lamp-glow-size) / -2);
+    margin-top: calc(var(--lamp-glow-size) / -2);
+    border-radius: 50%;
+    background-image: radial-gradient(closest-side, var(--lamp-glow), transparent);
+    opacity: 0.2;
+    transform: scale(1.6);
+  }
+  .lamp::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-image: radial-gradient(circle at 38% 34%, var(--lamp-hot), var(--lamp) 62%);
+    box-shadow: 0 0 0 var(--rim) var(--lamp-ring);
+  }
+  /* 画面の下の端に、計器の帯（海面の深度と、目盛り） */
+  .strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-height: var(--strip-height);
+    padding: 0 var(--space-4);
+    border: var(--rim) solid var(--panel-rim);
+    border-radius: var(--radius);
+    background-color: var(--panel);
+    font-size: var(--size-sub);
+    color: var(--ink-sub);
+  }
+  .strip .num { font-family: var(--font-num); color: var(--ink); }
+  .strip .ticks {
+    flex: 1;
+    height: var(--space-2);
+    background-image:
+      repeating-linear-gradient(90deg, var(--ink-sub) 0 var(--rim), transparent var(--rim) var(--tick-major)),
+      repeating-linear-gradient(90deg, var(--tick) 0 var(--rim), transparent var(--rim) var(--tick-gap));
+    background-size: 100% 100%, 100% 50%;
+    background-position: left top, left bottom;
+    background-repeat: no-repeat;
+  }
+</style>
+</head>
+<body>
+<svg class="world" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="w1"/><stop offset="0.22" class="w2"/><stop offset="0.6" class="w3"/><stop offset="1" class="w4"/>
+    </linearGradient>
+    <linearGradient id="shaft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="sh0"/><stop offset="1" class="sh1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="900" fill="url(#water)"/>
+  <polygon points="238,0 338,0 497,675 209,675" fill="url(#shaft)"/>
+  <polygon points="641,0 741,0 900,675 612,675" fill="url(#shaft)"/>
+  <polygon points="1044,0 1144,0 1303,675 1015,675" fill="url(#shaft)"/>
+  <g class="snow">
+    <circle cx="1412" cy="880" r="1.2" opacity="0.35"/><circle cx="429" cy="16" r="1.0" opacity="0.29"/><circle cx="1155" cy="373" r="1.2" opacity="0.34"/><circle cx="92" cy="808" r="1.1" opacity="0.33"/><circle cx="1435" cy="644" r="1.0" opacity="0.30"/><circle cx="1318" cy="743" r="1.1" opacity="0.32"/><circle cx="1352" cy="267" r="1.1" opacity="0.31"/><circle cx="1353" cy="169" r="1.3" opacity="0.37"/><circle cx="334" cy="474" r="1.1" opacity="0.33"/><circle cx="595" cy="271" r="1.1" opacity="0.32"/><circle cx="359" cy="43" r="1.1" opacity="0.31"/><circle cx="645" cy="873" r="1.2" opacity="0.35"/><circle cx="1206" cy="782" r="1.0" opacity="0.29"/><circle cx="1157" cy="756" r="1.1" opacity="0.31"/><circle cx="345" cy="88" r="1.2" opacity="0.35"/><circle cx="855" cy="685" r="1.0" opacity="0.29"/><circle cx="751" cy="668" r="1.0" opacity="0.29"/><circle cx="1422" cy="400" r="1.1" opacity="0.33"/><circle cx="1266" cy="50" r="1.0" opacity="0.30"/><circle cx="802" cy="644" r="1.0" opacity="0.29"/><circle cx="46" cy="45" r="1.1" opacity="0.32"/><circle cx="1218" cy="201" r="1.7" opacity="0.47"/><circle cx="1121" cy="230" r="1.2" opacity="0.34"/><circle cx="1225" cy="548" r="1.3" opacity="0.36"/><circle cx="1285" cy="676" r="1.0" opacity="0.30"/><circle cx="657" cy="334" r="1.2" opacity="0.35"/><circle cx="716" cy="867" r="1.6" opacity="0.46"/><circle cx="878" cy="384" r="1.0" opacity="0.29"/><circle cx="861" cy="147" r="1.4" opacity="0.41"/><circle cx="678" cy="565" r="1.0" opacity="0.30"/><circle cx="1116" cy="409" r="1.8" opacity="0.50"/><circle cx="1169" cy="560" r="1.0" opacity="0.29"/><circle cx="87" cy="788" r="1.9" opacity="0.53"/><circle cx="568" cy="822" r="1.4" opacity="0.39"/><circle cx="927" cy="828" r="1.5" opacity="0.44"/><circle cx="1384" cy="114" r="1.7" opacity="0.48"/><circle cx="959" cy="369" r="1.1" opacity="0.32"/><circle cx="349" cy="800" r="1.2" opacity="0.34"/><circle cx="1243" cy="406" r="1.3" opacity="0.36"/><circle cx="701" cy="206" r="1.1" opacity="0.33"/><circle cx="1130" cy="826" r="1.6" opacity="0.46"/><circle cx="199" cy="786" r="1.1" opacity="0.31"/><circle cx="428" cy="544" r="1.1" opacity="0.31"/><circle cx="511" cy="223" r="1.6" opacity="0.45"/><circle cx="565" cy="589" r="1.5" opacity="0.43"/><circle cx="1309" cy="456" r="1.7" opacity="0.48"/><circle cx="40" cy="113" r="1.0" opacity="0.30"/><circle cx="1217" cy="81" r="1.3" opacity="0.38"/><circle cx="1104" cy="50" r="1.4" opacity="0.40"/><circle cx="296" cy="867" r="1.9" opacity="0.53"/><circle cx="93" cy="628" r="1.4" opacity="0.39"/><circle cx="763" cy="352" r="1.2" opacity="0.34"/><circle cx="400" cy="246" r="1.1" opacity="0.33"/><circle cx="1072" cy="619" r="1.1" opacity="0.33"/><circle cx="350" cy="639" r="1.3" opacity="0.38"/><circle cx="424" cy="647" r="1.5" opacity="0.43"/><circle cx="50" cy="119" r="1.7" opacity="0.49"/><circle cx="406" cy="792" r="1.3" opacity="0.36"/><circle cx="1392" cy="450" r="1.7" opacity="0.48"/><circle cx="845" cy="740" r="1.2" opacity="0.36"/><circle cx="1015" cy="107" r="1.2" opacity="0.34"/><circle cx="1290" cy="505" r="2.0" opacity="0.58"/><circle cx="217" cy="369" r="1.4" opacity="0.41"/><circle cx="102" cy="414" r="1.4" opacity="0.41"/><circle cx="1282" cy="351" r="1.2" opacity="0.33"/><circle cx="740" cy="158" r="1.4" opacity="0.39"/><circle cx="96" cy="313" r="1.0" opacity="0.30"/><circle cx="830" cy="733" r="1.4" opacity="0.41"/><circle cx="53" cy="7" r="1.9" opacity="0.55"/><circle cx="1026" cy="852" r="1.2" opacity="0.35"/><circle cx="635" cy="430" r="1.3" opacity="0.38"/><circle cx="152" cy="427" r="1.5" opacity="0.42"/><circle cx="1369" cy="531" r="1.2" opacity="0.35"/><circle cx="108" cy="546" r="1.4" opacity="0.41"/>
+  </g>
+</svg>
+<main class="still">
+  <aside class="note" aria-label="方向の説明">
+    <p class="note-name">方向 A ・ 潜水艇の計器盤</p>
+    <p class="note-story">利用者は潜水艇の観測員で、計器盤の前に座って今日の記録を付ける。押した灯が、そのまま計器盤の電源ランプになる。</p>
+  </aside>
+  <div class="content">
+    <p class="logline">架空のアプリのサンプル</p>
+    <h1>深海の探査日誌</h1>
+    <p class="lede">今夜の観測を、計器盤の前で記録します。</p>
+    <button class="start" type="button"><span class="lamp" aria-hidden="true"></span>潜航を始める</button>
+  </div>
+  <div class="strip" aria-hidden="true">
+    <span>深度 <span class="num">0</span> m ・ 海面</span>
+    <span class="ticks"></span>
+    <span>電源 待機</span>
+  </div>
+</main>
+</body>
+</html>

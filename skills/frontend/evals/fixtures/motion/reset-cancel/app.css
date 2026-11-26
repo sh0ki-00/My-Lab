@@ -1,0 +1,4 @@
+/* 負例: 40 秒で回り続ける背景。縮小版はあるが、このファイルに止める手段が無い。別の reset.js の cancel() では通さない。 */
+.backdrop { animation: drift 40s linear infinite; }
+@keyframes drift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .backdrop { animation: none; } }

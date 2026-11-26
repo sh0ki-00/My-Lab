@@ -1,0 +1,14 @@
+<!doctype html>
+<!-- 負例: script で音を鳴らすのに、消音の手段が無い。別の video の muted 属性を、消音の手段と取り違えない。 -->
+<html lang="ja">
+<head><meta charset="utf-8"><title>負例 video の muted</title></head>
+<body>
+  <video src="loop.mp4" muted controls></video>
+  <button type="button" class="start">スタート</button>
+  <script>
+    document.querySelector('.start').addEventListener('click', () => {
+      new Audio('chime.mp3').play();
+    });
+  </script>
+</body>
+</html>

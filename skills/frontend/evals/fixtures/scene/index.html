@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- 計測のスクリプト（scripts/motion-measure.mjs）を試す場面。window.__scene の約束を満たす最小の実装で、題材と数値は架空。 -->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>深海の探査日誌</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<canvas id="particles" aria-hidden="true"></canvas>
+<main>
+  <section id="title-scene" aria-label="題名">
+    <h1 id="title">深海の探査日誌</h1>
+    <button type="button" id="start-button">スタート</button>
+  </section>
+  <section id="login-frame" aria-label="ログイン" hidden inert>
+    <h2>ログイン</h2>
+    <label>メールアドレス <input id="email" type="email" autocomplete="username"></label>
+    <label>パスワード <input id="password" type="password" autocomplete="current-password"></label>
+    <button type="button" id="login">ログインする</button>
+  </section>
+</main>
+<div class="meta">
+  <button type="button" id="stop" aria-pressed="false">背景の動きを止める</button>
+  <button type="button" id="mute" aria-pressed="false">音を消す</button>
+</div>
+<script type="module" src="scene.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+/* 正例: 動きはセレクタごとに縮小版で上書きし、回り続ける動きは .is-still で止められる。 */
+.title { animation: rise var(--duration-enter) var(--ease-enter) both; }
+.start { transition: transform var(--duration-press) var(--ease-enter); }
+.particles { animation: drift 40s linear infinite; }
+.is-still .particles { animation-play-state: paused; }
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes drift { from { transform: translateY(0); } to { transform: translateY(-120px); } }
+@media (prefers-reduced-motion: reduce) {
+  .title, .particles { animation: none; }
+}

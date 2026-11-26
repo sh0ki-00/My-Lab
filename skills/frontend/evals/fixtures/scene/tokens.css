@@ -1,0 +1,7 @@
+/* 試験用の場面のトークン。色・大きさ・書体はここにだけ生の値を書く。時間は台帳（scene.js の ledger）が持つ。 */
+:root {
+  color-scheme: dark;
+  --sea: #04121c; --ink: #e8f4f8; --glow: #7fd3e6;
+  --font-text: system-ui, sans-serif;
+  --size-title: 48px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --radius-pill: 999px;
+}

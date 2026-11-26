@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>方向 C ・ 夜明けの甲板 ・ 深海の探査日誌</title>
+<link rel="icon" href="data:,">
+<style>
+  /* 方向 C「夜明けの甲板」の静止画。調査船の甲板から、夜明けの海へ探査機を下ろす世界。
+     海の中ではなく、海の上の外気と鋼の甲板で描く。字は船体の塗装の名前の板に載せる。
+     狭い画面でも A フレームと探査機が見えるよう、絵は右端に寄せて切り取る。
+     生の値は :root にだけ書き、下の規則は変数だけで描く。外の素材は読まない。動きは無い */
+  :root {
+    color-scheme: dark;
+    --sky-1: #5E7387;
+    --sky-2: #A9A69E;
+    --sky-3: #E6C29C;
+    --sun: #F6DAB0;
+    --sea-1: #4C6878;
+    --sea-2: #1D303C;
+    --glitter: #F3D2A2;
+    --deck: #1A252B;
+    --rail: #2D3A41;
+    --steel: #27343B;
+    --cable: #10171B;
+    --sub: #D9A43E;
+    --sub-shade: #A87A25;
+    --port: #22303A;
+    --plate: #1F2B31;
+    --plate-rim: #D9A43E;
+    --ink: #F2EEE4;
+    --ink-sub: #C3CCCC;
+    --button: #E2B33F;
+    --button-ring: #0F1518;
+    --font-text: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", sans-serif;
+    --font-num: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+    --size-title: clamp(34px, 6.4vw, 68px);
+    --size-lede: 15px;
+    --size-body: 15px;
+    --size-sub: 12px;
+    --gutter: 16px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --rim: 1px;
+    --rule: 3px;
+    --radius: 4px;
+    --plate-width: 520px;
+    --note-width: 300px;
+    --button-size: 44px;
+    --button-ring-width: 4px;
+    --control-height: 56px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background-color: var(--sea-2); }
+  body { font-family: var(--font-text); color: var(--ink); }
+  .world { position: fixed; inset: 0; width: 100%; height: 100%; }
+  .k1 { stop-color: var(--sky-1); }
+  .k2 { stop-color: var(--sky-2); }
+  .k3 { stop-color: var(--sky-3); }
+  .s1 { stop-color: var(--sea-1); }
+  .s2 { stop-color: var(--sea-2); }
+  .sun0 { stop-color: var(--sun); stop-opacity: 0.7; }
+  .sun1 { stop-color: var(--sun); stop-opacity: 0; }
+  .glitter { stroke: var(--glitter); stroke-linecap: round; }
+  .horizon { stroke: var(--sun); stroke-opacity: 0.5; stroke-width: 1.5; }
+  .deck { fill: var(--deck); }
+  .rail { stroke: var(--rail); stroke-width: 7; stroke-linecap: round; }
+  .post { stroke: var(--rail); stroke-width: 6; }
+  .seam { stroke: var(--rail); stroke-width: 2; stroke-opacity: 0.6; }
+  .steel { stroke: var(--steel); stroke-width: 20; stroke-linecap: square; fill: none; }
+  .sheave { fill: var(--steel); stroke: var(--cable); stroke-width: 3; }
+  .cable { stroke: var(--cable); stroke-width: 2.5; }
+  .sub { fill: var(--sub); }
+  .sub-shade { fill: var(--sub-shade); }
+  .port { fill: var(--port); stroke: var(--sub-shade); stroke-width: 3; }
+  .still {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: var(--gutter);
+  }
+  .note {
+    max-width: var(--note-width);
+    padding: var(--space-3) var(--space-4);
+    border-left: var(--rule) solid var(--plate-rim);
+    background-color: var(--plate);
+  }
+  .note p { margin: 0; font-size: var(--size-sub); line-height: 1.6; color: var(--ink-sub); }
+  .note .note-name { color: var(--ink); font-weight: 700; }
+  .content { display: grid; align-items: center; justify-items: start; padding: var(--space-6) 0; }
+  /* 狭い画面では板を甲板の上（下の端）に置き、A フレームと探査機を見せる */
+  @media (max-width: 600px) {
+    .content { align-items: end; }
+  }
+  /* 船体に塗った名前の板。太いゴシックを字間を空けて置く */
+  .board {
+    width: min(var(--plate-width), 100%);
+    padding: var(--space-8) var(--space-6);
+    border-top: var(--rule) solid var(--plate-rim);
+    border-radius: var(--radius);
+    background-color: var(--plate);
+  }
+  .logline { margin: 0 0 var(--space-3); font-family: var(--font-num); font-size: var(--size-sub); letter-spacing: 0.12em; color: var(--ink-sub); }
+  h1 {
+    margin: 0;
+    font-family: var(--font-text);
+    font-size: var(--size-title);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: 0.2em;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .lede { margin: var(--space-4) 0 0; font-size: var(--size-lede); line-height: 1.7; color: var(--ink-sub); }
+  /* 揚降機の押しボタン。黄の丸を黒い輪で囲む */
+  .start {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: var(--control-height);
+    margin-top: var(--space-6);
+    padding: 0 var(--space-6) 0 var(--space-2);
+    border: var(--rim) solid var(--rail);
+    border-radius: var(--control-height);
+    background-color: var(--deck);
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--size-body);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .push {
+    width: var(--button-size);
+    height: var(--button-size);
+    border: var(--button-ring-width) solid var(--button-ring);
+    border-radius: 50%;
+    background-color: var(--button);
+    box-shadow: 0 0 0 var(--rim) var(--rail);
+  }
+</style>
+</head>
+<body>
+<svg class="world" viewBox="0 0 1440 900" preserveAspectRatio="xMaxYMid slice" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="k1"/><stop offset="0.62" class="k2"/><stop offset="1" class="k3"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="s1"/><stop offset="1" class="s2"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" class="sun0"/><stop offset="1" class="sun1"/>
+    </radialGradient>
+  </defs>
+  <!-- 空と、水平線の近くの朝の光 -->
+  <rect width="1440" height="520" fill="url(#sky)"/>
+  <circle cx="1000" cy="520" r="280" fill="url(#sun)"/>
+  <!-- 海と、光の照り返し -->
+  <rect y="520" width="1440" height="380" fill="url(#sea)"/>
+  <line class="horizon" x1="0" y1="520" x2="1440" y2="520"/>
+  <g class="glitter">
+    <line x1="960" y1="534" x2="1040" y2="534" stroke-width="2" stroke-opacity="0.6"/>
+    <line x1="975" y1="548" x2="1028" y2="548" stroke-width="2" stroke-opacity="0.5"/>
+    <line x1="948" y1="566" x2="1060" y2="566" stroke-width="2" stroke-opacity="0.4"/>
+    <line x1="984" y1="588" x2="1020" y2="588" stroke-width="2" stroke-opacity="0.35"/>
+    <line x1="930" y1="612" x2="1072" y2="612" stroke-width="2.5" stroke-opacity="0.25"/>
+    <line x1="970" y1="640" x2="1034" y2="640" stroke-width="2.5" stroke-opacity="0.2"/>
+  </g>
+  <!-- 船尾の A フレームと、吊った探査機 -->
+  <path class="steel" d="M1110,770 L1150,300 L1310,300 L1350,770"/>
+  <line class="cable" x1="1230" y1="314" x2="1230" y2="420"/>
+  <circle class="sheave" cx="1230" cy="312" r="16"/>
+  <g transform="translate(1230 460)">
+    <rect class="sub" x="-74" y="-40" width="148" height="80" rx="38"/>
+    <rect class="sub-shade" x="-74" y="8" width="148" height="32" rx="16"/>
+    <circle class="port" cx="34" cy="-6" r="20"/>
+    <rect class="sub-shade" x="-8" y="-52" width="16" height="14"/>
+  </g>
+  <!-- 甲板と手すり -->
+  <rect class="deck" y="770" width="1440" height="130"/>
+  <g class="seam">
+    <line x1="0" y1="812" x2="1440" y2="812"/><line x1="0" y1="858" x2="1440" y2="858"/>
+    <line x1="300" y1="770" x2="260" y2="900"/><line x1="720" y1="770" x2="720" y2="900"/><line x1="1140" y1="770" x2="1180" y2="900"/>
+  </g>
+  <line class="rail" x1="0" y1="708" x2="1440" y2="708"/>
+  <line class="rail" x1="0" y1="740" x2="1440" y2="740"/>
+  <g class="post">
+    <line x1="60" y1="708" x2="60" y2="770"/><line x1="240" y1="708" x2="240" y2="770"/><line x1="420" y1="708" x2="420" y2="770"/><line x1="600" y1="708" x2="600" y2="770"/><line x1="780" y1="708" x2="780" y2="770"/><line x1="960" y1="708" x2="960" y2="770"/><line x1="1140" y1="708" x2="1140" y2="770"/><line x1="1320" y1="708" x2="1320" y2="770"/>
+  </g>
+</svg>
+<main class="still">
+  <aside class="note" aria-label="方向の説明">
+    <p class="note-name">方向 C ・ 夜明けの甲板</p>
+    <p class="note-story">利用者は調査船の甲板員で、夜明けに探査機を海へ下ろす。押すと、探査機が水平線の下へ沈んでいく。</p>
+  </aside>
+  <div class="content">
+    <div class="board">
+      <p class="logline">架空のアプリのサンプル ・ 第 214 夜</p>
+      <h1>深海の探査日誌</h1>
+      <p class="lede">夜明けの海に探査機を下ろし、今日の観測を記録します。</p>
+      <button class="start" type="button"><span class="push" aria-hidden="true"></span>潜航を始める</button>
+    </div>
+  </div>
+</main>
+</body>
+</html>

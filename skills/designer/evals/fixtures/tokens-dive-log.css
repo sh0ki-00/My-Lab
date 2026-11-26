@@ -1,0 +1,56 @@
+/* 没入の型のトークンの正例（架空のアプリ「深海の探査日誌」）。fidelity-check の自己試験と evals が使う。
+   色は examples/design-plan-dive-log.md の 6 色だけを 16 進で書き、導出は color-mix の式で書く。
+   時間と曲線は examples/motion-plan-dive-log.md のトークンの表と同じ名前と値にする。
+   今の型の計画書に当てると、--duration-scene の 1400ms が 300ms の線で落ちる。 */
+:root {
+  /* 名前つきの 6 色 */
+  --sea-surface: #2F5A66;
+  --deep-sea: #0D1B22;
+  --panel: #222B2A;
+  --scale: #DCE3DD;
+  --lamp: #F0B34A;
+  --warning-lamp: #FF8A70;
+  /* 導出する色 */
+  --text-sub: color-mix(in srgb, var(--scale) 70%, var(--panel));
+  --field: color-mix(in srgb, var(--deep-sea) 60%, var(--panel));
+  --field-edge: color-mix(in srgb, var(--scale) 45%, var(--panel));
+  /* 書体。この Mac に入っている書体だけで 3 役 */
+  --font-text: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-num: Menlo, monospace;
+  --size-title: 56px;
+  --size-body: 16px;
+  --size-sub: 14px;
+  /* 応答の 3 段 */
+  --duration-1: 80ms;
+  --duration-2: 120ms;
+  --duration-3: 180ms;
+  /* 移動と見せ場。没入の型だけ */
+  --duration-move: 400ms;
+  --duration-scene: 1400ms;
+  --duration-scene-repeat: 600ms;
+  --duration-scene-reduced: 150ms;
+  /* 見せ場「潜る」の拍 */
+  --dive-snow: 640ms;
+  --dive-light-arc: 700ms;
+  --dive-water: 880ms;
+  --stagger: 60ms;
+  /* 曲線は 4 つ */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-leave: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-arrive: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-settle: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-1: 0ms;
+    --duration-2: 0ms;
+    --duration-3: 0ms;
+    --duration-move: 0ms;
+    --duration-scene: var(--duration-scene-reduced);
+    --duration-scene-repeat: var(--duration-scene-reduced);
+    --dive-snow: 0ms;
+    --dive-light-arc: 0ms;
+    --dive-water: 0ms;
+    --stagger: 0ms;
+  }
+}

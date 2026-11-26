@@ -33,7 +33,7 @@
   --radius-control: 4px;
   --radius-panel: 8px;
   --shadow-panel: 0 2px 4px rgb(0 0 0 / 0.12), 0 8px 16px rgb(0 0 0 / 0.06);
-  /* 動き。300ms 未満 */
+  /* 動き。今の型と既存に合わせる型は 300ms 未満。没入の型は、演出計画書のトークンの表（移動と見せ場の時間、曲線 4 つ、ずらし）を同じ名前と値で足す */
   --duration-1: 80ms;
   --duration-2: 120ms;
   --duration-3: 180ms;

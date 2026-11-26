@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- 負例: script の中の body.animate に縮小版の分岐が無い。同じ html の CSS の prefers-reduced-motion（別の規則）では通さない。 -->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>負例 html の script</title>
+<style>
+  .note { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .note { opacity: 1; } }
+</style>
+</head>
+<body>
+  <p class="note">見せ場</p>
+  <script>
+    document.body.animate([{ transform: 'translateX(400px)' }, { transform: 'none' }], 400);
+  </script>
+</body>
+</html>

@@ -134,9 +134,16 @@ v_shellcheck() {  # 9 スクリプトの静的検査: shellcheck と、全角の
   if python3 -I "$TOOLS/lib/check_var_brace.py" $files; then echo "RESULT: PASS var-brace ($n 本)"; else rc=1; fi
   return $rc
 }
-v_sample() {  # 10 見本アプリの実測
+v_sample() {  # 10 見本アプリの実測: 業務のサンプル（samples/app）と、没入のサンプル（samples/immersive）の計測の判定
+  local rc=0
   need node || return 1
-  node "$TOOLS/sample-app-test.mjs"
+  node "$TOOLS/sample-app-test.mjs" || rc=1
+  # 没入のサンプルは --full のときだけ（2026-11-26 の実測で約 42 秒）。判定の自己試験を先に回し、通ってから実測する。
+  # 計測の 12 項目（CPU 4 倍遅い条件を含む）と、最初の 1 画面の LCP と CLS を判定する。記録は tmp/.verify/immersive-measure.json
+  if [ "$MODE" = "full" ]; then
+    if node "$TOOLS/immersive-test.mjs" --selftest; then node "$TOOLS/immersive-test.mjs" || rc=1; else rc=1; fi
+  fi
+  return $rc
 }
 v_secrets() {  # 11 秘密と依存
   local rc=0

@@ -1,0 +1,3 @@
+/* 負例の相方: 色のトークン。名前に muted を含むが、消音の手段ではない。 */
+:root { --muted: #6b7280; }
+.note { color: var(--muted); }

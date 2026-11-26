@@ -1,0 +1,9 @@
+/* 試験用の場面の部品。値はトークンだけで描き、動きは scene.js が台帳の時刻で付ける。 */
+html, body { margin: 0; height: 100%; background: var(--sea); color: var(--ink); font-family: var(--font-text); }
+#particles { position: fixed; inset: 0; width: 100%; height: 100%; }
+main { position: relative; display: grid; place-items: center; min-height: 100%; }
+section { display: grid; gap: var(--space-4); justify-items: center; grid-area: 1 / 1; }
+#title { font-size: var(--size-title); margin: 0; }
+button { font: inherit; padding: var(--space-3) var(--space-6); border-radius: var(--radius-pill); border: 1px solid var(--glow); background: transparent; color: var(--ink); }
+input { font: inherit; padding: var(--space-2); }
+.meta { position: fixed; right: var(--space-4); bottom: var(--space-4); display: flex; gap: var(--space-2); }

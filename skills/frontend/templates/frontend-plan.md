@@ -9,6 +9,7 @@
 |---|---|
 | 作成日 | <YYYY-MM-DD> |
 | 状態 | 承認待ち |
+| 画面の型 | <没入／既存に合わせる／今の型。受付票の「画面の型」を写し、ここでは選び直さない。没入なら references/immersive.md の決まりで書き、計測の設定 motion-measure.json をこの計画と同じ置き場に置く> |
 | 数値 | <測った値か「架空」> |
 | 入力 | デザイン計画書、tokens.css、画面仕様、API の契約 |
 | 置き場 | tmp/flow/<件名>/frontend-plan.md |
@@ -81,6 +82,7 @@ flowchart TD
 | 操作の応答（INP） | 200ms 以内 | <ms> | Playwright で操作を送り、event の最大 | <同じ条件> |
 | 画面のずれ（CLS） | 0.1 以内 | <値> | Lighthouse CI | <同じ条件。3 回の最大> |
 | 初期表示の JS の転送量 | 170KB 以内（brotli 後） | <KB> | size-limit | ビルド後に 1 回 |
+| 演出（没入の型だけ。ほかの型は行を消す） | 最初のフレーム 100ms、50ms 超のフレーム 0 個、演出のアセット 600KB | <ms、個、KB> | motion-measure の 12 項目 | CPU 等速と 4 倍遅く、各 3 回の悪い側。画面なしのブラウザ |
 
 ## テスト
 
@@ -117,6 +119,14 @@ flowchart TD
 | 安全 | <無害化、鍵、CSP> | <lint と CSP の報告> |
 | 型と道具 | <tsc、eslint、zod> | frontend-gate.sh |
 | トークン | <tokens.css の変数だけで描く> | token-lint |
+
+## 演出の実装（没入の型だけ）
+
+<没入の型だけ。受け取った演出計画書の時刻ごとの表を、どの台帳とレイヤーで作るかを 1 文。ほかの型は節を消す>。
+
+| 演出 ID | 受け取る演出計画書 | 台帳 | レイヤーと手段 | 計測の設定 |
+|---|---|---|---|---|
+| <`scene-前-次`> | tmp/flow/<件名>/motion-plan-<演出 ID>.md | <ledger.json の置き場> | <前景は DOM、舞台は WAAPI か View Transitions、背景は canvas など> | tmp/flow/<件名>/motion-measure.json |
 
 ## 実装の進め方
 
