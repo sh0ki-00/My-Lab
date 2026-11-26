@@ -31,7 +31,7 @@ description: 作業の最後に検証を全部回し、結果を読み、FAIL �
 2. 読む。FAIL の行を上から順に `references/checks.md` の表に当て、原因の種類（文体・形式・図・スクリプト・配置・依存）を決める。終わりの印: FAIL ごとに直す場所が 1 つ決まる。
 3. 直す。原因の場所を直し、その 1 ファイルを `tools/check-file.sh <ファイル>` で確かめ、手順 1 に戻る。終わりの印: 全体が PASS。3 回直しても通らないなら、検査の誤りか要件の矛盾を疑い、記録を付けて依頼者に伺う。
 4. 対にする。受け入れ条件の表を作り、1 件ごとに確認コマンドと結果の抜粋を書く。確かめられない条件は「未確認（理由）」と書く。終わりの印: 表の全行に結果か理由がある。
-5. 攻撃の要否を決める。`bash skills/verify/scripts/report-check.sh --deploy-code <基点>` で差分を数え、「配るコードの変更」の欄の値にする。基点は作業を始めた commit で、例えば git merge-base HEAD main の値。「あり」なら、セキュリティのスキルの attack-run.sh（新規。まだ無い）で攻撃を回し、出力の節を手で直さずに報告の最初の節に貼る。回せないときは「攻撃は未実施」と理由を書く。終わりの印: 欄の値が差分の結果と同じで、「あり」なら節に `RESULT: PASS attack-run` の行がある。
+5. 攻撃の要否を決める。`bash skills/verify/scripts/report-check.sh --deploy-code <基点>` で差分を数え、「配るコードの変更」の欄の値にする。基点は作業を始めた commit で、例えば git merge-base HEAD main の値。「あり」なら、セキュリティのスキルの `skills/security/scripts/attack-run.sh` で攻撃を回し、出力の節を手で直さずに報告の最初の節に貼る。回せないときは「攻撃は未実施」と理由を書く。終わりの印: 欄の値が差分の結果と同じで、「あり」なら節に `RESULT: PASS attack-run` の行がある。
 6. 書く。`templates/completion-report.md` の型で `tmp/flow/<件名>/completion-report.md` に完了報告を書き、`scripts/report-check.sh <報告> --base <基点>` を通す。終わりの印: `RESULT: PASS report-check`。
 7. 出す前に、別コンテキストに報告だけを渡し、読み手テストを受ける。My-Lab では `editor` サブエージェントに渡す。他のプロジェクトの Claude Code では組み込みの general-purpose サブエージェントに渡し、Cursor では読み手の役に切り替える。終わりの印: 判定が「出せる」。
 
