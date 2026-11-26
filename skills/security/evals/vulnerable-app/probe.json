@@ -1,0 +1,22 @@
+{
+  "note": "vulnerable-app の入口の一覧。attack_run.py が読む。手口ごとに、当てる入口と、持ち主で分ける標本を書く。これは試験の的の記述で、本番の記述ではない。",
+  "login": {"path": "/login", "method": "POST", "user_field": "user", "pass_field": "password", "token_json": "token"},
+  "actors": [
+    {"id": "op_a", "user": "op_a", "pass": "pw-op-a", "shop": "A", "role": "operator"},
+    {"id": "op_b", "user": "op_b", "pass": "pw-op-b", "shop": "B", "role": "operator"},
+    {"id": "view_a", "user": "view_a", "pass": "pw-view-a", "shop": "A", "role": "viewer"}
+  ],
+  "entries": [
+    {"id": "orders_list", "method": "GET", "path": "/orders", "auth": true},
+    {"id": "order_detail", "method": "GET", "path": "/orders/{id}", "auth": true, "owner_mine": "o1", "owner_other": "o3"},
+    {"id": "order_note", "method": "POST", "path": "/orders/{id}/note", "auth": true, "write": true, "min_role": "operator", "owner_mine": "o1", "state_change": true, "body": {"note": "x"}},
+    {"id": "user_info", "method": "GET", "path": "/users/{id}", "auth": true, "pii": true, "sample_id": "op_a"},
+    {"id": "search", "method": "GET", "path": "/search", "auth": true, "query_field": "q", "injection": true},
+    {"id": "inquiry_add", "method": "POST", "path": "/inquiry", "auth": false, "stored": true, "reflect_read": "/inquiries", "body_field": "body"},
+    {"id": "inquiries", "method": "GET", "path": "/inquiries", "auth": false},
+    {"id": "fetch_preview", "method": "POST", "path": "/fetch-preview", "auth": true, "takes_url": "url"},
+    {"id": "upload", "method": "POST", "path": "/upload", "auth": true, "takes_file": true, "name_field": "filename", "content_field": "content"},
+    {"id": "login", "method": "POST", "path": "/login", "auth": false, "rate_limit": true},
+    {"id": "debug", "method": "GET", "path": "/debug", "auth": false, "config": true}
+  ]
+}
