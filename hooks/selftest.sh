@@ -486,6 +486,18 @@ expect allow deny 'terraform validate'
 expect allow deny 'tofu version'
 expect allow deny 'terraform -help'
 expect allow deny 'terraform --help'
+# 1i の続き: 命令の置き換えと改行の中の命令も、別の命令として見る。副命令の前に値を別の語で取るオプションがあれば通さない
+# shellcheck disable=SC2016  # $( ) と ` は判定に渡す字面。展開しない
+expect ask deny 'terraform fmt $(terraform apply -auto-approve)'
+# shellcheck disable=SC2016  # $( ) と ` は判定に渡す字面。展開しない
+expect ask deny 'terraform fmt `terraform apply -auto-approve`'
+expect ask deny $'terraform fmt\nterraform apply'
+expect ask deny 'terraform fmt <(terraform plan)'
+expect ask deny 'terraform fmt terraform apply'
+expect ask deny 'cdk --app init deploy'
+expect ask deny 'sam --region local deploy'
+expect allow deny 'terraform fmt -recursive modules'
+expect allow deny 'terraform -chdir=infra validate'
 expect ask deny 'sam deploy --guided'
 expect ask deny 'sam logs -n fn'
 expect allow deny 'sam build'

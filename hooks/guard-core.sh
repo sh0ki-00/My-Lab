@@ -272,11 +272,18 @@ cloud_sub_ok() {  # cloud_sub_ok <名前から始まる命令の切れ端> → �
   for w in "$@"; do
     case "$w" in
       -help|--help|-h|-version|--version) flag=1 ;;
-      -*) ;;
+      -*=*) ;;
+      # 副命令の前に、値を別の語で取るオプション（--app init deploy の --app）があると、どの語が副命令か読めない。通さない
+      -*) return 1 ;;
       *) sub="$w"; break ;;
     esac
   done
   if [ -z "$sub" ]; then [ "$flag" = 1 ]; return; fi
+  # 副命令のあとに、クラウドのコマンドの名前がそのまま 1 語で出たら通さない（terraform fmt terraform apply のような並べ方）
+  for w in "$@"; do
+    case "$w" in "$sub") continue ;; esac
+    if printf '%s\n' "$w" | grep -Eqix -- "(${CLOUD_ANY}|${CLOUD_SUB})"; then return 1; fi
+  done
   case "$sub" in help|version) return 0 ;; esac
   case "$name" in
     terraform|tofu) ok='fmt validate' ;;
@@ -294,12 +301,14 @@ cloud=0
 if hasi "${CB}(${CLOUD_ANY})${CE}"; then
   cloud=1
 elif hasi "${CB}(${CLOUD_SUB})(@[^ ;&|()\`]*)?${CE}"; then
-  # 現れるたびに、名前から ; & | ) ` の前までを切り出して見る。同じ命令に 2 つあっても、片方の fmt で通さない
+  # 現れるたびに、名前から ; & | ( ) ` の前までを切り出して見る。同じ命令に 2 つあっても、片方の fmt で通さない
+  # 改行は命令の区切りなので ; に替える（flat は改行を空白にするので使わない）。( で切るのは $( と <( の中の命令を別に見るため
+  cflat="$(printf ' %s ' "$CMD" | tr -d "$quotes" | tr '\n\r' ';;' | tr '\t' ' ' | tr -s ' ')"
   while IFS= read -r m; do
     [ -n "$m" ] || continue
     if ! cloud_sub_ok "$m"; then cloud=1; break; fi
   done <<EOF
-$(printf '%s' "$flat" | grep -Eoi -- "${CB}(${CLOUD_SUB})(@[^ ;&|()\`]*|:[^ ;&|()\`]*)?${CE}[^;&|)\`]*")
+$(printf '%s' "$cflat" | grep -Eoi -- "${CB}(${CLOUD_SUB})(@[^ ;&|()\`]*|:[^ ;&|()\`]*)?${CE}[^;&|()\`]*")
 EOF
 fi
 [ "$cloud" = 1 ] && ask_president "クラウドにつなぐコマンドは、開発環境でだけ、そのたびに承認を得て回す（読むだけのコマンドも含む）。承認を伺う文に、環境の名前と、読むだけか書き換えるかを書く。"
