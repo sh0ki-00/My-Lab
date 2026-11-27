@@ -11,6 +11,8 @@
 #      既存に合わせる型の --existing の欠け。没入の型の監修記録の完成例は通る。
 #   6) 既存に合わせる型: samples/app を題材にした完成例（design-plan-pane-memo.md）が計画書・コントラスト・--existing つきの
 #      忠実度を通り、既存に無い色と、棚卸しの表の欠けで落ちる。監修記録は、高の指摘があるのに受け入れにすると落ちる。
+#   7) フィボナッチの数列: 数列で組んだ完成例（起動からメニュー）と雛形のトークンが通り、4px・120ms・44px を足すと落ちる。
+#      数列の前の版の完成例は数列で見ず、置き場の外に写すと落ちる。ai-slop-motion が同じ動きと透明度だけのホバーで落ちる。
 # 出力: ケースごとの行と、最後に RESULT: PASS|FAIL evals designer (<合格>/<全部>)。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
@@ -110,6 +112,22 @@ judge "既存に合わせる型の忠実度は --existing が無いと落ちる"
 case_has "既存に無い色を計画書に書くと落ちる" design-plan-check '色 #2F5C9F（藍）は既存の UI に無い' "$EXM" '^(\| 藍 \| )#2F5C9E' '\1#2F5C9F'
 case_has "既存に合わせる型で棚卸しの表が無いと落ちる" design-plan-check '棚卸しの表' "$EXM" '^\| 種類 \| 値 \| 出現数 \| 最初の場所 \|\n(?:\|.*\n)+' ''
 case_has "監修記録で高の指摘があるのに条件つき受け入れだと落ちる" review-check '高が 1 つ以上なら差し戻し' "$EX/design-review-order-list.md" '^判定は差し戻しです。' '判定は条件つき受け入れです。確認は監修者が行います。'
+
+# 7) フィボナッチの数列（依頼者の決め、2026-11-27）と、AI らしい動きの 2 項目
+judge "examples/tokens-title-menu.css（数列）" PASS "$(verdict fib-check "$EX/tokens-title-menu.css")"
+judge "templates/tokens.css（数列）" PASS "$(verdict fib-check "$SKILL/templates/tokens.css")"
+judge "examples/motion-plan-title-menu.md（数列で組んだ演出計画書）" PASS "$(verdict motion-plan-check "$EX/motion-plan-title-menu.md")"
+judge "数列の前の版の完成例は数列で見ない" PASS "$(has fib-check '数列の前の版' "$EX/tokens-order-list.css")"
+for bad in '--bad-space: 4px;' '--bad-duration: 120ms;' '--bad-target: 44px;'; do
+  { cat "$EX/tokens-title-menu.css"; printf '\n:root { %s }\n' "$bad"; } > "$tmpd/fib.css"
+  judge "数列の外の値（${bad}）が落ちる" PASS "$(has fib-check '\[数列\]' "$tmpd/fib.css")"
+done
+cp "$EX/design-plan-dive-log.md" "$tmpd/design-plan-dive-log.md"
+judge "置き場の外に写した数列の前の版の計画書は、数列で落ちる" PASS "$(has design-plan-check '\[数列\]' "$tmpd/design-plan-dive-log.md")"
+case_has "演出計画書の拍の長さが数列の外だと落ちる" motion-plan-check '\[数列\]' "$EX/motion-plan-title-menu.md" '^(\| 377ms \|.*?)233ms' '\g<1>240ms'
+judge "既存に合わせる型は、既存の値を数列で見ない" PASS "$(verdict fib-check "$tmpd/fib.css" --plan "$EX/design-plan-pane-memo.md")"
+judge "fixtures/ai-slop-motion が同じ動きで落ちる" PASS "$(has ai-look-check '\[同じ動き\]' "$FX/ai-slop-motion")"
+judge "fixtures/ai-slop-motion が透明度だけのホバーで落ちる" PASS "$(has ai-look-check '\[透明度だけのホバー\]' "$FX/ai-slop-motion")"
 
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals designer ($pass/$total)"; exit 0; fi
 echo "RESULT: FAIL evals designer ($pass/$total)"; exit 1

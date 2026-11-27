@@ -17,12 +17,17 @@
                                                            所見の表（5 列。空の欄を落とす）
         design_check.py motion <演出計画書>                 見せ場の 5 つの条件（段 3 つ、レイヤー 3 つ以上、共有要素、動きの重なり、守り 5 行）と、
                                                            点滅・5 秒を超える動き・音の守り、長さの枠、トークンの外の長さ
+        design_check.py fib <tokens.css> [--plan <計画書>]   トークンの px・ms・秒の値が、フィボナッチの数列（0、1、2、3、5、8、13、21、34、55、89、144、
+                                                           233、377、610、987 …）に入っているか。--plan の計画書が既存に合わせる型なら、「足す値」の表の値だけを見る
         design_check.py <種類> --selftest
 出力: FAIL <場所> [<決まり>] <内容>、WARN …、最後に RESULT: PASS|FAIL <検査名> <対象> (FAIL n、WARN m)。1 件でも FAIL なら終了コード 1。
 読めないファイル（無い、ディレクトリ、UTF-8 でない）は FAIL の行と RESULT の行を出し、終了コード 2。
 画面の型（没入の型・既存に合わせる型・今の型）は、計画書の表題の下の表の「画面の型」の行で読む。
 没入の型だけが 300ms の線を外し、区分の枠（応答 200ms、移動 500ms、見せ場は初回 1,400ms で 2 回目から 600ms）を使う。
 長さは ms のほか、秒（2.5 秒、0.9s）も ms に直して読む。
+寸法（px）と時間（ms、秒）は、フィボナッチの数列の値だけを使う（依頼者の決め、2026-11-27。systems.md の 7 節）。計画書と演出計画書と
+トークンで、数列の外の値は [数列] で落とす。既存に合わせる型の既存の値、見せ場の合計の長さ、時刻の列は見ない。
+数列の前の版の完成例（LEGACY の名前で、examples と evals/fixtures に置いたもの）は、次の PR で直すまで数列で見ない。
 """
 import pathlib
 import re
@@ -32,7 +37,8 @@ import tempfile
 HERE = pathlib.Path(__file__).resolve().parent
 SKILL = HERE.parent
 NAMES = {"plan": "design-plan-check", "contrast": "contrast-check", "ailook": "ai-look-check",
-         "fidelity": "fidelity-check", "review": "review-check", "motion": "motion-plan-check", "inventory": "ui-inventory"}
+         "fidelity": "fidelity-check", "review": "review-check", "motion": "motion-plan-check", "inventory": "ui-inventory",
+         "fib": "fib-check"}
 HEX = re.compile(r"#[0-9A-Fa-f]{6}\b")
 AI_PURPLE = {"#6366F1", "#8B5CF6", "#7C3AED", "#A855F7", "#667EEA", "#764BA2", "#4F46E5", "#818CF8", "#9333EA", "#C084FC"}
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿\U0001F900-\U0001F9FF]")
@@ -46,6 +52,62 @@ TYPE_RX = re.compile(r"^\s*(没入(?:の型)?|既存に合わせる(?:型)?|今�
 # 没入の型の区分と長さの上限（ms）。環境は周期で見る
 FRAME = {"応答": 200, "移動": 500, "見せ場": 1400}
 SCENE_MIN, SCENE_MAX, REPEAT_MAX = 600, 1400, 600
+# フィボナッチの数列（依頼者の決め、2026-11-27）。寸法（px）と時間（ms、秒）は、この値だけを使う
+FIB = (0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181)
+FIB_SET = set(FIB)
+# 数列の前の版の完成例と試験の材料。見本アプリと実測につながるので、次の PR で直すまで数列で見ない（承認記録 A-24）。
+# 名前と置き場の両方で見るので、ほかの置き場に同じ名前のファイルを置いても外れない
+LEGACY = {"design-plan-order-list.md", "design-plan-dive-log.md", "motion-plan-dive-log.md", "tokens-order-list.css",
+          "design-review-order-list.md", "design-review-dive-log.md", "design-plan-pane-memo.md",
+          "tokens-dive-log.css", "tokens-drift.css", "current-type-600ms.md"}
+FIB_UNIT = re.compile(r"(?<![\w.#-])-?(\d+(?:\.\d+)?)(px|ms|s)\b")
+FIB_SEC = re.compile(r"(?<![\d.,])(\d+(?:\.\d+)?)\s*秒")
+FIB_PX = re.compile(r"(?<![\d.,])(\d+(?:\.\d+)?)\s*px")
+
+
+def is_legacy(path):
+    """数列の前の版の完成例と試験の材料か。名前と置き場（examples か evals/fixtures）の両方で見る。"""
+    try:
+        q = pathlib.Path(path).resolve()
+    except OSError:
+        return False
+    return q.name in LEGACY and q.parent in (SKILL / "examples", SKILL / "evals" / "fixtures")
+
+
+def fib_hint(v):
+    """v のすぐ下とすぐ上の数列の値。"""
+    lo = max(f for f in FIB if f <= v)
+    hi = min((f for f in FIB if f >= v), default=FIB[-1])
+    return f"{lo}" if lo == hi else f"{lo} か {hi}"
+
+
+def fib_num(num, unit, out):
+    if "." in num:
+        out.append((f"{num}{unit}", "小数は使わず、数列の整数で書く" + ("（秒は ms に直す）" if unit in ("s", "秒") else "")))
+        return
+    v = int(num)
+    if v not in FIB_SET:
+        out.append((f"{v:,}{unit}", f"{fib_hint(v)}{unit} にする"))
+
+
+def fib_css_problems(text):
+    """css の値の中の px・ms・s のうち、数列の外のものを (値, 直す先) で返す。"""
+    out = []
+    for m in FIB_UNIT.finditer(text):
+        fib_num(m.group(1), m.group(2), out)
+    return out
+
+
+def fib_text_problems(text):
+    """計画書の表の文の中の ms・秒・px のうち、数列の外のものを (値, 直す先) で返す。1,400ms の区切りも読む。"""
+    out = []
+    for m in MS.finditer(text):
+        fib_num(m.group(1).replace(",", ""), "ms", out)
+    for m in FIB_SEC.finditer(text):
+        fib_num(m.group(1), "秒", out)
+    for m in FIB_PX.finditer(text):
+        fib_num(m.group(1), "px", out)
+    return out
 
 
 def ms_values(text):
@@ -363,6 +425,9 @@ def check_plan(name, lines, ts, r):
         r.fail(0, "動き", "transition: all を使わない。動かす属性を書く")
     if immersive:
         check_immersive_plan(lines, ts, r)
+    # 数列。既存に合わせる型は既存の値を使うので見ない（足す値は fib-check が見る）
+    if stype and not existing and not is_legacy(name):
+        check_plan_fib(ts, r)
     # キーボード
     ts_key = section_tables(ts, "キーボード")
     sec_key = section(lines, "キーボード")
@@ -413,6 +478,21 @@ def check_plan(name, lines, ts, r):
     elif section(lines, "WCAG") is not None:
         r.fail(0, "WCAG", "点検の表（達成基準 | この計画 | 値 | 確認方法）が無い")
     holes(lines, r)
+
+
+def check_plan_fib(ts, r):
+    """書体の表の px と、動きの表の ms・秒・px が数列の値か。見せ場の行の長さは合計なので、演出計画書の拍で見る。"""
+    for key in ("書体", "動き"):
+        found = section_tables(ts, key)
+        if not found:
+            continue
+        t = found[0]
+        kk = col(t, "区分")
+        for no, cells in t["rows"]:
+            if key == "動き" and kk is not None and "見せ場" in cell(cells, kk):
+                continue
+            for val, fix in fib_text_problems(" ".join(cells)):
+                r.fail(no, "数列", f"{key}の表の {val} は数列の外。{fix}（寸法と時間はフィボナッチの数列だけ。systems.md の 7 節）")
 
 
 def check_motion_rows_immersive(t, r):
@@ -732,6 +812,16 @@ def check_motion_plan(name, lines, ts, r):
         named = "消音" in vs and (re.search(r"「[^」]+」", vs) or re.search(r"消音の(?:操作|ボタン|スイッチ)", vs))
         if not silent and (MUTE_NEG.search(vs) or not named):
             r.fail(nos, "音", "音を鳴らすのに消音の操作が無いか、打ち消している。消音の操作の名前を書き、常に画面に置く（WCAG 2.2 の 1.4.2）")
+    # 数列。時刻の列と合計の長さは足し算で決まるので見ない
+    if not is_legacy(name):
+        for b in beats:
+            for val, fix in fib_text_problems(b["length"] + " " + b["change"]):
+                r.fail(b["no"], "数列", f"{val} は数列の外。{fix}（拍の長さと動く量はフィボナッチの数列だけ。systems.md の 7 節）")
+        for tt_ in section_tables(ts, "トークン")[:1]:
+            kv_ = col(tt_, "値")
+            for no, cells in tt_["rows"]:
+                for val, fix in fib_text_problems(cell(cells, 1 if kv_ is None else kv_)):
+                    r.fail(no, "数列", f"トークンの {val} は数列の外。{fix}")
     # トークンの外の長さ
     tk = section_tables(ts, "トークン")
     if not tk:
@@ -839,8 +929,14 @@ def check_ailook(paths, plan_path, r):
 
     radii, shadows, blur, ctas = {}, [], 0, 0
     glows, rises, particles = [], [], None
+    anims, hovers = {}, []
     for f in files:
         text = f.read_text(encoding="utf-8", errors="replace")
+        body = blank_comments(text)
+        for m in re.finditer(r"([^{}]*:hover[^{}]*)\{([^{}]*)\}", body):
+            props = [d.split(":")[0].strip().lower() for d in m.group(2).split(";") if d.strip()]
+            if props and all(pr == "opacity" for pr in props):
+                hovers.append(f"{f}:{body.count(chr(10), 0, m.start(2)) + 1}")
         for no, l in enumerate(text.split("\n"), 1):
             low = l.lower()
             for hx in HEX.findall(l):
@@ -879,12 +975,22 @@ def check_ailook(paths, plan_path, r):
                 particles = (f, no)
             if RISE.search(l):
                 rises.append(f"{f}:{no}")
+            ma = re.search(r"(?<![\w-])animation\s*:\s*([^;{}]+)", l)
+            if ma:
+                anims.setdefault(re.sub(r"\s+", " ", ma.group(1).strip().lower()), []).append(f"{f}:{no}")
     if len(glows) >= 3:
         hit("(全体)", 0, "ネオンの光", f"シアンか紫の光る影（ぼかし 20px 以上）が {len(glows)} か所。最初は {glows[0]}", ("ネオン", "発光"))
     if particles:
         hit(particles[0], particles[1], "粒子", "粒子の部品を読み込んでいる（意味の無い粒子）", ("粒子",))
     if len(rises) >= 6:
         hit("(全体)", 0, "一律の浮き上がり", f"同じ「下から浮き上がる」動きが {len(rises)} か所。最初は {rises[0]}", ("浮き上が",))
+    if anims:
+        key, locs = max(anims.items(), key=lambda kv: len(kv[1]))
+        if len(locs) >= 6:
+            hit("(全体)", 0, "同じ動き", f"同じ animation「{key[:40]}」が {len(locs)} か所（向き・長さ・曲線が全部同じ）。最初は {locs[0]}", ("同じ動き",))
+    if len(hovers) >= 3:
+        hit("(全体)", 0, "透明度だけのホバー", f":hover の中身が opacity だけの規則が {len(hovers)} か所。最初は {hovers[0]}。"
+            "押せる物は動かさず、中の子要素を 2px ほど動かす", ("透明度だけのホバー",))
     if blur >= 3:
         hit("(全体)", 0, "ぼかし", f"backdrop-filter: blur が {blur} か所（ガラス風の多用）", ("ぼかし", "ガラス"))
     if radii and len(radii) == 1 and sum(radii.values()) >= 6:
@@ -1196,6 +1302,37 @@ def check_fidelity(plan_path, tokens_path, impl_paths, r, motion_paths=(), exist
                 r.fail(no, "既存の値", f"{where}:{no} の{kind} {val} は既存の UI に無い。足すなら計画書の「足す値」の表に理由を書く")
 
 
+# ---- 数列
+def check_fib(tokens_path, plan_path, r):
+    """トークンの px・ms・秒が数列の値か。既存に合わせる型の計画書を渡したら、「足す値」の表の値だけを見る。"""
+    if plan_path:
+        _, plines = load_lines(plan_path)
+        pts = tables(plines)
+        stype, _, _ = screen_type(plines, pts)
+        if stype == EXISTING:
+            seen = 0
+            for t in section_tables(pts, "足す値"):
+                kv = col(t, "値")
+                for no, cells in t["rows"]:
+                    v = cell(cells, 0 if kv is None else kv)
+                    seen += len(FIB_UNIT.findall(v))
+                    for val, fix in fib_css_problems(v):
+                        r.fail(no, "数列", f"{plan_path} の足す値 {val} は数列の外。{fix}（既存の値は残し、足す値だけを数列から選ぶ）")
+            print(f"数列: 既存に合わせる型。既存の値は見ず、足す値 {seen} 個を見た")
+            return
+    if is_legacy(tokens_path):
+        r.warn(0, "数列", "数列の前の版の完成例（承認記録 A-24）。値は見本アプリと実測につながるので、次の PR で直すまで数列で見ない")
+        return
+    text = blank_comments(pathlib.Path(tokens_path).read_text(encoding="utf-8"))
+    seen = 0
+    for no, line in enumerate(text.split("\n"), 1):
+        for m in re.finditer(r"(--[\w-]+)\s*:\s*([^;]+)", line):
+            seen += len(FIB_UNIT.findall(m.group(2)))
+            for val, fix in fib_css_problems(m.group(2)):
+                r.fail(no, "数列", f"{m.group(1)} の {val} は段に無い。{fix}（寸法と時間はフィボナッチの数列だけ。systems.md の 7 節）")
+    print(f"数列: トークンの値 {seen} 個を見た（px・ms・秒）")
+
+
 # ---- 監修記録
 def check_review(name, lines, ts, r):
     title = next((l[2:].strip() for _, l in lines if l.startswith("# ")), "")
@@ -1284,6 +1421,8 @@ EX_MOTION = SKILL / "examples" / "motion-plan-dive-log.md"
 EX_REVIEW_DIVE = SKILL / "examples" / "design-review-dive-log.md"
 EX_EXISTING = SKILL / "examples" / "design-plan-pane-memo.md"
 FIX = SKILL / "evals" / "fixtures"
+EX_TITLE_MOTION = SKILL / "examples" / "motion-plan-title-menu.md"
+EX_TITLE_TOKENS = SKILL / "examples" / "tokens-title-menu.css"
 # 既存に合わせる型の試験に使う、小さな既存の UI と計画書とトークン（架空）
 EXISTING_CSS = (":root { --ink: #222222; --paper: #FAFAFA; --accent: #0A66C2; --line: #D0D7DE; }\n"
                 ".btn { transition: opacity 120ms; padding: 8px 12px; font-family: 'Hiragino Sans', sans-serif; font-size: 14px; }\n")
@@ -1364,6 +1503,17 @@ def run_checked(kind, args):
         r = Report(NAMES[kind], " ".join(args))
         check_ailook(args, plan, r)
         return 0 if r.show() else 1
+    if kind == "fib":
+        plan, args = take_option(args, "--plan")
+        if plan is None:
+            print("FAIL --plan [引数] --plan のあとに計画書のパスを渡す")
+            return 2
+        if len(args) != 1:
+            print("使い方: fib <tokens.css> [--plan <計画書>]")
+            return 2
+        r = Report(NAMES[kind], args[0])
+        check_fib(args[0], plan[0] if plan else None, r)
+        return 0 if r.show() else 1
     if kind == "fidelity":
         motion, args = take_option(args, "--motion")
         if motion is None:
@@ -1436,6 +1586,12 @@ def selftest(kind):
         checks.append(("[雛形の穴]" in out, "雛形（穴埋めのまま）が通った"))
         rc, out = quiet("plan", [str(EX_DIVE)])
         checks.append((rc == 0, f"没入の型の完成例が落ちた: {out[-300:]}"))
+        checks.append(("[数列]" not in out, f"数列の前の版の完成例を数列で見た: {out[-300:]}"))
+        with tempfile.TemporaryDirectory() as tmp:
+            cp = pathlib.Path(tmp) / EX_DIVE.name
+            cp.write_text(EX_DIVE.read_text(encoding="utf-8"), encoding="utf-8")
+            rc, out = quiet("plan", [str(cp)])
+            checks.append((rc == 1 and "[数列]" in out, f"置き場の外に写した数列の前の版が、数列で落ちない: {out[-300:]}"))
         rc, out = quiet("plan", [str(FIX / "current-type-600ms.md")])
         checks.append((rc == 1 and "600ms は 300ms 超" in out and len(fail_lines(out)) == 1,
                        f"今の型の 600ms が、それだけで落ちない: {out[-300:]}"))
@@ -1490,6 +1646,16 @@ def selftest(kind):
     elif kind == "motion":
         rc, out = quiet("motion", [str(EX_MOTION)])
         checks.append((rc == 0, f"完成例が落ちた: {out[-300:]}"))
+        rc, out = quiet("motion", [str(EX_TITLE_MOTION)])
+        checks.append((rc == 0, f"数列で組んだ完成例（起動からメニュー）が落ちた: {out[-300:]}"))
+        checks += variants("motion", EX_TITLE_MOTION.read_text(encoding="utf-8"), [
+            ("拍の長さが数列の外だと落ちる", r"^(\| 377ms \|.*?)233ms", r"\g<1>240ms", "[数列]"),
+        ])
+        with tempfile.TemporaryDirectory() as tmp:
+            cp = pathlib.Path(tmp) / EX_MOTION.name
+            cp.write_text(EX_MOTION.read_text(encoding="utf-8"), encoding="utf-8")
+            rc, out = quiet("motion", [str(cp)])
+            checks.append((rc == 1 and "[数列]" in out, f"置き場の外に写した数列の前の版が、数列で落ちない: {out[-300:]}"))
         rc, out = quiet("motion", [str(SKILL / "templates" / "motion-plan.md")])
         checks.append(("[雛形の穴]" in out, "雛形（穴埋めのまま）が通った"))
         rc, out = quiet("motion", [str(FIX / "just-slide.md")])
@@ -1530,6 +1696,9 @@ def selftest(kind):
         checks.append((rc == 0 and "clean" in out, f"計画どおりの見本が通らない: {out[-200:]}"))
         rc, out = quiet("ailook", [str(FIX / "ai-slop-excused"), "--plan", str(FIX / "plan-with-reasons.md")])
         checks.append((rc == 0, f"理由のある既定が件数から外れない: {out[-200:]}"))
+        rc, out = quiet("ailook", [str(FIX / "ai-slop-motion")])
+        checks.append((rc == 1 and "[同じ動き]" in out and "[透明度だけのホバー]" in out,
+                       f"同じ動きと透明度だけのホバーの見本が、2 項目で落ちない: {out[-300:]}"))
         rc, out = quiet("ailook", [str(FIX / "ai-slop-immersive")])
         checks.append((rc == 1 and all(f"[{k}]" in out for k in ("ネオンの光", "粒子", "一律の浮き上がり")),
                        f"没入の既定の例が 3 項目で落ちない: {out[-300:]}"))
@@ -1618,6 +1787,37 @@ def selftest(kind):
         checks += variants("review", EX_REVIEW.read_text(encoding="utf-8"), [
             ("今の型の監修記録でも、高の指摘があるのに受け入れだと落ちる", r"^判定は差し戻しです。", "判定は受け入れです。", "高が 1 つ以上なら差し戻し"),
         ])
+    elif kind == "fib":
+        rc, out = quiet("fib", [str(EX_TITLE_TOKENS)])
+        checks.append((rc == 0, f"数列で組んだ完成例のトークンが落ちた: {out[-300:]}"))
+        rc, out = quiet("fib", [str(SKILL / "templates" / "tokens.css")])
+        checks.append((rc == 0, f"雛形のトークンが数列で落ちた: {out[-300:]}"))
+        rc, out = quiet("fib", [str(EX_TOKENS)])
+        checks.append((rc == 0 and "数列の前の版" in out, f"数列の前の版の完成例が、外れずに落ちた: {out[-300:]}"))
+        base = EX_TITLE_TOKENS.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as tmp:
+            for label, extra, want in (("4px", "--bad-space: 4px;", "4px は段に無い"),
+                                       ("120ms", "--bad-duration: 120ms;", "120ms は段に無い"),
+                                       ("押せる領域 44px", "--bad-target: 44px;", "44px は段に無い"),
+                                       ("0.5s", "--bad-period: 0.5s;", "小数は使わず"),
+                                       ("影の 4px", "--bad-shadow: 0 2px 4px rgb(0 0 0 / 0.12);", "4px は段に無い")):
+                cp = pathlib.Path(tmp) / "tokens.css"
+                cp.write_text(base + "\n:root { " + extra + " }\n", encoding="utf-8")
+                rc, out = quiet("fib", [str(cp)])
+                checks.append((rc == 1 and want in out, f"{label} を足したトークンが落ちない: {out[-300:]}"))
+            cp = pathlib.Path(tmp) / EX_TOKENS.name
+            cp.write_text(EX_TOKENS.read_text(encoding="utf-8"), encoding="utf-8")
+            rc, out = quiet("fib", [str(cp)])
+            checks.append((rc == 1 and "[数列]" in out, f"置き場の外に写した数列の前の版が、数列で落ちない: {out[-300:]}"))
+            # 既存に合わせる型: 既存の値は見ず、足す値だけを見る
+            rc, out = quiet("fib", [str(cp), "--plan", str(EX_EXISTING)])
+            checks.append((rc == 0, f"既存に合わせる型で、既存の値まで数列で見た: {out[-300:]}"))
+            plan = pathlib.Path(tmp) / "existing.md"
+            plan.write_text(EX_EXISTING.read_text(encoding="utf-8").replace(
+                "| なし | － | 既存の値だけで足りる。メモ欄は既存の検索欄と同じ枠・字・焦点の枠で描く |",
+                "| 88px | 大きさ | 試験のために足した値。既存の値では足りないと仮に決めた |", 1), encoding="utf-8")
+            rc, out = quiet("fib", [str(cp), "--plan", str(plan)])
+            checks.append((rc == 1 and "88px" in out, f"既存に合わせる型の足す値 88px が落ちない: {out[-300:]}"))
     if kind in ("plan", "motion", "review"):
         # 読めないファイルは traceback ではなく、FAIL と RESULT の行で返す
         with tempfile.TemporaryDirectory() as tmp:

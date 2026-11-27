@@ -1,0 +1,71 @@
+/* tokens-title-menu.css — 演出計画書「起動からメニューへの「帯が開く」」（motion-plan-title-menu.md）のトークン。
+   数列で組んだ完成例で、色と値はすべて架空。px・ms・秒の値は、全部フィボナッチの数列（0、1、2、3、5、8、13、21、34、55、89、144、233、377、610、987）の段にする。
+   時間と曲線とずらしは、演出計画書のトークンの表と同じ名前と値。余白・字・角丸・押せる領域は、雛形 templates/tokens.css と同じ段。
+   コントラストは WCAG 2 の式で計算した値（ink と ground で 14.57 対 1、帯の字の ground と signal で 9.19 対 1）。 */
+:root {
+  /* 名前つきの 4 色（架空） */
+  --ground: #14171C;       /* 画面の地 */
+  --plate: #22272F;        /* メニューの面の地 */
+  --ink: #ECE7DC;          /* 本文と題字 */
+  --signal: #E8B04B;       /* 「PRESS START」の帯と選択の帯、焦点 */
+  /* 意味の名前 */
+  --text: var(--ink);
+  --text-on-band: var(--ground);
+  --band: var(--signal);
+  --focus: var(--signal);
+  /* 字。本文と補助は 13px で、色と太さで分ける。題字は 55px と 89px */
+  --font-text: "Noto Sans JP", sans-serif;
+  --size-body: 13px;
+  --size-sub: 13px;
+  --size-h2: 21px;
+  --size-h1: 34px;
+  --size-title: 89px;
+  --size-title-small: 55px;
+  --weight-regular: 400;
+  --weight-bold: 700;
+  --leading: 1.6;
+  /* 余白 */
+  --space-3: 3px;
+  --space-5: 5px;
+  --space-8: 8px;
+  --space-13: 13px;
+  --space-21: 21px;
+  --space-34: 34px;
+  --space-55: 55px;
+  /* 角丸は比 1.6 の 2 段、影は 1 光源で層にする */
+  --radius-control: 5px;
+  --radius-panel: 8px;
+  --shadow-panel: 0 2px 3px rgb(0 0 0 / 0.21), 0 8px 13px rgb(0 0 0 / 0.13);
+  /* 大きさ。押せる領域は、標準の下限（24px と 44px）を数列の次の段へ切り上げた */
+  --row-height: 34px;
+  --target-pc: 34px;
+  --target-touch: 55px;
+  --focus-width: 2px;
+  --menu-enter-x: -13px;   /* メニューの項目が左から寄る量 */
+  /* 動き。演出計画書のトークンの表と同じ名前と値 */
+  --duration-89: 89ms;
+  --duration-144: 144ms;
+  --duration-233: 233ms;
+  --duration-377: 377ms;
+  --duration-610: 610ms;
+  --stagger: 55ms;
+  --duration-scene-repeat: 377ms;
+  --duration-scene-reduced: 144ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-leave: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-arrive: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-settle: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* 動きを減らす設定では、位置と大きさを動かさず、--duration-scene-reduced（144ms）の溶け込みだけにする */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-89: 0ms;
+    --duration-144: 0ms;
+    --duration-233: 0ms;
+    --duration-377: 0ms;
+    --duration-610: 0ms;
+    --stagger: 0ms;
+    --duration-scene-repeat: 0ms;
+    --menu-enter-x: 0px;
+  }
+}

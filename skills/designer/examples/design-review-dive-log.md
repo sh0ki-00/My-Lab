@@ -19,6 +19,7 @@
 | 画面の型 | 没入の型（計画書から写した） |
 | フレームの一覧 | 39 枚（本番の案件では tmp/flow/dive-log/frames/ に置く）。撮った時刻と中身は次の表 |
 | 道具 | `fidelity-check.sh`、`ai-look-check.sh`、`contrast-check.sh`、`tools/immersive-test.mjs`、Playwright（ブラウザの自動操作の道具） |
+| 数列 | 数列の前の版（2026-11-27 より前）。値は見本アプリと実測につながるので、次の PR で数列に直す |
 
 移した先のプロジェクトでは、同じ撮り方を `skills/frontend/scripts/motion-measure.sh` の `--frames` で行います。このサンプルのフレームは 5 回に分けて、同じ条件で撮りました。ブラウザは画面なしの Chromium 156.0.8078.4（Chrome の元になるブラウザ）です。画面の大きさは 1,280 × 800 で、拡大率は 1 です。動きは seek（指定の時刻の姿に巻く操作）で止めたので、同じ時刻なら何度撮っても同じ絵になります。
 

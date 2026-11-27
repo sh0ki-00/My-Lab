@@ -91,6 +91,15 @@ flowchart LR
 | 4 | canvas と WebGL | 粒子、奥行き、光 | 描く関数とアセット。測って計画に書く | 見えない。seek(ms) の絵で見る |
 | 5 | 事前に作った動画 | その場で描けない映像 | 動画のアセット。測って計画に書く | 再生の有無だけ |
 
+段の中では、次の 4 つの手段を使う。どれも使えないブラウザがあるので、予備の版を先に決めておく。
+
+| 手段 | 段 | 使う所 | 注意 |
+|---|---|---|---|
+| CSS の `@starting-style`（要素が現れる前の姿を書く指定） | 1 | 隠れていたメニューが現れる瞬間 | 2024 年 8 月から主要ブラウザで使える（Chrome 117、Firefox 129、Safari 17.4） |
+| CSS の `linear()`（点を結んで速さの変わり方を書く関数） | 1 | 収まりの小さな行き過ぎ | Chrome 113 と Firefox 112 から使える。ふつうの曲線を予備に置き、`CSS.supports` で使えるかを確かめる |
+| View Transitions の予備 | 2 | 場面の切り替え | 使えないブラウザでは、溶け込みの版に替える |
+| canvas（スクリプトで絵を描く領域）の解像度の上限と画面外の停止 | 4 | 背景の動き | 解像度の倍率（devicePixelRatio）は 1.5〜2 までにする。画面の外（IntersectionObserver で見る）とタブを隠したとき（visibilitychange で見る）は止める。WebGL（ブラウザで GPU を使って描く仕組み）が無ければ静止画にする |
+
 ライブラリ（GSAP、three.js、Rive など）は、最初のサンプルでは使わない。標準の API で作れない拍が出たら、増える KB を測ってから依頼者に伺う。道具の導入は、今の決まりでも承認の要る判断だからである。
 
 ## 5. 実装の決まり 10 個
@@ -104,7 +113,7 @@ flowchart LR
 | 3 | 進行は状態の機械 1 つで持つ。動きの終わりのイベントを待って次へ進めない | 縮小版や飛ばしで動きが無いと、イベントが来ずに止まる | 6、7 |
 | 4 | 場面は URL に置く | 「戻る」と再読み込みが効く。状態の置き場は 1 つの決まりに合う | 8 |
 | 5 | DOM の動きは CSS か WAAPI で書く。requestAnimationFrame で DOM を動かさない | ブラウザが動きを一覧にでき、コンポジターで走る | 2、5 |
-| 6 | 背景のエンジンは、時刻と乱数の種を外から受け取る。始める、止める、指定の時刻を描く、の 3 つを持つ | 同じフレームを何度でも撮れる。止められる | 9、11 |
+| 6 | 背景のエンジンは、時刻と乱数の種を外から受け取る。始める、止める、指定の時刻を描く、の 3 つを持つ。解像度の倍率は 1.5〜2 までにし、画面の外とタブを隠したときは止める | 同じフレームを何度でも撮れる。止められる。見えない間に CPU と電池を使わない | 9、11 |
 | 7 | 色と時間は、canvas の中でもトークンか台帳から読む | トークンだけで描く決まりを、背景にも通す | lint |
 | 8 | どのキーでも、どこを押しても飛ばせる。2 回目からは短い版にする | 急ぐ人と毎日使う人を待たせない | 7 |
 | 9 | 焦点は、演出計画書の守りの表の「終わりのフォーカス」の要素に、時刻ごとの表のフォーカスの時刻（多くは演出の終わり）で入れる。途中で打った字は、飛ばして 1 つ目の入力欄に入れる。場面が替わるときに title を変える | 打った字を失わない。読み上げに場面の変化が伝わる | 8 |
@@ -329,7 +338,7 @@ RESULT: PASS motion-measure scene-start-login (PASS 12、FAIL 0。2 条件で計
 
 ## 付録: 出典
 
-設計の正本は、この一式に入っているデザイナーの決まり（`skills/designer/references/systems.md` の 4 節）と、演出計画書の完成例（`skills/designer/examples/motion-plan-dive-log.md`）である。外の出典は手元の知識で書き、この文書を書くときに本文は開いていない。
+設計の正本は、この一式に入っているデザイナーの決まり（`skills/designer/references/systems.md` の 4 節）と、演出計画書の完成例（`skills/designer/examples/motion-plan-dive-log.md`）である。外の出典は手元の知識か検索で得た要約で書き、この文書を書くときに本文は開いていない。
 
 | 出典 | 使った所 | 確かめたか |
 |---|---|---|
@@ -338,3 +347,8 @@ RESULT: PASS motion-measure scene-start-login (PASS 12、FAIL 0。2 条件で計
 | MDN の Web Animations、View Transitions、Long Animation Frames、Event Timing | 手段と計測 | 手元の知識 |
 | Chrome DevTools Protocol の Emulation.setCPUThrottlingRate | 測る条件 | 手元の知識。2026-11-26 に動かして確かめた |
 | Playwright の reducedMotion と ariaSnapshot | 項目 6 と 8 | 手元の知識。2026-11-26 に動かして確かめた |
+| [web.dev の Baseline の記事（Now in Baseline: animating entry effects）](https://web.dev/blog/baseline-entry-animations) | 4.2 節の `@starting-style` | 検索で得た要約で読み、本文は開いていない（2026-11-27） |
+| [Chrome の linear() の文書（CSS linear() easing function）](https://developer.chrome.com/docs/css-ui/css-linear-easing-function) | 4.2 節の `linear()` | 検索で得た要約で読み、本文は開いていない（2026-11-27） |
+| [Chrome の View Transitions 2025 の記事（What's new in view transitions）](https://developer.chrome.com/blog/view-transitions-in-2025) | 4.2 節の View Transitions の予備 | 検索で得た要約で読み、本文は開いていない（2026-11-27） |
+| [MDN の WebGL best practices](https://developer.mozilla.org/docs/Web/API/WebGL_API/WebGL_best_practices) | 4.2 節の canvas の行と決まり 6 | 検索で得た要約で読み、本文は開いていない（2026-11-27） |
+| [21st.dev の shader background の記事（React shader background components）](https://21st.dev/blog/react-shader-background-components) | 4.2 節の canvas の行と決まり 6 | 検索で得た要約で読み、本文は開いていない（2026-11-27） |
