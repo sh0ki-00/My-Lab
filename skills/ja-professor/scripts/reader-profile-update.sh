@@ -2,7 +2,7 @@
 # skills/ja-professor/scripts/reader-profile-update.sh [--file <reader-profile.md>] [--known <語>]... [--stuck <語>]...
 #   読み手の記録に、知っている語とつまずいた語を日付つきで足す。文の解釈はしない（引数で語を受ける）。
 #   ファイルが無ければ templates/reader-profile.md から作る。重複は足さない。表の列数（3 列）が崩れていれば FAIL。
-# 使い方: reader-profile-update.sh --known ORM --stuck 索引   /   reader-profile-update.sh --selftest
+# 使い方: reader-profile-update.sh --known ORM --stuck インデックス   /   reader-profile-update.sh --selftest
 # 出力: 足した語の一覧と RESULT: PASS|FAIL reader-profile-update。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
@@ -74,8 +74,8 @@ PY
 selftest() {
   local t rc=0
   t="$(mktemp -d)"
-  update "$t/reader-profile.md" "ORM" "索引" >/dev/null || { echo "FAIL selftest: 新規の記録に足せない"; rc=1; }
-  if ! { grep -q '^| ORM |' "$t/reader-profile.md" && grep -q '^| 索引 |' "$t/reader-profile.md"; }; then echo "FAIL selftest: 2 語が表に無い"; rc=1; fi
+  update "$t/reader-profile.md" "ORM" "インデックス" >/dev/null || { echo "FAIL selftest: 新規の記録に足せない"; rc=1; }
+  if ! { grep -q '^| ORM |' "$t/reader-profile.md" && grep -q '^| インデックス |' "$t/reader-profile.md"; }; then echo "FAIL selftest: 2 語が表に無い"; rc=1; fi
   update "$t/reader-profile.md" "ORM" "" | grep -q '足した 0 語' || { echo "FAIL selftest: 重複を足した"; rc=1; }
   printf '# x\n\n## 知っている語\n\n| 語 | 日 |\n|---|---|\n| a | b |\n\n## つまずいた語\n\n| 語 | 日 | 出 |\n|---|---|---|\n' > "$t/broken.md"
   update "$t/broken.md" "x" "" | grep -q '^FAIL' || { echo "FAIL selftest: 列数の崩れが通った"; rc=1; }

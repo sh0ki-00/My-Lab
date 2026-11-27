@@ -4,6 +4,7 @@
 #   2) fixtures/fluent.txt（直した後の 5 組）が PASS。
 #   3) fixtures/double-negative.txt が FAIL [二重否定]、fixtures/passive.txt が FAIL [受身]。
 #   4) SKILL.md、references/*.md、examples/*.md、templates/*.md が PASS（決まりが自分の決まりを守る）。
+#   5) blind-judge.sh の自己試験と、judge/votes.tsv の集計（直した後の見本 20 件のうち 18 件以上が 2 体以上に人と読まれる。C-07）。
 # 出力: ケースごとの行と、最後に RESULT: PASS|FAIL evals ja-fluent (<合格>/<全部>)。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
@@ -28,5 +29,9 @@ for f in "$SKILL/SKILL.md" "$SKILL"/references/*.md "$SKILL"/examples/*.md "$SKI
   [ -f "$f" ] || continue
   if bash "$CHECK" "$f" 2>&1 | grep -q '^RESULT: PASS'; then judge "$(basename "$f") は PASS" 0 ""; else judge "$(basename "$f") は PASS" 1 "$(bash "$CHECK" "$f" 2>&1 | grep '^FAIL' | head -2 | tr '\n' ' ')"; fi
 done
+out="$(bash "$HERE/blind-judge.sh" --selftest 2>&1)"
+if printf '%s\n' "$out" | grep -q '^RESULT: PASS'; then judge "blind-judge --selftest" 0 ""; else judge "blind-judge --selftest" 1 "$(printf '%s\n' "$out" | grep '^FAIL' | head -2 | tr '\n' ' ')"; fi
+out="$(bash "$HERE/blind-judge.sh" score 2>&1)"
+if printf '%s\n' "$out" | grep -q '^RESULT: PASS'; then judge "blind-judge（$(printf '%s\n' "$out" | sed -n 's/^RESULT: PASS blind-judge (\(人 [0-9]*\/[0-9]*\).*/\1/p')）" 0 ""; else judge "blind-judge" 1 "$(printf '%s\n' "$out" | grep -E '^(FAIL|RESULT)' | head -2 | tr '\n' ' ')"; fi
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals ja-fluent ($pass/$total)"; exit 0; fi
 echo "RESULT: FAIL evals ja-fluent ($pass/$total)"; exit 1

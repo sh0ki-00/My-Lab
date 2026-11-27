@@ -165,7 +165,7 @@ ORDER_WRITE_DISABLED は、戻しで新 API の書き込みを止めたときだ
 | order_events | 履歴。受注、引き当て、出荷指示、取り消し | 無い（人は利用者の id） |
 | users | 利用者と役割 | 名字だけ |
 | sessions | 端末ごとの鍵のハッシュと期限。1 人が複数の行を持てる | 無い |
-| idempotency | 冪等キー、要求のハッシュ、最初の応答。作った時刻に索引を付ける | 応答に氏名が入る。24 時間で消す |
+| idempotency | 冪等キー、要求のハッシュ、最初の応答。作った時刻にインデックスを付ける | 応答に氏名が入る。24 時間で消す |
 
 注文番号は全店で 1 つの主キーです。6 桁では、架空の 1 日 400 件の店が 1 つでも約 7 年で尽きます。契約の注文番号は 6〜12 桁で受け、桁が増えても契約を壊しません。画面は番号を桁で切らずに文字列で持ちます。
 
@@ -191,18 +191,18 @@ ORDER_WRITE_DISABLED は、戻しで新 API の書き込みを止めたときだ
 
 ### 移行の段
 
-移行は、意味を変えない足し算だけです。列も表もトリガーも消さず、既存の行を書き直さず、表をなめて数えません。段を変える取引も、段の表も、段ごとの門もありません。足した物（列、表、トリガー、索引）は、移行が終わるまで外しません。戻すのは新 API の機能フラグと、新 API の書き込みだけです。第 9・10 回の審査の重大は、どれも足した物を戻しで外したあいだに、旧い書き手が書く窓から出ました。外さなければ、その窓はできません。
+移行は、意味を変えない足し算だけです。列も表もトリガーも消さず、既存の行を書き直さず、表をなめて数えません。段を変える取引も、段の表も、段ごとの門もありません。足した物（列、表、トリガー、インデックス）は、移行が終わるまで外しません。戻すのは新 API の機能フラグと、新 API の書き込みだけです。第 9・10 回の審査の重大は、どれも足した物を戻しで外したあいだに、旧い書き手が書く窓から出ました。外さなければ、その窓はできません。
 
 足す物は、旧い書き手を変えない形に限ります。決まりは 3 つです。1 つ目に、旧い書き手の文を断りません。外部キーと CHECK は足しません。sessions から users への外部キーは ON DELETE CASCADE にし、旧い書き手が users を消す文も通します。2 つ目に、列の型を前提にしません。トリガーは行を字にして比べ（等しさの演算子の無い型の列があっても比べられる）、印と状態も字で読みます。出荷の時刻は、字にしてから時刻として読みます。読めないときと、どこで失敗したときも、書き込みを止めず changed_at を進める側にします。時差の無い型（timestamp や時差の無い字）と DateStyle（時刻を字にする形）の違いは、境の幅で吸います。境は、今日の始まりの 2 日前です。トリガーが読む旧い列は、is_cancelled、status、shipped_at の 3 つだけです。3 つ目に、旧い書き手の値を書き換えません。トリガーが書くのは足した 4 列だけです。
 
-段 1〜3 は、orders の今の持ち主で流します。ALTER TABLE と CREATE TRIGGER は、表の持ち主しか流せないからです。持ち主を orders_migrate に移すと、旧 API が持ち主の権限と RLS の素通りを失います。そのため、この計画では持ち主を移しません。表の定義を変える文は 1 つの取引に入れ、`SET LOCAL lock_timeout = '2s'` を取引の中だけに置きます。セッションに残さないので、あとの索引作りが 2 秒で打ち切られません。
+段 1〜3 は、orders の今の持ち主で流します。ALTER TABLE と CREATE TRIGGER は、表の持ち主しか流せないからです。持ち主を orders_migrate に移すと、旧 API が持ち主の権限と RLS の素通りを失います。そのため、この計画では持ち主を移しません。表の定義を変える文は 1 つの取引に入れ、`SET LOCAL lock_timeout = '2s'` を取引の中だけに置きます。セッションに残さないので、あとのインデックス作りが 2 秒で打ち切られません。
 
 | 段 | 変更 | リリース | 止めたとき | 戻し方 | 確かめ方 |
 |---|---|---|---|---|---|
 | 0 | DB は変えない。下の 8 つを調べる | 11-10（架空） | 何も変わらない | 戻すものは無い | 調べの結果を未確定 6、15、17 に渡す |
 | 1 | 列 cancelled_at・cancelled_by・changed_at・stamped_xid を足す。既定値も制約も無い列なので、表をなめない。表 sessions と idempotency を足す。全部を 1 つの取引で流す | 11-12（架空） | 安全。足した列は null のまま誰も読まない。列の数に頼る読み手と書き手は、段 0 の 4 つ目で先に直す | 外さない。列を消すのは、旧い書き手を全部移したあとの別の計画 | 列の定義を読む。旧 API の書き手の試験と、段 0 で見つけた読み手の試験を流す |
 | 2 | トリガー orders_before_write を、足した時刻の注釈と 1 つの取引で足し、ENABLE ALWAYS にする（replica の取り込みでも動く）。changed_at を進め、印の立て下ろしで取り消しの人と時刻を書き、書いた取引の番号を stamped_xid に残す。書くのは足した 4 列だけ | 11-12（架空） | 安全。旧い列と、書き込みの成否を変えない。列の型によらないことを PostgreSQL で確かめた | 外さない。新 API に不具合があれば、機能フラグで画面を旧 API に戻し、新 API の書き込みを止める | 検証の環境で 1 行を書き、changed_at と stamped_xid が進むのを読む。注釈に時刻があり、tgenabled が A |
-| 3 | 索引 5 つ（出荷のあとの取り消しを引く orders_marked を含む）を、取引の外の CREATE INDEX CONCURRENTLY で 1 つずつ作る。前に lock_timeout と statement_timeout を 0 に戻す。IF NOT EXISTS は付けない。書き込みを止めない | 11-13（架空） | 安全。作りかけの索引は INVALID のまま使われない。長い旧い取引の終わりを待つ | 外さない。作りかけで止めた INVALID の索引だけは、DROP INDEX CONCURRENTLY で消してから流し直す | pg_index の indisvalid が 5 つとも true。作る時間と書き込みの p99 を見る |
+| 3 | インデックス 5 つ（出荷のあとの取り消しを引く orders_marked を含む）を、取引の外の CREATE INDEX CONCURRENTLY で 1 つずつ作る。前に lock_timeout と statement_timeout を 0 に戻す。IF NOT EXISTS は付けない。書き込みを止めない | 11-13（架空） | 安全。作りかけのインデックスは INVALID のまま使われない。長い旧い取引の終わりを待つ | 外さない。作りかけで止めた INVALID のインデックスだけは、DROP INDEX CONCURRENTLY で消してから流し直す | pg_index の indisvalid が 5 つとも true。作る時間と書き込みの p99 を見る |
 | R | インフラが roles.sql で RLS を有効にし、CONNECT を PUBLIC から取り上げる。その前に、旧い書き手の全部に全行の方針と CONNECT と USAGE を付け、確かめの SQL を流す | 11-13（架空） | 確かめが通らなければ roles.sql はそこで止まり、RLS は有効にならない | RLS を表ごとに無効にする（DISABLE ROW LEVEL SECURITY）。旧い書き手の方針と権限は残す | 旧 API の書き手の試験を、旧 API の DB の利用者で流す。読みも書きも 0 行にならない |
 | 4 | 新 API `/v1` を出し、画面の呼び先を機能フラグで `/v1` に変える。段 0 の 7 つ目で列のほかの仕事が見つからず、画面が出荷のあとの取り消しを受け持ち、戻す先の旧画面を残す決めがあるときだけ進む（未確定 17、18、19、20） | 11-16（架空） | 旧 API と新 API が同じ印を書くので、どちらに戻しても食い違いは無い | 機能フラグで画面を旧 API に戻す。開いたままの新しい画面のために、新 API の書き込みも止める（503 の ORDER_WRITE_DISABLED で、画面を読み込み直させる）。データの戻しは要らない。戻す先の旧画面と機能フラグ admin_orders_v2 は、この戻しが要るあいだ消さない（未確定 19） | 4 つの決まりの試験。ORDER_WRITE_UNAVAILABLE と ORDER_WRITE_DISABLED の割合 |
 
@@ -216,7 +216,7 @@ ORDER_WRITE_DISABLED は、戻しで新 API の書き込みを止めたときだ
 
 3 つ目は、取り消しの文と、決済を知らせる文の条件です。取り消しは status を条件に持たず、出荷した行にも印を立てると見込みます。決済の通知は is_cancelled を条件に持たず、取り消し中の決済待ちも出荷可に移すと見込みます。どちらの結果でも新 API は変えず、移行の前と同じ結果になります。
 
-4 つ目は、列の数や位置に頼る読み手と書き手です。`SELECT *` で準備した文の使い回し、行を位置で受けるコード、`INSERT INTO 写し SELECT * FROM orders`、列名の無い `COPY` を探します。コードと pg_stat_statements（流れた文の統計）の両方で探し、見つかれば段 1 の前に列名を並べる形へ直します。段 1 の列は外さないので、直すまで段 1 に進みません。5 つ目は、本番の写しの DB で索引を作る時間と、トリガーのある表で旧 API の一括が延びる時間です。
+4 つ目は、列の数や位置に頼る読み手と書き手です。`SELECT *` で準備した文の使い回し、行を位置で受けるコード、`INSERT INTO 写し SELECT * FROM orders`、列名の無い `COPY` を探します。コードと pg_stat_statements（流れた文の統計）の両方で探し、見つかれば段 1 の前に列名を並べる形へ直します。段 1 の列は外さないので、直すまで段 1 に進みません。5 つ目は、本番の写しの DB でインデックスを作る時間と、トリガーのある表で旧 API の一括が延びる時間です。
 
 6 つ目は、表の持ち主と、旧い書き手の権限です。orders と、関わる表の持ち主の名前を調べます。旧 API の利用者が持つ表の権限と、CONNECT と USAGE を PUBLIC からだけ得ていないかも一覧にします。この一覧が、段 R で付ける方針と権限の元です。
 
@@ -232,7 +232,7 @@ ORDER_WRITE_DISABLED は、戻しで新 API の書き込みを止めたときだ
 
 | 版（書き手） | 段 0・1 | 段 2 | 段 3 | 段 R（RLS） | 段 4 | 段 4 で機能フラグを戻したあと | 新 API の書き込みを止めたあと |
 |---|---|---|---|---|---|---|---|
-| 旧 API（今の版。文を変えない） | 受ける。足した列には触れない | 受ける。トリガーは足した列だけを書き、列の型を前提にしない | 受ける。索引は結果を変えない | 受ける。全行の方針と CONNECT が無ければ、確かめの SQL が roles.sql を止める | 受ける。出荷した行への取り消しも、新 API は済のまま見せ、cancelledAfterShip で知らせる | 受ける。画面が旧 API に戻る | 受ける |
+| 旧 API（今の版。文を変えない） | 受ける。足した列には触れない | 受ける。トリガーは足した列だけを書き、列の型を前提にしない | 受ける。インデックスは結果を変えない | 受ける。全行の方針と CONNECT が無ければ、確かめの SQL が roles.sql を止める | 受ける。出荷した行への取り消しも、新 API は済のまま見せ、cancelledAfterShip で知らせる | 受ける。画面が旧 API に戻る | 受ける |
 | 新 API の版 1（`/v1`。この見本） | まだ無い | まだ無い | まだ無い | まだ無い。出たあとは、取引ごとに鍵のハッシュを置くので、RLS の下でも 0 行にならない | 受ける。出荷指示は is_cancelled = 0 の行だけ、取り消しは印を立てるだけ。書いた行をトリガーが印していなければ、全部を戻して 503 | 受ける（開いたままの新しい画面）。同じ印を書くので害が無い | 断る。書き込みは 503 の ORDER_WRITE_DISABLED で、冪等キーも取らない。画面を読み込み直させ、旧画面に移す。一覧と詳細と `since` は返す |
 | 決済の通知と受注の書き手（段 0 で旧 API か別の利用者かを確かめる） | 受ける。新しい列は既定の null | 受ける。トリガーが changed_at を進めるので `since` に出る | 受ける | 受ける。別の利用者なら、その利用者にも全行の方針と CONNECT を付ける | 受ける。取り消し中の決済待ちも、移行の前と同じく出荷可に移る | 受ける | 受ける |
 | replica の取り込みと、トリガーを止める作業（段 0 の 8 つ目） | 受ける | 受ける。replica でもトリガーが動く（ENABLE ALWAYS）。`DISABLE TRIGGER` のあいだの書き込みだけは `since` に出ない | 受ける | 受ける | 受ける。トリガーを止める作業は段 2 の前に変えるか、画面に一覧を読み直させる（未確定 15） | 受ける | 受ける |
@@ -248,7 +248,7 @@ ORDER_WRITE_DISABLED は、戻しで新 API の書き込みを止めたときだ
 
 本番の形は、手元の PostgreSQL 17 で叩きました。`test_pg_added_objects_never_change_legacy_writers` は、足した物がある DB で旧 API の書き手 12 手を流し、足す前の DB と比べます。列の型は 4 通りです（時刻が文字、時刻が timestamptz、等しさの演算子の無い json と point の列、boolean の印）。どれも、書けた行の数と旧い列の値と定義が同じでした。出荷の時刻の型による `since` のあふれは `test_pg_old_settled_rows_do_not_flood_since_for_any_time_type` で回します。型は timestamp、時差の無い字、DateStyle SQL の timestamptz です。replica とセーブポイントと取り消しの人の升は `test_pg_who_cancelled_is_returned_only_when_the_trigger_saw_the_mark` で回します。
 
-`test_additive_steps_keep_every_legacy_writer_working` は、見本の sqlite3 で段を 1 つずつ流した DB で、旧 API の書き手 12 手の結果を比べます。`test_migration_steps_are_additive_and_index_builds_are_separate` は、本番の文が足し算だけであることを確かめます。消す文、行を書き直す文、数える文、CHECK と外部キーが無いことを見ます。表の定義を変える文は 1 つの取引と SET LOCAL の中に置きます。索引の前に lock_timeout と statement_timeout を 0 に戻すことも見ます。
+`test_additive_steps_keep_every_legacy_writer_working` は、見本の sqlite3 で段を 1 つずつ流した DB で、旧 API の書き手 12 手の結果を比べます。`test_migration_steps_are_additive_and_index_builds_are_separate` は、本番の文が足し算だけであることを確かめます。消す文、行を書き直す文、数える文、CHECK と外部キーが無いことを見ます。表の定義を変える文は 1 つの取引と SET LOCAL の中に置きます。インデックスの前に lock_timeout と statement_timeout を 0 に戻すことも見ます。
 
 ### 第 12 回の審査の指摘の扱い
 
@@ -257,7 +257,7 @@ ORDER_WRITE_DISABLED は、戻しで新 API の書き込みを止めたときだ
 | 指摘 | この案での扱い | 試験 |
 |---|---|---|
 | 重大。確かめの SQL が表の単位の権限だけを見て、列の権限だけの旧い取り消しの書き手を通す | 列の単位の権限でも書き手と見る（has_any_column_privilege）。CONNECT のループも同じ。roles.sql の検査 9 の直しはインフラへ（未確定 16） | `test_pg_rls_preflight_catches_column_privilege_writers` |
-| 高 2 件。前の日に出荷した行への旧 API の取り消しが、どのビューにも `since` にも出ない | 印の立て下ろしは必ず changed_at を進める。出荷済みで印の立った行は、前の日までの出荷も今日出荷と済のビューに残す（索引 orders_marked） | `test_cancel_after_ship_on_an_earlier_day_reaches_the_screen` |
+| 高 2 件。前の日に出荷した行への旧 API の取り消しが、どのビューにも `since` にも出ない | 印の立て下ろしは必ず changed_at を進める。出荷済みで印の立った行は、前の日までの出荷も今日出荷と済のビューに残す（インデックス orders_marked） | `test_cancel_after_ship_on_an_earlier_day_reaches_the_screen` |
 | 高。12-25 にフラグと旧画面を消すと、戻す先が無い。戻したあとの文が送り直しを促す | 戻しのあいだは ORDER_WRITE_DISABLED（画面を読み込み直す）。旧画面とフラグを消す日を未確定 19 にし、段 4 の門にする | `test_rollback_sends_the_screen_back_and_plan_keeps_the_old_screen` |
 | 高・中。セーブポイントの中の書き込みと表の写し直しで、取り消しの人と時刻が読みで null になり、次の書き込みで消える | xmin と比べるのをやめ、印が立っていれば列の値を返す。素通りの書き手は ENABLE ALWAYS で無くした | `test_pg_who_cancelled_is_returned_only_when_the_trigger_saw_the_mark` |
 | 高・低。出荷の時刻が timestamp か時差の無い字か、DateStyle が ISO でないと、過去の済の一括が `since` をあふれさせる | 字の形の正規表現をやめ、字を時刻として読み、境を 2 日前に置いて時差の読み違いを吸う | `test_pg_old_settled_rows_do_not_flood_since_for_any_time_type` |
@@ -286,7 +286,7 @@ horizon の案は、手元の PostgreSQL 17 で流しました。列の権限だ
 | 中 7。段 1 の戻しが RLS の方針に止められ、段 2 の戻しで新 API が全部 503 になる | 列とトリガーを外す戻しを消した。users の方針は注文の列を参照しない形にする | `test_plan_keeps_added_objects_and_hands_cancel_after_ship_to_the_screen` |
 | 高 9 と低 14。同じキーの 2 本目が ROLLBACK で鍵のハッシュを失い 500。DB のログに冪等キーの値が出る | `INSERT … ON CONFLICT DO NOTHING` で誤りを出さず、取引を戻さずに読み直す | `test_same_key_race_keeps_the_key_hash_and_raises_no_error`、`test_pg_same_key_race_under_rls_replays_without_an_error` |
 | 高 15。users の方針が注文の 3 列を行ごとになめ、一覧が約 1 秒 | users を店の列（shop_id = app_key_shop()）で絞る。roles.sql を直すのはインフラ（未確定 16） | `test_pg_users_policy_by_shop_keeps_the_list_fast` |
-| 中 11。段 3 の索引作りが、前の段の lock_timeout で打ち切られる | 段 1 と段 2 は SET LOCAL。段 3 は lock_timeout を 0 に戻す | `test_pg_index_build_waits_for_long_old_writers` |
+| 中 11。段 3 のインデックス作りが、前の段の lock_timeout で打ち切られる | 段 1 と段 2 は SET LOCAL。段 3 は lock_timeout を 0 に戻す | `test_pg_index_build_waits_for_long_old_writers` |
 | 中 12。orders_write_horizon の定義が 2 か所にある | 定義は roles.sql の 1 つだけにし、orders_api.py から消した | `test_plan_keeps_added_objects_and_hands_cancel_after_ship_to_the_screen` |
 | 低 16。文書の中の数が食い違う | 一覧の SQL の数と、穴を入れた写しの数をそろえた | 同上 |
 
@@ -300,7 +300,7 @@ horizon の案は、手元の PostgreSQL 17 で流しました。列の権限だ
 |---|---|---|
 | 重大 1。RLS を有効にすると、方針の無い旧 API の読み書きが黙って 0 行になる | 旧い書き手の全部に、全行の方針と CONNECT と USAGE を付けてから RLS を有効にする。付いていなければ、確かめの SQL が roles.sql を止める。roles.sql を直すのはインフラ（未確定 16） | `test_plan_hands_over_rls_owner_positional_readers_and_side_effects`、`test_pg_rls_preflight_passes_built_in_roles_and_owner_members` |
 | 重大 2。トリガーを外す戻しのあと `/v1` が生きていると、前の取り消しの人が残り、`since` が変化を落とす | トリガーを外す戻しを消した。戻すのは新 API の機能フラグと書き込みだけ | `test_new_api_writes_only_rows_the_trigger_stamped` |
-| 高 3 と高 10。旧 API と移行の利用者に取引の上限 8 秒を掛けると、長い取引と索引作りが止まる | 上限を掛けない。servedAt を、まだコミットしていない書き手の取引の始まりより後にしない。索引は lock_timeout と statement_timeout を外し、IF NOT EXISTS を付けない | `test_since_does_not_need_a_time_limit_on_old_writers` |
+| 高 3 と高 10。旧 API と移行の利用者に取引の上限 8 秒を掛けると、長い取引とインデックス作りが止まる | 上限を掛けない。servedAt を、まだコミットしていない書き手の取引の始まりより後にしない。インデックスは lock_timeout と statement_timeout を外し、IF NOT EXISTS を付けない | `test_since_does_not_need_a_time_limit_on_old_writers` |
 | 高 4 と中 12。旧 API の一括が `since` をあふれさせる | 値の変わらない書き込みと、どのビューにも入らない過去の済の行の書き込みでは、changed_at を進めない | `test_bulk_writes_on_old_rows_do_not_flood_since` |
 | 高 5。計画と API が app.shop_id を置く前提で、roles.sql の app.key_hash と食い違う | 要求の取引の最初の文で app.key_hash を置き、鍵の表は current_setting で引く。app.shop_id と app.shop_scope は置かない | `test_every_transaction_sets_the_key_hash_first` |
 | 高 6。段 1〜3 は表の持ち主でないと流せない | 段 1〜3 は orders の今の持ち主で流し、持ち主は移さない。段 0 の 6 つ目で、名前と権限を調べる | `test_plan_hands_over_rls_owner_positional_readers_and_side_effects` |
@@ -348,9 +348,9 @@ db-access.json には、ほかに 3 つがあります。orders の表を読み�
 
 確かめ方は `skills/backend/scripts/query-count-check.sh` です。見本の API を 24 件と 400 件のデータで HTTP に載せ、`sqlite3` の `set_trace_callback` で 1 要求の SQL を数えます。changed_at のトリガーは行ごとに発火しますが、新しい問い合わせではないので数えません。利用者ごとの同時の要求を数えるために、写しに無い鍵は、要求とは別の取引で鍵のハッシュを置いてから、sessions を 1 行引きます。プロセスごとに鍵 1 本で 1 回だけで、この数には入れません。わざと N+1 にした写しでは、一覧の SQL が行の数とともに増え、検査が落ちました。
 
-ビューごとの件数は、ビューごとに索引で引ける副問い合わせ（SQL の中の SQL）に分け、1 つの SQL に入れます。今日出荷と自分の担当の行と件数も、未出荷の行と今日の済の行を別の索引で引いて足します（UNION ALL）。済の行は出荷指示の時刻で引くので、過去に済になった行が溜まっても読む量は増えません。OR でまとめると、統計の無い DB は店の行を全部なめました。
+ビューごとの件数は、ビューごとにインデックスで引ける副問い合わせ（SQL の中の SQL）に分け、1 つの SQL に入れます。今日出荷と自分の担当の行と件数も、未出荷の行と今日の済の行を別のインデックスで引いて足します（UNION ALL）。済の行は出荷指示の時刻で引くので、過去に済になった行が溜まっても読む量は増えません。OR でまとめると、統計の無い DB は店の行を全部なめました。
 
-済から配達済みへ移す処理は、この API にも計画にも無く、頼りません。400 件に過去の済の行を 300,000 行足しても、今日出荷の一覧（行 100）の中央値は 1.53ms から 1.58ms でした。API を直に呼んで各 20 回測りました（2026-11-07、第 9 回の直しのあと）。配達済みで足したときは 1.53ms から 1.59ms でした。索引を分ける前は、同じ量で中央値が 0.46ms から 40.3ms に増えました（審査の実測）。`since` は changed_at の索引で引き、15 分より前の時刻は 400 にします。審査では、`since=2000-01-01` で 300,402 行を数え、1 要求が 651〜1046ms かかりました。直したあとは、同じデータで 400 を返します。
+済から配達済みへ移す処理は、この API にも計画にも無く、頼りません。400 件に過去の済の行を 300,000 行足しても、今日出荷の一覧（行 100）の中央値は 1.53ms から 1.58ms でした。API を直に呼んで各 20 回測りました（2026-11-07、第 9 回の直しのあと）。配達済みで足したときは 1.53ms から 1.59ms でした。インデックスを分ける前は、同じ量で中央値が 0.46ms から 40.3ms に増えました（審査の実測）。`since` は changed_at のインデックスで引き、15 分より前の時刻は 400 にします。審査では、`since=2000-01-01` で 300,402 行を数え、1 要求が 651〜1046ms かかりました。直したあとは、同じデータで 400 を返します。
 
 旧 API の一括も `since` をあふれさせません。400 件に 10 月の済の行を 300,000 行足し、旧 API の文で全部を配達済みに移しました（2.3 秒）。そのあとの `since`（limit=100）は total 1 で、1 回 0.20〜0.67ms でした（3 回、2026-11-07 に実測）。審査では、同じ手順で total 300,001、1 回 790ms でした。
 
@@ -458,7 +458,7 @@ flowchart LR
 | 37 | 入れ子の深い本文は 500 でなく 400 | `test_deeply_nested_body_is_400_not_500` | 結合 |
 | 38 | 黙った接続で同時の接続の上限を埋めても、ほかの要求は通る | `test_http_silent_connections_cannot_hold_every_slot` | 結合（HTTP） |
 | 39 | 済の群の件数は、ビューと絞り込みに当たる行と一致する | `test_shipped_today_count_follows_the_view` | 結合 |
-| 40 | 本番の移行の文は足し算だけで、外部キーと CHECK を足さない。表の変更は 1 つの取引と SET LOCAL の lock_timeout の中、索引は CONCURRENTLY で、前に lock_timeout と statement_timeout を 0 に戻す | `test_migration_steps_are_additive_and_index_builds_are_separate` | 結合 |
+| 40 | 本番の移行の文は足し算だけで、外部キーと CHECK を足さない。表の変更は 1 つの取引と SET LOCAL の lock_timeout の中、インデックスは CONCURRENTLY で、前に lock_timeout と statement_timeout を 0 に戻す | `test_migration_steps_are_additive_and_index_builds_are_separate` | 結合 |
 | 41 | ログインのサービスが書いた鍵も、立て直したプロセスで自分の単位で数える | `test_inflight_bucket_knows_keys_the_login_service_wrote` | 結合 |
 | 42 | 15 分より前の `since` は 400。lock の待ちも打ち切りに入る | `test_since_has_a_window_and_lock_wait_counts_toward_the_deadline` | 結合 |
 | 43 | 応答を読まない接続で上限を埋めても、ほかの要求は通る | `test_http_unread_responses_cannot_hold_every_slot` | 結合（HTTP） |
@@ -490,7 +490,7 @@ flowchart LR
 | 69 | RLS の前の確かめは既定の役割と持ち主の一員で止まらず、方針の無い書き手と CONNECT の無い監視で止まる | `test_pg_rls_preflight_passes_built_in_roles_and_owner_members` | 結合（PostgreSQL 17） |
 | 70 | RLS の下で同じ冪等キーの 2 本が重なっても、誤りもログの値も無く、2 本目は 1 本目を読める | `test_pg_same_key_race_under_rls_replays_without_an_error` | 結合（PostgreSQL 17） |
 | 71 | users を店の列で絞ると、RLS の下の一覧の文が 50ms 未満 | `test_pg_users_policy_by_shop_keeps_the_list_fast` | 性能（PostgreSQL 17） |
-| 72 | 2 秒を超える旧い取引があっても、索引作りは打ち切られず INVALID を残さない | `test_pg_index_build_waits_for_long_old_writers` | 結合（PostgreSQL 17） |
+| 72 | 2 秒を超える旧い取引があっても、インデックス作りは打ち切られず INVALID を残さない | `test_pg_index_build_waits_for_long_old_writers` | 結合（PostgreSQL 17） |
 | 73 | 列の単位の権限だけを持つ旧い書き手も、RLS の前の確かめで止まる | `test_pg_rls_preflight_catches_column_privilege_writers` | 結合（PostgreSQL 17） |
 | 74 | 前の日までに出荷した行への旧 API の取り消しが、`since` と今日出荷と済のビューに出る | `test_cancel_after_ship_on_an_earlier_day_reaches_the_screen` | 結合 |
 | 75 | 戻しのあいだの書き込みは ORDER_WRITE_DISABLED で、画面を読み込み直させる。旧画面とフラグを消さない決めが計画にある | `test_rollback_sends_the_screen_back_and_plan_keeps_the_old_screen` | 結合 |
@@ -507,7 +507,7 @@ flowchart LR
 | 段階 | 中身 | 止めたときの状態 | 確かめ方 |
 |---|---|---|---|
 | 1 | 契約の確定と、見本の API。移行の段 0〜2 | 画面は旧 API のまま。足した列は読まれず、旧 API の書き込みの結果も変わらない。足した物は外さない | 契約の検査と見本の試験。旧 API の書き手の試験を PostgreSQL で流す |
-| 2 | 索引（移行の段 3）、インフラの RLS（段 R）、`/v1` の 4 操作（段 4）。段 4 は、段 0 の 7 つ目で列のほかの仕事が見つからず、画面が出荷のあとの取り消しを受け持ち、旧画面とフラグを残す決め（未確定 19）と段 0 の 2 つ目の決め（未確定 20）がそろったときだけ | 機能フラグで旧 API に戻し、新 API の書き込みを止められる。両方の API が同じ印を書くので、データの戻しは要らない。段 R で止めても、確かめの SQL が通るまで RLS は有効にならない | 問い合わせの数と p99 を本番の検証環境で測る。4 つの決まりの試験。旧 API の書き手の試験を旧 API の DB の利用者で流す |
+| 2 | インデックス（移行の段 3）、インフラの RLS（段 R）、`/v1` の 4 操作（段 4）。段 4 は、段 0 の 7 つ目で列のほかの仕事が見つからず、画面が出荷のあとの取り消しを受け持ち、旧画面とフラグを残す決め（未確定 19）と段 0 の 2 つ目の決め（未確定 20）がそろったときだけ | 機能フラグで旧 API に戻し、新 API の書き込みを止められる。両方の API が同じ印を書くので、データの戻しは要らない。段 R で止めても、確かめの SQL が通るまで RLS は有効にならない | 問い合わせの数と p99 を本番の検証環境で測る。4 つの決まりの試験。旧 API の書き手の試験を旧 API の DB の利用者で流す |
 
 ## 代替案
 
@@ -551,7 +551,7 @@ flowchart LR
 | 12 | 起点の署名の鍵の置き場と入れ替え。見本は API を作るたびの乱数で、ファイルに置かない | インフラが 11-12 までに、秘密の置き場と入れ替えの間隔を決める。入れ替えると前の起点は 400 になり、画面は先頭から読み直す |
 | 13 | フロントエンドの計画（210 行）は、`since` の行を済の検印として重ねる前提で、ほかの変化の扱いを持たない。`since` は新しい注文、決済待ちから出荷可、取り消しの戻しも返し、行はビューで絞らない。15 分より前の `since` の 400 の扱いも無い | フロントエンドが 11-12 までに計画を直す。案は、今のビューが行の `inViews` にあれば status と group で置き直し、無ければ外すこと。タブの件数は応答の `viewCounts` で置き換え、群ごとの件数は一覧の先頭を読み直して置き換える。400 なら一覧を読み直し、その servedAt から続ける |
 | 14 | フロントエンドの計画に、書き込みの 503 の ORDER_WRITE_UNAVAILABLE と ORDER_WRITE_DISABLED の扱いが無い。前者は利用者ごとの同時の要求の上限と待ちの打ち切りで、後者は戻しのあいだに返る | フロントエンドが 11-12 までに計画を直す。案は、API の原因と対処の文をそのまま出し、しばらく待って同じ冪等キーで送り直すこと。ORDER_WRITE_DISABLED なら送り直さず、画面を読み込み直す。文はデザイナーが未確定 3 で決める |
-| 15 | 段 0 の調べの結果（8 つ）。書き手の全部、出荷・取り消し・決済の通知の文の条件、列の数や位置に頼る読み手と書き手、索引を作る時間、表の持ち主と旧い書き手の権限、トリガーを素通りする書き手 | インフラとバックエンドが 11-12 までに調べる。ほかの書き手がいれば、`samples/api/db-access.json` の writers と otherRoles と版と段の表に足す。列の数に頼る読み手は、段 1 の前に列名を並べる形へ直す |
+| 15 | 段 0 の調べの結果（8 つ）。書き手の全部、出荷・取り消し・決済の通知の文の条件、列の数や位置に頼る読み手と書き手、インデックスを作る時間、表の持ち主と旧い書き手の権限、トリガーを素通りする書き手 | インフラとバックエンドが 11-12 までに調べる。ほかの書き手がいれば、`samples/api/db-access.json` の writers と otherRoles と版と段の表に足す。列の数に頼る読み手は、段 1 の前に列名を並べる形へ直す |
 | 16 | インフラの `samples/infra/db/roles.sql` は、旧 API の DB の利用者（db-access.json の otherRoles）を知らない。そのまま流すと、旧 API の読み書きが RLS で黙って 0 行になり、CONNECT の取り上げで接続もできなくなる。表の持ち主を orders_migrate とする前提と、orders_api の cancelled_by と cancelled_at の UPDATE の権限も、この計画と食い違う | インフラが 11-12 までに roles.sql を直す。旧い書き手に全行の方針と CONNECT と USAGE を付け、RLS を有効にする前に RLS_PREFLIGHT_PG を流す（検査 9 と同じ除き方にそろえた）。検査 9 も、列の単位の権限で書き手を見る形（has_any_column_privilege）に直す。app_key_shop は orders の持ち主の関数にする。users の方針は `shop_id::text = public.app_key_shop()`（orders_api.py の USERS_POLICY_PG）にする（roles.sql は合わせ済みで、db-grants-check は FAIL 0）。2 列の UPDATE の権限は、db-access.json から外す日にそろえる。直すまで、段 R は始めない |
 | 17 | 旧 API の取り消しと出荷が、列のほかに外の仕事（返金、在庫、客への知らせ、倉庫と運送会社への連絡）をしていた場合の扱い | 段 0 の 7 つ目の結果を見て、CEO が 11-12 までに決める。見つかれば段 4 に進まず、その仕事を新 API に移すか、旧 API の画面のまま続けるかを決める |
 | 18 | 出荷のあとに取り消しの印が立った済の行（`cancelledAfterShip` が true）を見せる要素が、画面仕様 `skills/designer/examples/screen-spec-order-list.md` にも実装計画 `skills/frontend/examples/frontend-plan-order-list.md` にも無い。普通の済と同じに描くと、客が取り消した注文の荷物が誰にも気づかれずに出ていく | デザイナーが 11-12 までに、済の行の目立たせ方と文（例: 「出荷のあとに取り消されました。荷物を止めてください」）を画面仕様の要素表とエラー表に足す。フロントエンドは同じ日までに、`cancelledAfterShip` の扱いを実装計画と試験に足す。両方がそろうまで、段 4 に進まない |
@@ -567,7 +567,7 @@ flowchart LR
 | 取りまとめ役 | 承認伺いに写す 3 点（契約、段階、未確定） | いま |
 | フロントエンド | 契約の JSON、エラーの表、起点と `since` の使い方（重ね幅と送り、絞り込みと併せない、15 分の窓、どの変化も返る、署名した起点、日付の変わった起点の 400）、今日出荷の済の行、`keys` に E と A が無いこと、書き込みの 503 の ORDER_WRITE_UNAVAILABLE（同じ冪等キーで送り直せる）と ORDER_WRITE_DISABLED（戻しのあいだ。画面を読み込み直す）、前の日までの出荷のあとの取り消しも済のビューに残ること、12-25 の旧画面とフラグの削除と戻しの食い違い（未確定 19）、行と詳細の `cancelledBy`（分からなければ null）、出荷のあとに取り消しの印が立った済の行（status は shipped で `cancelledAfterShip` が true。普通の済と分けて目立たせる。段 4 の門）、`since` の行の `inViews` と `viewCounts`、`since` の送りは全頁が最初の servedAt を返すこと、詳細の形の誤りの 400、未確定 7 と 13 と 14 と 18 と 19 | 承認後すぐ |
 | デザイナー | 画面仕様に無い 8 コード（ORDER_WRITE_UNAVAILABLE と ORDER_WRITE_DISABLED を足した）、未確定 2、ORDER_CANCEL_NOT_ALLOWED の対処の文の違い、出荷のあとに取り消された済の行（`cancelledAfterShip`）の見せ方と文（未確定 18。段 4 の門） | 承認後すぐ |
-| インフラ | 待ち受けの網、DB の利用者の表ごとの権限（`samples/api/db-access.json`。users の行の絞り方を店の列に変えた。roles.sql も合わせ済みで、db-grants-check は FAIL 0）、`samples/infra/db/roles.sql` の直し（users の方針を USERS_POLICY_PG に、旧 API の利用者 legacy_api に全行の方針と CONNECT と USAGE、RLS を有効にする前の RLS_PREFLIGHT_PG、app_key_shop の持ち主、cancelled_by と cancelled_at の UPDATE の権限、検査 9 を列の単位の権限で見る直し、orders_write_horizon を pg_locks で数える案）、移行の段 1〜3 の本番の文（`samples/api/orders_api.py` の ADDITIONS の pg。orders の持ち主で流す。表の変更は 1 つの取引と SET LOCAL の lock_timeout、索引は lock_timeout と statement_timeout を 0 に戻した CONCURRENTLY（orders_marked を足して 5 つ）、トリガーは ENABLE ALWAYS、外部キーは足さない。足した物は移行のあいだ外さない）、トリガー orders_before_write、関数 orders_write_horizon の定義と持ち主（roles.sql の 1 つだけ。API は読みの取引の前に SERVED_PG で読む）、書き手の一覧（writers）、移行の時間帯、鍵ごとの回数の上限（WAF）、未確定 8〜12 と 15、16 | 11-10 |
+| インフラ | 待ち受けの網、DB の利用者の表ごとの権限（`samples/api/db-access.json`。users の行の絞り方を店の列に変えた。roles.sql も合わせ済みで、db-grants-check は FAIL 0）、`samples/infra/db/roles.sql` の直し（users の方針を USERS_POLICY_PG に、旧 API の利用者 legacy_api に全行の方針と CONNECT と USAGE、RLS を有効にする前の RLS_PREFLIGHT_PG、app_key_shop の持ち主、cancelled_by と cancelled_at の UPDATE の権限、検査 9 を列の単位の権限で見る直し、orders_write_horizon を pg_locks で数える案）、移行の段 1〜3 の本番の文（`samples/api/orders_api.py` の ADDITIONS の pg。orders の持ち主で流す。表の変更は 1 つの取引と SET LOCAL の lock_timeout、インデックスは lock_timeout と statement_timeout を 0 に戻した CONCURRENTLY（orders_marked を足して 5 つ）、トリガーは ENABLE ALWAYS、外部キーは足さない。足した物は移行のあいだ外さない）、トリガー orders_before_write、関数 orders_write_horizon の定義と持ち主（roles.sql の 1 つだけ。API は読みの取引の前に SERVED_PG で読む）、書き手の一覧（writers）、移行の時間帯、鍵ごとの回数の上限（WAF）、未確定 8〜12 と 15、16 | 11-10 |
 | SRE | 要約のログの項目（reject の語 too_many_inflight を足し、移行の段の欄は外した）、ORDER_WRITE_UNAVAILABLE の 503 の割合、p99 の予算、lock の待ちを含む打ち切りの 8 秒、トリガーで延びる旧 API の一括の時間（300,000 行で 657ms から 3,294ms。段 0 の 5 つ目で本番の写しでも測る） | 11-12 |
 | CEO | 未確定 5（要望の外の 3 操作を、この版に足すか）、未確定 6（旧 API を止めるか）、未確定 17（旧 API の外の仕事が見つかったときの扱い）、未確定 19（旧画面とフラグを消す日）、未確定 20（旧 API の出荷の文が印を条件に持たないとき） | 11-10 |
 

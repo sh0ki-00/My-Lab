@@ -1,0 +1,5 @@
+チェックリストを作成しました。
+リリース前の確認項目をまとめています。
+ファイルは tmp/flow/release/checklist.md です。
+RESULT: PASS check-file tmp/flow/release/checklist.md
+ご確認のほど、よろしくお願いいたします。

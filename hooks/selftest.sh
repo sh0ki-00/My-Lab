@@ -2,7 +2,7 @@
 # hooks/selftest.sh — hooks の自己試験。
 # 1) 判定本体に、承認が要る操作・取り消せない操作・読むだけの操作・合図の語を流し、判定表どおりかを見る。
 #    commit 文・PR 文・Issue 文の現場の語の言い換え（改善提案書の W-4）と、クラウドにつなぐコマンド（S-7）も見る。
-# 2) 接続口に両ツールの形の JSON を流し、端から端で正しい形の出力が出るかを見る。
+# 2) hooks に両ツールの形の JSON を流し、端から端で正しい形の出力が出るかを見る。
 #    返答の言い換えの差し戻し（W-3）と、終わりの検証をそのセッションの文書だけにすること（V-1〜V-3 の hooks の側）も見る。
 # 使い方: bash hooks/selftest.sh   → 1 件でも落ちれば終了コード 1。C と ja_JP.UTF-8 の 2 つの文字の設定で回す（tools/verify-all.sh の 6）
 set -u
@@ -31,10 +31,10 @@ expect_fake_lab() {
   got="$(LAB_ROOT="$HOME/my-lab-selftest" COMPANY_GUARD_PROJECT_ROOT="$HOME/my-lab-selftest" bash "$CORE" -- "$cmd" | cut -f1)"
   if [ "$got" = "$want" ]; then ok; else bad "判定(家の下の My-Lab): 期待 $want / 実際 $got : $cmd"; fi
 }
-export COMPANY_GUARD_PROJECT_ROOT="$LAB_ROOT"   # 1 の判定は My-Lab の中で動いているものとして見る（接続口は自分の root で上書きする）
+export COMPANY_GUARD_PROJECT_ROOT="$LAB_ROOT"   # 1 の判定は My-Lab の中で動いているものとして見る（hooks は自分の root で上書きする）
 
 # ---- 1. 判定表
-# 1a. 関所 2（外に出る操作）→ ask
+# 1a. 承認 2（外に出る操作）→ ask
 expect ask deny 'git commit -m "x"'
 expect ask deny 'git commit --amend --no-edit'
 expect ask deny 'git -C /tmp/x commit -m x'
@@ -576,7 +576,7 @@ expect allow deny 'ls src/eb.ts'
 expect allow deny 'npm run deploy'
 expect deny deny 'aws s3 ls; rm -rf hooks'
 
-# ---- 2. 接続口（端から端）
+# ---- 2. hooks（端から端）
 T="$(mktemp -d)"
 cleanup() {  # 一時の場所と、My-Lab の tmp/.verify に書いた、この自己試験の分の記録を消す（本物のセッションの記録は消さない）
   local v="$LAB_ROOT/tmp/.verify"
@@ -590,7 +590,7 @@ export COMPANY_GUARD_VERIFY_CMD="false"
 export COMPANY_GUARD_CURSOR_MODE=ask  # この Mac の ~/.cursor/company-guard.mode に左右されない。ファイルを読む道は 2d で HOME を差し替えて試す
 export COMPANY_GUARD_MODE_FILE="$T/no-root/mode"  # この Mac の root の置き場（/usr/local/etc/company-guard）にも左右されない。置き場のある道は 2d-2 で差し替えて試す
 OUT=""; RC=0
-run() {  # run <接続口> <stdin の JSON> [引数...] → OUT と RC
+run() {  # run <hooks> <stdin の JSON> [引数...] → OUT と RC
   local script="$1" json="$2"; shift 2
   OUT="$(printf '%s' "$json" | bash "$HOOKS_DIR/$script" "$@" 2>"$T/err")"; RC=$?
 }
@@ -694,7 +694,7 @@ COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJA"; COMPANY_GUARD_VERIFY_C
 assert "Claude Stop: 続きの指示は 3 回目まで block" has_out '"decision":"block"'
 COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJA"
 assert "Claude Stop: 4 回目は上限で止める" no_out
-# 印（stop_hook_active）を送らない呼び手（Claude Code 形式の接続口を Cursor が回すとき）でも、回数だけで止まる
+# 印（stop_hook_active）を送らない呼び手（Claude Code 形式の hooks を Cursor が回すとき）でも、回数だけで止まる
 rm -f "$LAB_ROOT/tmp/.verify/stop-count-selftest-$$"
 SJN='{"session_id":"selftest-'"$$"'","cwd":"'"$T"'","hook_event_name":"Stop"}'
 COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJN"; COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJN"; COMPANY_GUARD_VERIFY_CMD=false run claude-stop.sh "$SJN"
@@ -806,14 +806,14 @@ assert "Cursor stop: 検証が PASS なら {}" [ "$OUT" = '{}' ]
 run cursor-after-edit.sh '{"file_path":"/nonexistent/x.md","edits":[]}'
 assert "Cursor after-edit: 無いファイルでも終了コード 0" [ "$RC" -eq 0 ]
 
-# 2g. Stop の両接続口: 検証が通ったあと、ファイルを消すだけ・名前を変えるだけでも、次の Stop は検証を回す
+# 2g. Stop の両 hooks: 検証が通ったあと、ファイルを消すだけ・名前を変えるだけでも、次の Stop は検証を回す
 # 印（last-pass）より新しいファイルは 1 本も無い場面なので、一覧（last-pass.list）の比較だけが変更を見つける
 P="$T/proj"; mkdir -p "$P/src" "$P/tmp/.verify"
 printf 'a\n' > "$P/src/a.txt"; printf 'b\n' > "$P/src/b.txt"; printf 'd\n' > "$P/src/d.txt"
 touch -t 202001010000 "$P/src/a.txt" "$P/src/b.txt" "$P/src/d.txt"   # 印より確かに古い時刻にする
 SJP='{"session_id":"selftest-'"$$"'","cwd":"'"$P"'","hook_event_name":"Stop","stop_hook_active":false}'
 CJP='{"status":"completed","loop_count":0,"cwd":"'"$P"'"}'
-# pass_stop: 検証の命令が印を書く（verify-all.sh と project-verify.sh が PASS で touch するのと同じ）。通った直後に接続口が一覧を書く
+# pass_stop: 検証の命令が印を書く（verify-all.sh と project-verify.sh が PASS で touch するのと同じ）。通った直後に hooks が一覧を書く
 pass_stop() { CLAUDE_PROJECT_DIR="$P" CURSOR_PROJECT_DIR="$P" COMPANY_GUARD_VERIFY_CMD='touch tmp/.verify/last-pass' run "$@"; }
 fail_stop() { CLAUDE_PROJECT_DIR="$P" CURSOR_PROJECT_DIR="$P" COMPANY_GUARD_VERIFY_CMD=false run "$@"; }
 absent_line() { ! grep -qx -- "$1" "$2"; }   # absent_line <行> <ファイル> → その行が無ければ 0

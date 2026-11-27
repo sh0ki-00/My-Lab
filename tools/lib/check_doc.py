@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """check-doc — 文書の型の検査。.company/rules/documents.md の、機械で見られる決まりを落とす。
 
-種類の決め方: 表題の先頭「種類:」（「調査報告書:」は調査報告と同じ）か、表題の末尾の語
-（〜手順書、〜運用設計書、〜要件定義書、〜ポストモーテム、〜調査報告書、〜仕様書）。どちらも無ければ種類の無い資料。
-資料の型（仕様書、調査報告、設計書、完了報告、種類の無い資料）: 冒頭の 3 行の要約（引用ブロック、各行が文）、
+種類の決め方: 表題の先頭「種類:」（「調査報告書:」は調査報告と同じ。「リリース前チェックリスト:」のように
+チェックリストの語で終わる語も先頭と見る）か、表題の末尾の語（〜手順書、〜運用設計書、〜要件定義書、〜ポストモーテム、
+〜調査報告書、〜仕様書、〜チェックリスト、〜データ分析）。どれも無ければ種類の無い資料。
+資料の型（仕様書、調査報告、データ分析、設計書、完了報告、種類の無い資料）: 冒頭の 3 行の要約（引用ブロック、各行が文）、
 節の冒頭の導入の文（表・図・箇条書きから始めない）、図と表の密度（本文 500 字に 1 つ）、図の直後の読み方、
 用語の初出の括弧説明、見出しの深さ（4 階層まで）、種類ごとの必須の節。
 現場の文書の型（手順書、運用設計書、要件定義書、ポストモーテム）: 資料の型は掛けず、表題の直下の文書情報の表と必須の節を見る。
+チェックリスト: 資料の型も文書情報の表も掛けず、チェックボックスの行だけを見る。
 種類ごとの中身の決まり:
   手順書: 手順の形（手順の節は番号付きの 1 行 1 操作。番号の無い段落が 3 行以上なら落とす）と、操作ごとの期待結果の行。
   調査報告: 比較の表に根拠か出典の列、出典の表に参照日の列、結論の節に確信度と「推奨が変わる条件」。
@@ -16,6 +18,10 @@
     人の注意に頼る対策、反事実の語（すべきだった、できたはず）。
   仕様書（新しい型のとき）: 代替案の表に却下の理由の列、未確定の表に担当と期限の列。
     2026-11-06 の型（完成の条件、全体像、将来の変化、実装の進め方、やらないこと、未確定、確認事項）も必須の節として受け付ける。
+  チェックリスト: 「- [ ]」の行が 5 つ以上、表を使わない、チェックボックスの無い箇条書きを置かない、1 項目 60 字以内、
+    確認できない語（CHECK_VAGUE と、あれば tools/vague-words.txt の語）、1 行に確認 2 つ（文が 2 つ、並べる語、「〜ていて、」のつなぎ）。
+  データ分析: 必須の節（問い、データ、集計、解釈、未確認、次の一手、再現）、データの節に出どころと期間（か時点・条件）、
+    集計の節に数字の表、再現の節に命令のコードブロック。
 使い方: check_doc.py <ファイル>...   /   check_doc.py --selftest
 出力: FAIL <ファイル>:<行> [<決まり>] <内容> を並べ、最後に RESULT: PASS|FAIL。1 件でも FAIL なら終了コード 1。
 """
@@ -45,6 +51,8 @@ REQUIRED = {
     "要件定義書": [["目的", "指標", "範囲", "対象外", "前提", "制約", "業務要件", "機能要件", "非機能要件", "受け入れ", "追跡", "未決"]],
     "ポストモーテム": [["要約", "影響", "検知", "対応", "タイムライン", "原因", "教訓", "対策"]],
     "完了報告": [["確認", "未確認"]],
+    "データ分析": [["問い", "データ", "集計", "解釈", "未確認", "次の一手", "再現"]],
+    "チェックリスト": [[]],  # 節の名前は問わない。中身はチェックボックスの行で見る
 }
 # 現場の文書の型で見る種類。資料の型（要約、導入の文、密度、図の読み方、用語）は掛けない
 FIELD_KINDS = ("手順書", "運用設計書", "要件定義書", "ポストモーテム")
@@ -60,8 +68,9 @@ FIELD_NOTE = {
     "要件定義書": "読み手の説明の節は書かず、用語は用語定義の節に置く",
     "ポストモーテム": "読み手の説明の節は書かず、前提と語は背景と用語の節に置く",
 }
-PREFIX_KIND = re.compile(r"^(手順書|運用設計書|調査報告書?|仕様書|要件定義書|ポストモーテム|設計書|完了報告)\s*[:：]")
-SUFFIX_KIND = re.compile(r"(手順書|運用設計書|調査報告書|仕様書|要件定義書|ポストモーテム)$")
+PREFIX_KIND = re.compile(r"^(手順書|運用設計書|調査報告書?|仕様書|要件定義書|ポストモーテム|設計書|完了報告|チェックリスト|データ分析)\s*[:：]")
+CHECK_PREFIX = re.compile(r"^[^:：]*(チェックリスト)\s*[:：]")  # 「リリース前チェックリスト: 件名」
+SUFFIX_KIND = re.compile(r"(手順書|運用設計書|調査報告書|仕様書|要件定義書|ポストモーテム|チェックリスト|データ分析)$")
 EXPECTED = re.compile(r"期待結果|期待する結果|確かめ方|確認結果")
 STEP_ITEM = re.compile(r"^\d+[.)]\s")  # 字下げの無い、番号付きの操作の行
 VAGUE = ["など", "適切に", "簡単に", "速やかに", "柔軟に", "迅速に", "可能な限り", "必要に応じて", "十分な", "十分に", "使いやすい", "最高の", "より良い"]
@@ -69,7 +78,30 @@ PRIORITY = ["Must", "Should", "Could", "Won't", "必須", "重要", "あれば�
 NOT_REQ_COL = ("ID", "番号", "項番", "備考", "根拠", "出典", "関連", "状態", "優先度", "検証", "分類", "大項目", "中項目", "小項目", "担当", "発案", "レベル")
 COUNTERFACTUAL = ["すべきだった", "できたはず", "していれば", "すればよかった"]
 ONLY_CARE = re.compile(r"^(注意|気を付け|気をつけ|周知|徹底)")
+# チェックリスト
+CHECK_MIN = 5  # チェックボックスの行の下限
+CHECK_LEN = 60  # 1 項目の字数の上限（空白を除く）
+# 確認できない語。.company/rules/writing.md の要注意語 5 つと「十分に」に、はい・いいえで答えられない語を足した。
+# tools/vague-words.txt があれば、その語も足す（1 行 1 語、# は注釈）
+CHECK_VAGUE = ["適切に", "柔軟に", "様々な", "効果的", "必要に応じて", "十分に", "十分な", "問題ない", "問題がない",
+               "きちんと", "しっかり", "ちゃんと", "なるべく", "可能な限り", "速やかに", "適宜", "など"]
+CHECKBOX = re.compile(r"^[-*+]\s+\[[ xX]\]\s+(.*)$")
+TOP_ITEM = re.compile(r"^([-*+]|\d+[.)])\s")  # 字下げの無い箇条書き
+TWO_JOIN = ["かつ", "および", "及び", "ならびに", "並びに", "また、", "あわせて", "併せて", "そのうえで", "その上で", "と同時に", "それから"]
+TWO_LINK = re.compile(r"(ていて|ており|てあり|であり|であって|ていない上に|せず|がなく|もなく)、")
+BRACKETS = re.compile(r"（[^（）]*）|\([^()]*\)")
 KIND_NAME = {"table": "表", "fence": "コードか図", "list": "箇条書き", "image": "画像", "hr": "区切り線"}
+
+
+def load_vague():
+    words = list(CHECK_VAGUE)
+    f = HERE.parent / "vague-words.txt"
+    if f.exists():
+        for line in f.read_text(encoding="utf-8").splitlines():
+            w = line.split("\t")[0].strip()
+            if w and not w.startswith("#") and w not in words:
+                words.append(w)
+    return words
 
 
 def load_terms():
@@ -101,7 +133,7 @@ def next_content(lines, i):
 def kind_of(title: str):
     """表題から種類を決める。先頭の「種類:」を優先し、無ければ末尾の語で見る。「調査報告書」は「調査報告」に揃える。"""
     t = title.strip()
-    m = PREFIX_KIND.match(t) or SUFFIX_KIND.search(t)
+    m = PREFIX_KIND.match(t) or CHECK_PREFIX.match(t) or SUFFIX_KIND.search(t)
     return m.group(1).replace("調査報告書", "調査報告") if m else None
 
 
@@ -275,6 +307,70 @@ def check_spec(lines, issues):
             issues.append((h.no, "未確定の表", "未確定は表にし、担当と期限の列を置く"))
 
 
+def check_checklist(lines, issues):
+    """チェックリスト: - [ ] の 1 行 1 確認。表、チェックボックスの無い箇条書き、長い項目、確認できない語、1 行 2 確認を落とす。"""
+    vague = load_vague()
+    items = 0
+    prev = ""
+    for ln in lines:
+        was, prev = prev, ln.kind
+        if ln.kind == "table":
+            if was != "table":  # 表ごとに 1 件
+                issues.append((ln.no, "チェックリストの表", "チェックリストを表で書かない。「- [ ] 確認すること」の 1 行 1 確認にする"))
+            continue
+        if ln.kind != "list" or ln.in_quote:
+            continue
+        m = CHECKBOX.match(ln.raw.strip())
+        if m is None:
+            if TOP_ITEM.match(ln.raw):
+                issues.append((ln.no, "チェックボックス", f"「{ln.text[:20]}」にチェックボックスが無い。確認は「- [ ] 」で始める。方法は括弧か字下げした続きの行へ"))
+            continue
+        items += 1
+        text = mdparse.clean(m.group(1))
+        if mdparse.length(text) > CHECK_LEN:
+            issues.append((ln.no, "項目の長さ", f"{mdparse.length(text)} 字。1 項目は {CHECK_LEN} 字以内にし、方法は字下げした続きの行へ"))
+        hit = next((w for w in vague if w in text), None)
+        if hit:
+            issues.append((ln.no, "曖昧語", f"「{hit}」は、はい・いいえで答えられない。数値か状態に置き換える: {text[:30]}"))
+        bare = BRACKETS.sub("", text).strip()
+        why = None
+        if "。" in bare.rstrip("。"):
+            why = "文が 2 つある"
+        else:
+            j = next((w for w in TWO_JOIN if w in bare), None)
+            if j:
+                why = f"「{j}」で 2 つを並べている"
+            else:
+                lk = TWO_LINK.search(bare)
+                if lk:
+                    why = f"「{lk.group(0)}」で 2 つをつないでいる"
+        if why:
+            issues.append((ln.no, "1 行 2 確認", f"{why}。1 行に確認は 1 つにし、2 行に分ける: {text[:30]}"))
+    if items < CHECK_MIN:
+        issues.append((0, "チェックボックス", f"「- [ ]」の行が {items} 行。チェックリストは {CHECK_MIN} 行以上の 1 行 1 確認で書く"))
+
+
+def check_analysis(lines, issues):
+    """データ分析: データの出どころと期間、数字の集計の表、再現の命令。"""
+    h, body = find_section(lines, "データ")
+    if h is not None:
+        text = body_text(body)
+        if not re.search(r"出どころ|出所|データ源", text) or not re.search(r"期間|時点|条件", text):
+            issues.append((h.no, "データの出どころ", "データの節に、出どころ（ファイルか表の名前）と期間（か時点・絞り込みの条件）を書く"))
+    h, body = find_section(lines, "集計")
+    if h is not None:
+        tabs = tables_in(body)
+        if not tabs:
+            issues.append((h.no, "集計の表", "集計は表にする。行は区分、列は件数や金額のような数字"))
+        for t in tabs:
+            for no, cells in t["rows"]:
+                if not any(re.search(r"\d", c) for c in cells[1:]):
+                    issues.append((no, "集計の表", f"集計の表の行「{cells[0][:12]}」に数字が無い。解釈は解釈の節に書く"))
+    h, body = find_section(lines, "再現")
+    if h is not None and not any(ln.kind == "code" and ln.raw.strip() for ln in body):
+        issues.append((h.no, "再現の命令", "再現の節に、集計をやり直す命令をコードブロックで置く"))
+
+
 def check_text(src: str):
     issues = []
     lines = mdparse.parse(src)
@@ -286,9 +382,10 @@ def check_text(src: str):
     title = lines[h1].text
     kind = kind_of(title)
     field_doc = kind in FIELD_KINDS
+    light = field_doc or kind == "チェックリスト"  # 資料の型（要約、導入の文、密度、図の読み方、用語）を掛けない種類
 
-    # 1. 3 行の要約（引用ブロック）。現場の文書の型には掛けない
-    if not field_doc:
+    # 1. 3 行の要約（引用ブロック）。現場の文書の型とチェックリストには掛けない
+    if not light:
         quote = []
         started = False
         for ln in lines[h1 + 1:]:
@@ -327,7 +424,7 @@ def check_text(src: str):
         elif nxt.kind == "heading":
             if nxt.level <= ln.level:
                 issues.append((ln.no, "空の節", "見出しの直後が同じ階層の見出し。本文を書くか見出しを消す"))
-        elif field_doc:
+        elif light:
             pass
         elif nxt.kind in ("prose", "quote", "skipped"):
             pass
@@ -336,7 +433,7 @@ def check_text(src: str):
         else:
             issues.append((ln.no, "導入の文", f"節が{KIND_NAME.get(nxt.kind, nxt.kind)}から始まる。1 文目に、その節の結論か要点を書く"))
 
-    if not field_doc:
+    if not light:
         # 3. 図と表の密度
         body = sum(mdparse.length(ln.text) for ln in lines if ln.kind in ("prose", "quote", "list"))
         mermaids = mdparse.code_blocks(lines, "mermaid")
@@ -465,6 +562,10 @@ def check_text(src: str):
         check_postmortem(lines, issues)
     elif kind == "仕様書" and matched == 0:
         check_spec(lines, issues)
+    elif kind == "チェックリスト":
+        check_checklist(lines, issues)
+    elif kind == "データ分析":
+        check_analysis(lines, issues)
     return issues
 
 
@@ -784,6 +885,72 @@ GOOD_PM = """# 見本 ポストモーテム
 | 道具の版を設定ファイルに固定する | 予防 | P1 | インフラ役 | 2026-11-20 | Issue 1 | TODO |
 """
 
+GOOD_CHECKLIST = """# リリース前チェックリスト: 見本の API
+
+対象は 2026-11-20 のリリースです。確かめた人は、項目の末尾に名前を書きます。
+
+## コードと試験
+
+- [ ] 取り込む PR に approve が 1 つ以上付いている
+- [ ] CI の試験が全部通っている（失敗 0、スキップ 0）
+  - 確かめ方: PR の Checks の欄を開く
+
+## 設定
+
+- [ ] 本番の環境変数に、新しい 2 つが入っている
+- [ ] 差分に秘密情報のファイルが無い（gitleaks が 0 件）
+
+## 戻し方
+
+- [ ] 戻す手順書の版が、今回の変更に合っている
+- [ ] 戻す所要を stg で測り、5 分以内だった
+"""
+
+GOOD_ANALYSIS = """# データ分析: 見本の注文の状態
+
+> **3 行でわかる要約**
+> 1. 見本の注文 29 件を状態ごとに数えた分析です。
+> 2. 出荷の済んでいない注文は 18 件で、12 件は出荷待ちです。
+> 3. 次にすることは、担当の無い 11 件の割り当てです。
+
+## 1. 問い
+
+問いは、出荷の済んでいない注文がどの状態に何件あるかです。
+
+## 2. データの出どころと条件
+
+出どころは見本の注文のファイルで、時点は 2026-11-06 09:52 です。他の店の注文は除きました。
+
+## 3. 集計
+
+状態ごとの件数と金額です。
+
+| 状態 | 件数 | 金額（円） |
+|---|---|---|
+| 出荷待ち | 12 | 125770 |
+| 出荷済み | 11 | 57590 |
+
+## 4. 解釈
+
+出荷待ちが最も多く、金額の 7 割を占めます。
+
+## 5. 未確認
+
+時刻の推移は見ていません。時点は 1 つだけです。
+
+## 6. 次の一手
+
+担当の無い注文を割り当てます。担当は取りまとめ役で、期限は 2026-11-06 です。
+
+## 7. 再現の命令
+
+次の命令で、同じ表が出ます。
+
+```sh
+python3 -I count.py orders.json
+```
+"""
+
 GOODS = {
     "調査報告（資料の型）": GOOD_RESEARCH,
     "手順書（現場の型）": GOOD_PROCEDURE,
@@ -791,6 +958,8 @@ GOODS = {
     "仕様書（資料の型）": GOOD_SPEC,
     "要件定義書（現場の型）": GOOD_REQ,
     "ポストモーテム（現場の型）": GOOD_PM,
+    "チェックリスト": GOOD_CHECKLIST,
+    "データ分析（資料の型）": GOOD_ANALYSIS,
 }
 
 SUMMARY = "# 題\n\n> 1. 要約です。\n> 2. 要約です。\n> 3. 要約です。\n\n"
@@ -828,6 +997,25 @@ BAD_FROM = {
     "反事実": (GOOD_PM, "引き金は道具の更新である。", "引き金は道具の更新である。版を固定していれば防げた。"),
 }
 
+# 同じ決まりの名前で、別の種類を落とす負例。(名前, 決まり, 元, 置換前, 置換後)
+BAD_MORE = [
+    ("チェックリストを表で書く", "チェックリストの表", GOOD_CHECKLIST,
+     "- [ ] 取り込む PR に approve が 1 つ以上付いている\n- [ ] CI の試験が全部通っている（失敗 0、スキップ 0）",
+     "| 確認 | 結果 |\n|---|---|\n| approve が 1 つ以上 | |\n| CI の試験が全部通る | |"),
+    ("チェックリストの曖昧語", "曖昧語", GOOD_CHECKLIST, "新しい 2 つが入っている", "新しい値が適切に入っている"),
+    ("チェックリストの 1 行 2 確認", "1 行 2 確認", GOOD_CHECKLIST,
+     "- [ ] 取り込む PR に approve が 1 つ以上付いている", "- [ ] approve が付いていて、CI も通っている"),
+    ("チェックボックスの無い箇条書き", "チェックボックス", GOOD_CHECKLIST, "- [ ] 戻す手順書の版", "- 戻す手順書の版"),
+    ("長すぎる項目", "項目の長さ", GOOD_CHECKLIST, "新しい 2 つが入っている",
+     "注文のインデックスを使うかの切り替えと、一覧の 1 ページの件数を表す新しい 2 つの値が、設計書の表に載っている綴りと同じ名前で入っている"),
+    ("文が 2 つの項目", "1 行 2 確認", GOOD_CHECKLIST, "（gitleaks が 0 件）", "。gitleaks も 0 件"),
+    ("データ分析の必須の節", "必須の節", GOOD_ANALYSIS, "## 5. 未確認", "## 5. 補足"),
+    ("データの出どころ", "データの出どころ", GOOD_ANALYSIS, "出どころは見本の注文のファイルで、時点は 2026-11-06 09:52 です。", "注文を数えました。"),
+    ("集計を文で書く", "集計の表", GOOD_ANALYSIS, "| 状態 | 件数 | 金額（円） |\n|---|---|---|\n| 出荷待ち | 12 | 125770 |\n| 出荷済み | 11 | 57590 |", "出荷待ちは 12 件、出荷済みは 11 件でした。"),
+    ("集計の表に解釈", "集計の表", GOOD_ANALYSIS, "| 出荷済み | 11 | 57590 |", "| 出荷済み | 少ない | 気にしなくてよい |"),
+    ("再現の命令", "再現の命令", GOOD_ANALYSIS, "```sh\npython3 -I count.py orders.json\n```\n", "表計算ソフトで数えました。\n"),
+]
+
 
 def selftest() -> bool:
     ok = True
@@ -843,12 +1031,19 @@ def selftest() -> bool:
             print(f"FAIL selftest: 負例「{rule}」の置換元が正例に無い")
             continue
         bads[rule] = good.replace(old, new)
-    for rule, text in bads.items():
+    cases = [(rule, rule, text) for rule, text in bads.items()]
+    for name, rule, good, old, new in BAD_MORE:
+        if old not in good:
+            ok = False
+            print(f"FAIL selftest: 負例「{name}」の置換元が正例に無い")
+            continue
+        cases.append((name, rule, good.replace(old, new)))
+    for name, rule, text in cases:
         found = {r for _, r, _ in check_text(text)}
         if rule not in found:
             ok = False
-            print(f"FAIL selftest: 負例「{rule}」が通った（検出: {sorted(found)}）")
-    print(f"RESULT: {'PASS' if ok else 'FAIL'} check-doc --selftest ({len(GOODS) + len(bads)} 例)")
+            print(f"FAIL selftest: 負例「{name}」が通った（検出: {sorted(found)}）")
+    print(f"RESULT: {'PASS' if ok else 'FAIL'} check-doc --selftest ({len(GOODS) + len(cases)} 例)")
     return ok
 
 

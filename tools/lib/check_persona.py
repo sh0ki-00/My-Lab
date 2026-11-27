@@ -4,9 +4,9 @@
 見る文書と見方:
   スキルの雛形と完成例（skills/<名前>/templates/ と examples/ の .md）
       1 つでもあれば FAIL。「」の中も図の中も数える。雛形の穴と例は、そのまま写されて資料になるため。
-  それ以外の文書（check-file.sh が、写した先で AI が書く tmp/flow/・tmp/ISSUE_*・tmp/PR_* の資料だけを渡す）
+  それ以外の文書（check-file.sh が、移した先で AI が書く tmp/flow/・tmp/ISSUE_*・tmp/PR_* の資料だけを渡す）
       「」の中（人の言葉の引用）、`…` の中、``` の囲みの中（コードと記録）は数えない。
-決まりの本文は .company/rules/documents.md の 5 節（写した先では tmp/.company/rules/documents.md）。
+決まりの本文は .company/rules/documents.md の 5 節（移した先では tmp/.company/rules/documents.md）。
 使い方: check_persona.py <ファイル>...   /   check_persona.py --selftest
 出力: FAIL <ファイル>:<行> [秘書・社長の語] … の行と、最後に RESULT: PASS|FAIL check-persona の行。
       1 件でも FAIL なら終了コード 1。

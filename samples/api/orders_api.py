@@ -17,7 +17,7 @@
       status に 'cancelled' は書かない（表の制約が断る）。契約の status の 'cancelled' は、読むときに is_cancelled から作る
       （未出荷の行だけ。出荷のあとに印が立った行は済のまま読み、cancelledAt で知らせる）。
       新 API の書き込みは is_cancelled を条件に入れる（出荷指示は is_cancelled = 0 の行だけ、取り消しは is_cancelled を 1 にする）。
-      旧 API の書き込みは何も変えない。移行は意味を変えない足し算だけ（ADDITIONS。列、トリガー、索引）で、段の表も段の門も無い。
+      旧 API の書き込みは何も変えない。移行は意味を変えない足し算だけ（ADDITIONS。列、トリガー、インデックス）で、段の表も段の門も無い。
       足した物は移行のあいだ外さない。戻すのは新 API の機能フラグと、新 API の書き込み（writes_enabled）だけ。
       見本の表は、移行の前の表（LEGACY_SCHEMA）に ADDITIONS の sqlite の文を全部流した形。本番の文は ADDITIONS の pg にある。
       画面に見えうる行が変わるたびに changed_at を DB のトリガーが進め、since はこれで数える（2 日より前に出荷した済の行の一括と、
@@ -245,14 +245,14 @@ $$"""
 
 # 移行の段。どれも意味を変えない足し算で、旧 API の書き込みの結果を変えない（試験 test_additive_steps_keep_every_legacy_writer_working と、
 # PostgreSQL で列の型を変えて流す test_pg_added_objects_never_change_legacy_writers）。
-# 足した物（列、表、トリガー、索引）は移行のあいだ外さない。戻すのは新 API の機能フラグと、新 API の書き込みだけ（back）。
+# 足した物（列、表、トリガー、インデックス）は移行のあいだ外さない。戻すのは新 API の機能フラグと、新 API の書き込みだけ（back）。
 # 足す物は旧い書き手を変えない形に限る。旧い書き手の文を断らない（外部キーと CHECK を足さない。users への外部キーは ON DELETE CASCADE）、
 # 列の型を前提にしない（トリガーは行と値を字にして比べ、時刻は読めるときだけ読む。どこで失敗しても書き込みを止めない）、
 # 旧い書き手の値を書き換えない（トリガーが書くのは足した 4 列だけ）。
 # pg は本番（PostgreSQL）の文。runAs は流す利用者で、どの段も orders の今の持ち主（段 0 で調べる。旧 API の側）が流す。
 # 表の定義を変える文は 1 つの取引に入れ、lock_timeout は SET LOCAL で取引の中だけに置く（セッションに残さない）。
-# 索引は取引の外の CONCURRENTLY で、lock_timeout と statement_timeout を 0 に戻してから流す（長い旧い取引の終わりを待ち、INVALID を残さない。
-# IF NOT EXISTS は INVALID の索引を黙って残すので使わない）。sqlite は見本が流す同じ意味の文。
+# インデックスは取引の外の CONCURRENTLY で、lock_timeout と statement_timeout を 0 に戻してから流す（長い旧い取引の終わりを待ち、INVALID を残さない。
+# IF NOT EXISTS は INVALID のインデックスを黙って残すので使わない）。sqlite は見本が流す同じ意味の文。
 # stop は止めたときの状態、back は戻し方、verify は確かめ方（計画の「データと移行」の表と同じ）
 _PG_STAMP = """CREATE OR REPLACE FUNCTION orders_before_write() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public AS $$
@@ -351,7 +351,7 @@ ADDITIONS = [
              "ENABLE ALWAYS なので、replica の取り込みと論理複製の適用でも動く",
      "back": _KEEP,
      "verify": "検証の環境で 1 行を書き、changed_at と stamped_xid が進むことを読む。トリガーの注釈に時刻があり、tgenabled が A。旧 API の書き込みの試験を流す"},
-    {"step": "3", "runAs": "owner", "what": "一覧・since・過去の注文・出荷のあとの取り消しの索引を足す",
+    {"step": "3", "runAs": "owner", "what": "一覧・since・過去の注文・出荷のあとの取り消しのインデックスを足す",
      "pg": ["SET lock_timeout = 0", "SET statement_timeout = 0",
             "CREATE INDEX CONCURRENTLY orders_today ON orders (shop_id, status, ship_due, ordered_at, id)",
             "CREATE INDEX CONCURRENTLY orders_shipped ON orders (shop_id, status, shipped_at)",
@@ -363,8 +363,8 @@ ADDITIONS = [
                 "CREATE INDEX orders_changed ON orders (shop_id, changed_at)",
                 "CREATE INDEX orders_customer ON orders (customer_id, ordered_at)",
                 "CREATE INDEX orders_marked ON orders (shop_id, is_cancelled, status, ship_due)"],
-     "stop": "安全。作りかけの索引は INVALID のまま使われない。長い旧い取引の終わりを待つ（書き込みは止めない）",
-     "back": _KEEP + "。作りかけで止めた INVALID の索引だけは、DROP INDEX CONCURRENTLY で消してから流し直す（同じ名前があると CREATE は失敗して止まる）",
+     "stop": "安全。作りかけのインデックスは INVALID のまま使われない。長い旧い取引の終わりを待つ（書き込みは止めない）",
+     "back": _KEEP + "。作りかけで止めた INVALID のインデックスだけは、DROP INDEX CONCURRENTLY で消してから流し直す（同じ名前があると CREATE は失敗して止まる）",
      "verify": "pg_index の indisvalid が 5 つとも true。作る時間と書き込みの p99 を見る"},
 ]
 SCHEMA = LEGACY_SCHEMA + "".join(s + ";\n" for step in ADDITIONS for s in step["sqlite"])
@@ -388,11 +388,11 @@ IN_VIEWS_SQL = ("CASE WHEN o.ship_due <= :today AND ((o.status IN ('action','rea
                 f" OR (o.status = 'shipped' AND {SHIPPED_SEEN})) THEN 1 ELSE 0 END AS in_mine,"
                 " CASE WHEN o.is_cancelled = 0 AND o.status = 'pending' THEN 1 ELSE 0 END AS in_pending,"
                 f" CASE WHEN o.status = 'shipped' AND {SHIPPED_SEEN} THEN 1 ELSE 0 END AS in_shipped")
-# 出荷のあとに取り消された、前の日までの済の行（索引 orders_marked で引く。過去の済の行の量によらない）
+# 出荷のあとに取り消された、前の日までの済の行（インデックス orders_marked で引く。過去の済の行の量によらない）
 LATE_MARK_ROWS = ("shop_id = :shop AND is_cancelled = 1 AND status = 'shipped' AND (shipped_at < :day_start OR shipped_at IS NULL)")
 OUT_COLS = ORDER_COLS + ("customer_name", "staff_name", "shipped_name", "cancelled_name", "grp_rank", "next_key",
                          "in_today", "in_mine", "in_pending", "in_shipped")
-# タブの件数。ビューごとに索引で引ける部分の問い合わせに分ける。今日出荷と自分の担当のタブは未出荷だけを数える
+# タブの件数。ビューごとにインデックスで引ける部分の問い合わせに分ける。今日出荷と自分の担当のタブは未出荷だけを数える
 VIEW_COUNTS_SQL = ("(SELECT COUNT(*) FROM orders WHERE shop_id = :shop AND status IN ('action','ready','pending') AND is_cancelled = 0"
                    " AND ship_due <= :today) AS vc_today,"
                    " (SELECT COUNT(*) FROM orders WHERE shop_id = :shop AND status IN ('action','ready','pending') AND is_cancelled = 0"
@@ -536,7 +536,7 @@ class OrdersApi:
 
     def _known(self, h):
         """鍵のハッシュが今の時点で確かめた鍵なら、その利用者の id を返す（ほかは None）。写しに無ければ、API の lock の外で sessions を
-        1 行引き、あれば写しに足す。作り物の鍵は毎回ここで引くが、索引で 1 行を引く読みだけで、API の lock も要求の席も使わない"""
+        1 行引き、あれば写しに足す。作り物の鍵は毎回ここで引くが、インデックスで 1 行を引く読みだけで、API の lock も要求の席も使わない"""
         now = self._stamp()
         with self.inflight_lock:
             got = self.known.get(h)
@@ -922,12 +922,12 @@ class OrdersApi:
         if sort not in ("next", "orderedAt", "-orderedAt", "-shippedAt") or (sort == "-shippedAt" and view != "shipped"):
             raise Reply("INVALID_REQUEST")
         # 今日出荷と自分の担当は、未出荷の 4 群のあとに今日の済の行を続ける（画面の直後の群と済の群。一覧の要求は 1 回のまま）
-        # 今日出荷と自分の担当の行は、未出荷の行と今日の済の行を別々の索引で引いて足す（UNION ALL）。済の行は出荷指示の時刻で引くので、
+        # 今日出荷と自分の担当の行は、未出荷の行と今日の済の行を別々のインデックスで引いて足す（UNION ALL）。済の行は出荷指示の時刻で引くので、
         # 過去に済になった行（配達済みへ移らないまま溜まる行）の量によらない。OR で 1 つにまとめると、統計の無い DB は店の全部の行をなめる
         # 取消の行（未出荷で is_cancelled = 1）は、どのビューにも出さず、どの件数にも数えない。出荷のあとに印が立った行は済のまま残す
-        # 済の行は、今日の出荷と、出荷のあとに取り消された前の日までの行（LATE_MARK_ROWS）を、別々の索引で引いて足す
+        # 済の行は、今日の出荷と、出荷のあとに取り消された前の日までの行（LATE_MARK_ROWS）を、別々のインデックスで引いて足す
         shipped_src = (f"SELECT {cols()} FROM orders WHERE shop_id = :shop AND status = 'shipped' AND shipped_at >= :day_start{{due}}"
-                       f" UNION ALL SELECT {cols()} FROM orders WHERE {LATE_MARK_ROWS}")  # 出荷予定日の条件は外の条件で掛ける（索引 orders_marked で引かせる）
+                       f" UNION ALL SELECT {cols()} FROM orders WHERE {LATE_MARK_ROWS}")  # 出荷予定日の条件は外の条件で掛ける（インデックス orders_marked で引かせる）
         src = (f"(SELECT {cols()} FROM orders WHERE shop_id = :shop AND status IN ('action','ready','pending') AND is_cancelled = 0"
                f" AND ship_due <= :today UNION ALL {shipped_src.format(due=' AND ship_due <= :today')})") if view in ("today", "mine") \
             else f"({shipped_src.format(due='')})" if view == "shipped" else "orders"
@@ -987,7 +987,7 @@ class OrdersApi:
                 groups[r["g"]] = r["n"]
             elif r["g"] == "shipped":
                 shipped_here = r["n"]
-        # ビューごとの件数。1 つの SQL の中で、ビューごとに索引で引ける部分の問い合わせに分ける（過去の配達済みの行をなめない）
+        # ビューごとの件数。1 つの SQL の中で、ビューごとにインデックスで引ける部分の問い合わせに分ける（過去の配達済みの行をなめない）
         vc = self._view_counts(self.q(f"SELECT {VIEW_COUNTS_SQL}", args)[0])
         out = {"items": items, "total": total, "counts": {**groups, "shippedToday": shipped_here},
                "viewCounts": vc,

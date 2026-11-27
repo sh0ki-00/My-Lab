@@ -1193,7 +1193,7 @@ class OrdersApiTest(unittest.TestCase):
     def test_migration_steps_are_additive_and_index_builds_are_separate(self):
         """高 3・中 4・高 7・中 9（第 8 回）、中 11（第 10 回）と第 11 回の決め 1・2: 本番の移行の文は足し算だけ。列は消さず、行を書き直さず、
         表をなめて数えない。表の定義を変える文は 1 つの取引に入れ、lock_timeout は SET LOCAL で取引の中だけに置く（セッションに残さない）。
-        索引は取引の外の CONCURRENTLY で、前に lock_timeout と statement_timeout を 0 に戻す（長い旧い取引を待ち、INVALID を残さない）。
+        インデックスは取引の外の CONCURRENTLY で、前に lock_timeout と statement_timeout を 0 に戻す（長い旧い取引を待ち、INVALID を残さない）。
         旧い書き手の文を断りうる物（足す列の外部キー、users を消す文を止める外部キー、CHECK）は足さない。status の CHECK は変えない。
         段ごとに、止めたとき・戻し方・確かめ方があり、戻し方は足した物を外さない"""
         import re
@@ -1403,7 +1403,7 @@ class OrdersApiTest(unittest.TestCase):
         self.assertIn("584230", [i["orderId"] for i in ch["items"]])
         ov = json.loads((HERE / "db-access.json").read_text(encoding="utf-8"))["sinceOverlap"]
         self.assertNotIn("writerTransactionLimitS", ov)
-        for step in orders_api.ADDITIONS:  # 移行の索引と VALIDATE は打ち切らせず、INVALID の索引を黙って残さない
+        for step in orders_api.ADDITIONS:  # 移行のインデックスと VALIDATE は打ち切らせず、INVALID のインデックスを黙って残さない
             text = " ".join(step["pg"]).upper()
             if "CONCURRENTLY" in text or "VALIDATE" in text:
                 self.assertIn("SET STATEMENT_TIMEOUT = 0", text, step["step"])
@@ -1541,7 +1541,7 @@ class OrdersApiTest(unittest.TestCase):
         self.assertIn("584230", [i["orderId"] for i in ch["items"]])
 
     def test_plan_keeps_added_objects_and_hands_cancel_after_ship_to_the_screen(self):
-        """重大 1・8、中 7、高 3、中 12、低 16（第 10 回）と第 11 回の決め 1: 足した列・トリガー・索引は移行のあいだ外さない（戻しの文が無い）。
+        """重大 1・8、中 7、高 3、中 12、低 16（第 10 回）と第 11 回の決め 1: 足した列・トリガー・インデックスは移行のあいだ外さない（戻しの文が無い）。
         版と段の表に「段を戻したあと」の列は無く、戻しは新 API の機能フラグと書き込みの停止だけ。出荷のあとの取り消しは
         cancelledAfterShip で画面に渡し、画面仕様と実装計画が受け持つまで段 4 に進まない。orders_write_horizon の定義は roles.sql の 1 つだけ。
         文書の中の数（一覧の SQL の数、穴を入れた写しの数）が食い違わない"""
@@ -1573,7 +1573,7 @@ class OrdersApiTest(unittest.TestCase):
 
     @unittest.skipUnless(pg_ready(), "手元の PostgreSQL の容器が無い")
     def test_pg_added_objects_never_change_legacy_writers(self):
-        """高 2・中 10（第 10 回）と決め 2: 足した物（列、表、トリガー、索引）がある PostgreSQL で、旧 API の書き手 12 手を流す。
+        """高 2・中 10（第 10 回）と決め 2: 足した物（列、表、トリガー、インデックス）がある PostgreSQL で、旧 API の書き手 12 手を流す。
         列の型（時刻が文字か timestamptz か、等しさの演算子の無い json と point の列、boolean の印）によらず、どの文も断られず、
         書けた行の数と旧い列の値と定義が、足す前の DB と同じになる"""
         for variant in ("text", "tstz", "odd", "bool"):
@@ -1714,7 +1714,7 @@ class OrdersApiTest(unittest.TestCase):
 
     @unittest.skipUnless(pg_ready(), "手元の PostgreSQL の容器が無い")
     def test_pg_users_policy_by_shop_keeps_the_list_fast(self):
-        """高 15（第 10 回）: users の行の制限を、注文の 3 列からの EXISTS（索引の無い列を行ごとになめる）でなく、店の列にする。
+        """高 15（第 10 回）: users の行の制限を、注文の 3 列からの EXISTS（インデックスの無い列を行ごとになめる）でなく、店の列にする。
         過去の行 300,000 と今日の 400 行、店の外の利用者 51 人で、一覧と同じ形の文（users を 3 回結ぶ）が RLS の下でも速い"""
         db = pg_db("be11_users")
         pg("DROP ROLE IF EXISTS be11_api;\nCREATE ROLE be11_api NOLOGIN;\n")
@@ -1764,8 +1764,8 @@ class OrdersApiTest(unittest.TestCase):
 
     @unittest.skipUnless(pg_ready(), "手元の PostgreSQL の容器が無い")
     def test_pg_index_build_waits_for_long_old_writers(self):
-        """中 11（第 10 回）: 段 1 の lock_timeout は取引の中だけ（SET LOCAL）で、段 3 の索引作りは lock_timeout を 0 に戻してから流す。
-        2 秒を超える旧 API の取引があっても、索引作りは打ち切られず、終わるのを待って INVALID を残さない"""
+        """中 11（第 10 回）: 段 1 の lock_timeout は取引の中だけ（SET LOCAL）で、段 3 のインデックス作りは lock_timeout を 0 に戻してから流す。
+        2 秒を超える旧 API の取引があっても、インデックス作りは打ち切られず、終わるのを待って INVALID を残さない"""
         import re
         db = pg_db("be11_cic")
         schema, _ = pg_legacy("tstz")

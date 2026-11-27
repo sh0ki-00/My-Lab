@@ -148,7 +148,7 @@ CREATE INDEX sessions_user ON sessions (user_id);
 CREATE TABLE idempotency (shop_id text NOT NULL, user_id text NOT NULL, key text NOT NULL, request_sha256 text NOT NULL,
  status int NOT NULL DEFAULT 0, body text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (shop_id, user_id, key));
 """),
-    ("段 3（索引）", """SET statement_timeout = 0;
+    ("段 3（インデックス）", """SET statement_timeout = 0;
 CREATE INDEX CONCURRENTLY orders_today ON orders (shop_id, status, ship_due, ordered_at, id);
 CREATE UNIQUE INDEX CONCURRENTLY orders_parcel ON orders (parcel);
 """),
@@ -169,7 +169,7 @@ BAD = [
     ("写しの表", "CREATE TABLE cust_copy AS SELECT * FROM customers;", "一覧の外の語"),
     ("既定値に長い定数（全店の氏名を組み立てた値）", "ALTER TABLE orders ADD COLUMN memo text DEFAULT 'Customer-B-fake/addr B';", "既定値"),
     ("既定値の関数で写す", "ALTER TABLE orders ADD COLUMN stash text DEFAULT query_to_xml('select 1', true, false, '');", "既定値"),
-    ("索引の式で関数を呼ぶ", "CREATE INDEX x ON orders ((query_to_xml('select 1', true, false, '')));", "関数の呼び出し"),
+    ("インデックスの式で関数を呼ぶ", "CREATE INDEX x ON orders ((query_to_xml('select 1', true, false, '')));", "関数の呼び出し"),
     ("守りのトリガーを止める", "ALTER TABLE orders DISABLE TRIGGER guard_no_migrate_dml;", "一覧の外の語"),
     ("型を変えて書き直す", "ALTER TABLE orders ALTER COLUMN note TYPE text USING note || shop_id;", "一覧の外の語"),
     ("psql の命令", "\\! curl https://example.invalid\nCREATE INDEX a ON orders (id);", "psql の命令"),

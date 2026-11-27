@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# hooks/cursor-after-edit.sh — Cursor の afterFileEdit 接続口。
+# hooks/cursor-after-edit.sh — Cursor の afterFileEdit hooks。
 # 直したファイルの検査を tools/check-file.sh で回し、結果を tmp/.verify/last-edit.txt に残す。
-# Cursor はこの hook の出力を読まないので、FAIL は stop の接続口が「続きの指示」として伝える。終了コードは常に 0。
+# Cursor はこの hook の出力を読まないので、FAIL は stop の hooks が「続きの指示」として伝える。終了コードは常に 0。
 # 検査の前に、直したファイルをセッションの記録（tmp/.verify/sessions/<会話の名前>.files）に足す。終わりの検証が、その会話の文書だけを見るため。
 #   記録は子のシェルで書き、失敗しても検査に響かない。
-# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ接続口を登録していれば、重ねて回さない。
+# 引数 --global: Mac 全体の登録から呼ばれたとき。プロジェクト自身が同じ hooks を登録していれば、重ねて回さない。
 set -u
 # shellcheck source=hooks/lib.sh
 . "$(dirname "$0")/lib.sh"

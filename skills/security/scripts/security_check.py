@@ -16,6 +16,8 @@ roe の範囲の表の宛先は、手元（127.0.0.1・localhost・::1）だけ�
   立てる写し: 再現の準備で立てる file の置き場が、RoE がその port に書いた写しと違う。
   RoE の範囲: RoE が読めないか、範囲の表に宛先か写しの置き場の列が無い。
 出力: FAIL <ファイル>:<行> [<決まり>] <内容>、最後に RESULT: PASS|FAIL <検査> (…)。1 件でも FAIL なら終了コード 1。
+report は「## 誤検知の確かめ」の表も見る（決まりの名は「誤検知の確かめ」）。発見の F-n ごとに判定が「本物」の行があり、
+  どの行も前提・再現（2 回以上）・守りの層・判定がそろう。「誤検知」と判定した候補を発見に書いていたら落とす。
 決まりの根拠: skills/security/references/ の five-points-and-retest.md、roe-and-scope.md、detection-matrix.md。
 """
 import datetime as dt
@@ -318,9 +320,54 @@ def check_report(text: str, scope=None, bases=()):
                 miss = [m for m in BASE_METRICS if m not in covered]
                 if miss:
                     issues.append((sub["no"], "採点の根拠", f"{tag} の根拠の表に {'・'.join(miss)} の理由が無い"))
+    if found:
+        issues += check_false_positive(h2, [t for t, _r, _v in cmds_by_finding])
     if scope is not None:
         issues += check_against_roe(lines, cmds_by_finding, scope, bases)
     return issues, len(findings)
+
+
+FP_RULE = "誤検知の確かめ"
+FP_COLS = ["候補", "前提", "再現", "守りの層", "判定"]
+TIMES_RX = re.compile(r"(\d+)\s*回")
+
+
+def check_false_positive(h2, tags):
+    """「## 誤検知の確かめ」の表を見る。発見の F-n は全部「本物」の行を持ち、どの行も 2 回以上の再現と
+    前提と守りの層を書く。「誤検知」と判定した候補は発見に書かない（five-points-and-retest.md の「誤検知を確かめる」）。"""
+    sec = next((s for s in h2 if FP_RULE in s["title"]), None)
+    if sec is None:
+        return [(0, FP_RULE, "「## 誤検知の確かめ」の節が無い。発見を書く前に、候補ごとに誤検知でないかを確かめた表を置く")]
+    rows = table_rows(sec["lines"])
+    head = rows[0][1] if rows else []
+    idx = {c: next((i for i, h in enumerate(head) if c in h), None) for c in FP_COLS}
+    miss = [c for c, i in idx.items() if i is None]
+    if not rows or miss:
+        return [(sec["no"], FP_RULE, f"誤検知の確かめの表に {'・'.join(miss or FP_COLS)} の列が無い")]
+    issues, real = [], set()
+    for no, cells in rows[1:]:
+        cell = {c: (cells[i] if i < len(cells) else "") for c, i in idx.items()}
+        name = cell["候補"] or "（名の無い候補）"
+        tag = re.match(r"[A-Z]+-\d+", name)
+        tag = tag.group(0) if tag else name
+        empty = [c for c in FP_COLS if not cell[c] or cell[c] in ("-", "ー", "—") or PLACEHOLDER.search(cell[c])]
+        if empty:
+            issues.append((no, FP_RULE, f"{tag} の {'・'.join(empty)} が空か穴埋めのまま"))
+            continue
+        times = [int(n) for n in TIMES_RX.findall(cell["再現"])]
+        if not times or max(times) < 2:
+            issues.append((no, FP_RULE, f"{tag} の再現が 2 回に満たない（1 回だけの結果は揺れとして記録し、発見にしない）"))
+        verdict = cell["判定"]
+        if ("本物" in verdict) == ("誤検知" in verdict):
+            issues.append((no, FP_RULE, f"{tag} の判定が「本物」か「誤検知」の一方になっていない"))
+        elif "誤検知" in verdict and tag in tags:
+            issues.append((no, FP_RULE, f"{tag} を誤検知と判定したのに、発見に書いている"))
+        elif "本物" in verdict:
+            real.add(tag)
+    for t in tags:
+        if t not in real:
+            issues.append((sec["no"], FP_RULE, f"{t} に、誤検知の確かめで「本物」と判定した行が無い"))
+    return issues
 
 
 # ---- roe ----
@@ -511,7 +558,15 @@ curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $KEY_OP" http:/
 | VC・VI・VA | 他の店の注文が読める。書けない |
 | SC・SI・SA | 他の仕組みには及ばない |
 """
-GOOD_REPORT = "# 報告\n\n## 要約\n\n要約の文です。\n\n## 範囲\n\n範囲の文です。\n\n## 発見\n\n発見の文です。\n\n" + GOOD_FINDING
+FP_TABLE = """
+## 誤検知の確かめ
+
+| 候補 | 前提 | 再現 | 守りの層 | 判定 |
+|---|---|---|---|---|
+| F-1 | 閲覧の鍵は攻撃者の見立てで持てる | 立て直した写しで 2 回、同じ本文 | 問い合わせに店の id が無い（コードで確かめた） | 本物 |
+"""
+FP_EXTRA_ROW = "| C-1 他人の注文の数 | 鍵は要らない | 2 回 | 数は公開の値で、守る物でない | 誤検知 |\n"
+GOOD_REPORT = "# 報告\n\n## 要約\n\n要約の文です。\n\n## 範囲\n\n範囲の文です。\n\n## 発見\n\n発見の文です。\n\n" + GOOD_FINDING + FP_TABLE
 GOOD_ROE = """# RoE
 
 ## 範囲
@@ -642,6 +697,14 @@ def selftest(which):
                                                   "https://shop.example.com/v1/orders/700001\n```\n\n#### 直し方"), ["範囲外の宛先"]),
             ("再現にプログラムを書く", GOOD_REPORT.replace("curl -s -H", "python3 -c 'import x' ; curl -s -H", 1), ["攻撃コード"]),
             ("発見の節が無い", GOOD_REPORT.replace("## 発見", "## 見つけたこと"), ["必須の節"]),
+            # 誤検知の確かめ（five-points-and-retest.md）。正例: 捨てた候補の行が足されても通る
+            ("誤検知と判定した候補の行は通る", GOOD_REPORT + FP_EXTRA_ROW, []),
+            ("誤検知の確かめの節が無い", GOOD_REPORT.replace(FP_TABLE, "\n"), [FP_RULE]),
+            ("再現が 1 回だけ", GOOD_REPORT.replace("立て直した写しで 2 回", "1 回"), [FP_RULE]),
+            ("発見が表に無い", GOOD_REPORT.replace("| F-1 | 閲覧", "| F-9 | 閲覧"), [FP_RULE]),
+            ("誤検知と判定した発見を書く", GOOD_REPORT.replace("| 本物 |", "| 誤検知 |"), [FP_RULE]),
+            ("守りの層が空", GOOD_REPORT.replace("問い合わせに店の id が無い（コードで確かめた）", "-"), [FP_RULE]),
+            ("守りの層の列が無い", GOOD_REPORT.replace("| 守りの層 |", "| 備考 |"), [FP_RULE]),
         ]
     elif which == "roe":
         cases = [

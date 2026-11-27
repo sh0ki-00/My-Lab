@@ -15,7 +15,7 @@
 | 行ごとの集計（明細の数など） | 1 回の GROUP BY で数え、行に結ぶ |
 | 件数と群ごとの件数 | 行と別に、1〜2 回の SQL で数える |
 | 一括の書き込み | `IN (…)` で 1 回の条件つき UPDATE を先に流し、書けた行を RETURNING で受ける。書けなかった行はあとで 1 回読んで分ける。履歴は `INSERT … SELECT` で 1 回 |
-| 溜まり続ける行（済の行、履歴） | 状態だけの索引でなめない。今日の分は時刻の索引で引き、別の索引で引く部分は UNION ALL で足す。溜まった行を足したデータで測る |
+| 溜まり続ける行（済の行、履歴） | 状態だけのインデックスでなめない。今日の分は時刻のインデックスで引き、別のインデックスで引く部分は UNION ALL で足す。溜まった行を足したデータで測る |
 | 確かめ方 | 件数の違うデータ（例: 24 件と 400 件）で、1 要求の SQL を数える。同じ数なら PASS |
 
 ## 性能予算
@@ -40,12 +40,12 @@
 |---|---|
 | 正は 1 つ | 正の印は 1 つのまま、意味を変えない。新しい API は読むときに新しい形を作り、書くときも同じ印を書く |
 | 旧い書き手は変えない | 旧い API の文は直さない。新しい API の書き込みは、正の印を条件に入れる（例: 出荷指示は is_cancelled = 0 の行だけ） |
-| 足し算だけ | 列・表・トリガー・索引を足す。既存の行を書き直さず、表をなめて数えない。消すのは別の計画にする |
-| 足した物は外さない | 移行が終わるまで、足した列・トリガー・索引を戻しで外さない。戻すのは新しい API の機能フラグと書き込みだけにする。外したあいだに旧い書き手が書く窓が、第 9・10 回の審査の重大を全部生んだ |
+| 足し算だけ | 列・表・トリガー・インデックスを足す。既存の行を書き直さず、表をなめて数えない。消すのは別の計画にする |
+| 足した物は外さない | 移行が終わるまで、足した列・トリガー・インデックスを戻しで外さない。戻すのは新しい API の機能フラグと書き込みだけにする。外したあいだに旧い書き手が書く窓が、第 9・10 回の審査の重大を全部生んだ |
 | 旧い書き手を変えない形 | 旧い書き手の文を断らない（断りうる外部キーと CHECK は足さない）。列の型を前提にしない（トリガーは行と値を字にして比べ、読めない値は書き込みを止めない側に倒す）。旧い書き手の値を書き換えない。旧い書き手の全部の文を、足した物がある本物の DB で流して確かめる |
 | 分からなければ null | 足した列の値（取り消しの人と時刻など）は、正の印が変わった取引でトリガーが書いた値だけにする。印を戻せば消し、立て直せばその取引の値に替える。素通りの書き手を作らないよう、PostgreSQL のトリガーは ENABLE ALWAYS にする（replica の取り込みでも動く）。行の xmin とは比べない。セーブポイントの中の書き込みと表の写し直しで xmin が変わり、正しい値まで消える |
 | 書き手は列の権限でも探す | RLS を有効にする前の確かめは、表の単位の権限（has_table_privilege）だけでなく、列の単位の権限（has_any_column_privilege）でも書き手を探す。列の権限だけの旧い書き手に方針が無いと、その UPDATE はエラーにならず黙って 0 行になる |
-| ロックを短く | 表の定義を変える文は 1 つの取引に入れ、`SET LOCAL lock_timeout` を取引の中だけに置く（セッションに残すと、あとの索引作りが打ち切られる）。既定値も制約も無い列を足す。索引は取引の外の `CREATE INDEX CONCURRENTLY` で 1 つずつ作り、前に lock_timeout と statement_timeout を 0 に戻す。足してよい制約は NOT VALID で足し、別の時に VALIDATE する |
+| ロックを短く | 表の定義を変える文は 1 つの取引に入れ、`SET LOCAL lock_timeout` を取引の中だけに置く（セッションに残すと、あとのインデックス作りが打ち切られる）。既定値も制約も無い列を足す。インデックスは取引の外の `CREATE INDEX CONCURRENTLY` で 1 つずつ作り、前に lock_timeout と statement_timeout を 0 に戻す。足してよい制約は NOT VALID で足し、別の時に VALIDATE する |
 | 列を名前で読む | `SELECT *` を使わない。列が増減すると、準備済みの文が "cached plan must not change result type" で失敗する部品がある |
 | 段ごとに書く | 止めたときの状態、戻し方、確かめ方。戻し方は新しい API を止める形にし、足した物を外さない。消す前の写しからは戻さない |
 
@@ -77,7 +77,7 @@
 |---|---|
 | Google SRE Book「Service Level Objectives」（<https://sre.google/sre-book/service-level-objectives/>） | 平均ではなくパーセンタイルで予算を書く |
 | Martin Fowler「ParallelChange」（<https://martinfowler.com/bliki/ParallelChange.html>） | 足すと消すを分ける移行 |
-| PostgreSQL 文書「CREATE INDEX」の Building Indexes Concurrently（<https://www.postgresql.org/docs/current/sql-createindex.html#SQL-CREATEINDEX-CONCURRENTLY>） | 書き込みを止めない索引の作り方 |
+| PostgreSQL 文書「CREATE INDEX」の Building Indexes Concurrently（<https://www.postgresql.org/docs/current/sql-createindex.html#SQL-CREATEINDEX-CONCURRENTLY>） | 書き込みを止めないインデックスの作り方 |
 | PostgreSQL 文書「ALTER TABLE」（<https://www.postgresql.org/docs/current/sql-altertable.html>） | NOT VALID と VALIDATE CONSTRAINT、列を足すときのロック |
 | W3C Trace Context（<https://www.w3.org/TR/trace-context/>） | 追跡番号 |
 | Python 標準ライブラリ sqlite3（<https://docs.python.org/3/library/sqlite3.html>） | `set_trace_callback` で SQL を数える |

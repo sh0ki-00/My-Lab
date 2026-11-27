@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# tools/tests/deployed-checks-test.sh — 写した先（<プロジェクト>/tmp/tools）で、検査の道具が決まりどおりに動くかの試験。
+# tools/tests/deployed-checks-test.sh — 移した先（<プロジェクト>/tmp/tools）で、検査の道具が決まりどおりに動くかの試験。
 #   1. check-file.sh は、tmp/ の外のファイル（プロジェクト自身のもの）に、現場の語の検査（check-terms）だけを回す。tmp/ の中の文書は全部の検査を回す。
-#   2. project-verify.sh は、写した先の PASS でだけ tmp/.verify/last-pass を更新する。Stop の hook は、変更の無い 2 回目を回さない。
+#   2. project-verify.sh は、移した先の PASS でだけ tmp/.verify/last-pass を更新する。Stop の hook は、変更の無い 2 回目を回さない。
 #   3. project-verify.sh は、引数で渡した、空白と日本語を含む文書のパスを 1 本のまま check-file と check-refs に渡す。
 #   4. project-verify.sh は、引数で渡した文書だけを検査する。引数が無ければ文書を検査しない。--baseline は移した時点の印を置く。
 #      文書も命令も無く何も検査しない回は、PASS にせず WARN（終了コード 3）で終わり、印を書かない。
 #      細かい場面（改善提案書 13 章の V-1〜V-4）は tools/tests/project-verify-scope-test.sh が確かめる。
-#   5. check-file.sh は、写した先で AI が書く資料（tmp/flow、tmp/ISSUE_*）と雛形で「秘書」「社長」の語を落とす。「」の引用は通す。My-Lab の tmp/flow では見ない。
+#   5. check-file.sh は、移した先で AI が書く資料（tmp/flow、tmp/ISSUE_*）と雛形で「秘書」「社長」の語を落とす。「」の引用は通す。My-Lab の tmp/flow では見ない。
 #   6. check-file.sh は、tools/ja-terms.txt の現場の語を、.md 以外の文字のファイルでも落とす。「」の中は通す。
 #      移した先のプロジェクト自身のファイルは、git の HEAD から足した行だけを見る。追跡していないファイルは全体を見る。
 #      HEAD を作るため、使い捨てのリポジトリ（mktemp の下）でだけ git add と git commit を回す。
@@ -52,7 +52,7 @@ new_project() {
   if [ "${2:-mark}" = mark ]; then printf '# この tmp/ の写しについて\n\n正本: %s\n' "$LAB" > "$1/tmp/DEPLOYED.md"; fi
 }
 
-# new_lab <場所> → My-Lab の形（root 直下に tools/）。写した先の印は無い
+# new_lab <場所> → My-Lab の形（root 直下に tools/）。移した先の印は無い
 new_lab() { mkdir -p "$1" && cp -R "$LAB/tools" "$1/tools"; }
 
 # unit_test <プロジェクト> <値> → tests/test_app.py。値が 1 なら通り、それ以外なら落ちる
@@ -90,7 +90,7 @@ terms_only() {
   printf '%s\n' "$1" | grep -q '^RESULT: PASS check-terms ' && ! printf '%s\n' "$1" | grep '^RESULT:' | grep -qv '^RESULT: PASS check-terms '
 }
 
-# postedit <LANG> <root> <ファイル> → 写した Claude Code の PostToolUse 接続口に、Edit の入力を 1 回送る
+# postedit <LANG> <root> <ファイル> → 写した Claude Code の PostToolUse hooksに、Edit の入力を 1 回送る
 postedit() {
   printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$3" "$2" | in_env "$1" /bin/bash "$H/claude-postedit.sh" --global 2>&1
 }
@@ -100,7 +100,7 @@ postedit_s() {
   printf '{"session_id":"deployed-checks","tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$3" "$2" | in_env "$1" /bin/bash "$H/claude-postedit.sh" --global 2>&1
 }
 
-# stop_hook <LANG> <root> → 写した Claude Code の Stop 接続口に、Stop の入力を 1 回送る
+# stop_hook <LANG> <root> → 写した Claude Code の Stop hooksに、Stop の入力を 1 回送る
 stop_hook() {
   printf '{"session_id":"deployed-checks","stop_hook_active":false,"cwd":"%s"}' "$2" | in_env "$1" /bin/bash "$H/claude-stop.sh" --global 2>&1
 }
@@ -178,7 +178,7 @@ EOF
   if [ "$rc" -ne 0 ]; then ok "lab-checked$s"; else ng "lab-checked$s" "My-Lab の形で README.md を検査しない"; fi
 }
 
-# 2. project-verify.sh: 写した先の PASS でだけ、hooks の印 tmp/.verify/last-pass を更新する（deploy-4 の前半）
+# 2. project-verify.sh: 移した先の PASS でだけ、hooks の印 tmp/.verify/last-pass を更新する（deploy-4 の前半）
 cases_last_pass() {
   local L="$1" B="$2" s="@$1" P V out rc out2 out3 out4 ran1 ran2 ran3 ran4
   P="$B/verify pass"
@@ -332,7 +332,7 @@ cases_scope() {
 }
 
 i=0
-# 5. check-file.sh: 写した先で AI が書く資料と雛形から、「秘書」「社長」の語を落とす（2026-11-13 の依頼）
+# 5. check-file.sh: 移した先で AI が書く資料と雛形から、「秘書」「社長」の語を落とす（2026-11-13 の依頼）
 cases_persona() {
   local L="$1" B="$2" s="@$1" P out rc
   P="$B/persona プロジェクト"

@@ -8,10 +8,10 @@
 root は道具の場所で決める。My-Lab の tools/lib にあれば My-Lab。他のプロジェクトの tmp/tools/lib に写したときは、
 tmp/ ではなくプロジェクトの直下にする（tools/project-verify.sh と同じ決め方）。写した一式（tmp/）も、ファイル名だけの参照の探し先にする。
 後の段階で作る予定のパスは tools/planned-paths.txt に書く。FAIL にせず「予定」と報告だけする。
-写した先では、写した一式の文書（tmp/skills/・tmp/.company/・tmp/tools/・tmp/samples/ の下と、tmp/claude-code.md・
+移した先では、写した一式の文書（tmp/skills/・tmp/.company/・tmp/tools/・tmp/samples/ の下と、tmp/claude-code.md・
 tmp/cursor-user-rule.md・tmp/DEPLOYED.md）が指す My-Lab にしか無い物（LAB_ONLY: hooks/・.claude/・.cursor/・.github/・
 docs/・router/・deploy.sh・install.sh・AGENTS.md）は、写していないので FAIL にせず「正本のみ」と数えるだけにする。
-AI が写した先で書いた文書（tmp/flow/ など）とプロジェクト自身の文書では、これまでどおり FAIL にする。
+AI が移した先で書いた文書（tmp/flow/ など）とプロジェクト自身の文書では、これまでどおり FAIL にする。
 使い方: check_refs.py [ファイル...]（引数が無ければ対象の全部）   /   check_refs.py --selftest
 """
 import pathlib
@@ -78,7 +78,7 @@ def is_lab_only(tok: str) -> bool:
 
 
 def is_kit_copy(path: pathlib.Path, root: pathlib.Path, kit) -> bool:
-    """写した先（kit が root と違う）で、その文書が deploy.sh の写した一式の 1 本なら True。"""
+    """移した先（kit が root と違う）で、その文書が deploy.sh の写した一式の 1 本なら True。"""
     if kit is None:
         return False
     kit = pathlib.Path(kit).resolve()
@@ -154,7 +154,7 @@ def selftest() -> bool:
         if len(issues) != 1 or len(plans) != 1:
             ok = False
             print(f"FAIL selftest: 負例の結果が違う: {issues} {plans}")
-        # 写した先の形: <proj>/tmp/tools/lib の道具は root を <proj> にし、プロジェクトのファイルも一式のファイルも見つける
+        # 移した先の形: <proj>/tmp/tools/lib の道具は root を <proj> にし、プロジェクトのファイルも一式のファイルも見つける
         proj = root / "proj"
         (proj / "src").mkdir(parents=True)
         (proj / "src" / "app.py").write_text("x", encoding="utf-8")
@@ -172,8 +172,8 @@ def selftest() -> bool:
         issues, _, _ = check_file(doc, r, [], k)
         if len(issues) != 1 or issues[0][0] != 2:
             ok = False
-            print(f"FAIL selftest: 写した先の例の結果が違う: {issues}")
-        # 写した一式の文書が指す My-Lab にしか無い物は「正本のみ」。AI が写した先で書いた文書では FAIL のまま
+            print(f"FAIL selftest: 移した先の例の結果が違う: {issues}")
+        # 写した一式の文書が指す My-Lab にしか無い物は「正本のみ」。AI が移した先で書いた文書では FAIL のまま
         lab_refs = "`hooks/guard-core.sh` と `.claude/settings.json` と `deploy.sh` と `AGENTS.md`。\n`src/none.py`。\n"
         kit_doc = proj / "tmp" / "claude-code.md"
         kit_doc.write_text(lab_refs, encoding="utf-8")
@@ -185,7 +185,7 @@ def selftest() -> bool:
         issues, _, lab = check_file(doc, r, [], k)
         if len(issues) != 5 or lab:
             ok = False
-            print(f"FAIL selftest: 写した先で書いた文書が My-Lab の物を見逃した: {issues} {lab}")
+            print(f"FAIL selftest: 移した先で書いた文書が My-Lab の物を見逃した: {issues} {lab}")
         issues, _, lab = check_file(kit_doc, root, [], root)  # My-Lab の中（kit が root と同じ）
         if len(issues) != 5 or lab:
             ok = False

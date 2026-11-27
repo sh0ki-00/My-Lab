@@ -344,7 +344,7 @@ LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp AS $f$
   SELECT 'constraint', c.relname::text || '.' || k.conname::text, md5(pg_get_constraintdef(k.oid))
   FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_namespace s ON s.oid = c.relnamespace AND s.nspname = 'public'
   UNION ALL
-  -- 索引（名前と定義）。索引の名前も足した物の数に入れる（名前に値を埋めて渡す道を、足す数の上限で縛る）。
+  -- インデックス（名前と定義）。インデックスの名前も足した物の数に入れる（名前に値を埋めて渡す道を、足す数の上限で縛る）。
   SELECT 'index', c.relname::text, md5(pg_get_indexdef(c.oid))
   FROM pg_class c JOIN pg_namespace s ON s.oid = c.relnamespace AND s.nspname = 'public' WHERE c.relkind = 'i'
 $f$;
@@ -357,9 +357,9 @@ GRANT EXECUTE ON FUNCTION guard.current_fingerprints() TO orders_migrate;
 --   足した列の既定値は短い定数だけ（英小文字と数字の 32 字まで、数、真偽、時刻、順番）。DO で組み立てた長い定数も、ここで止まる。
 --   足した検査の制約は、変わらない関数（provolatile が i）だけを呼ぶ（pg_notify、lo_、set_config のような働きのある関数を止める）。
 --   足した検査の制約の中の文字の定数も、既定値と同じ型（英小文字と数字の 32 字まで）に縛る（第 14 回）。
---   指紋を取った後に足した列・制約・索引は、合わせて 12 個まで。名前は英小文字と数字の 40 字まで。列を分けて短い定数を並べる道と、
+--   指紋を取った後に足した列・制約・インデックスは、合わせて 12 個まで。名前は英小文字と数字の 40 字まで。列を分けて短い定数を並べる道と、
 --   名前に値を埋める道を、数で縛る。12 個を超える移行は、利用者づくり（承認 2 人の経路。main の roles.sql）で指紋を取り直してから流す。
---   指紋を取った物のトリガー（有効の状態を含む）と索引も変えさせない（ALTER TABLE … DISABLE TRIGGER は ALTER TABLE の型の中にある）。
+--   指紋を取った物のトリガー（有効の状態を含む）とインデックスも変えさせない（ALTER TABLE … DISABLE TRIGGER は ALTER TABLE の型の中にある）。
 CREATE OR REPLACE FUNCTION guard.shape_problems() RETURNS text[] LANGUAGE plpgsql STABLE SET search_path = pg_catalog, pg_temp AS $f$
 DECLARE
   n int;
@@ -489,7 +489,7 @@ REVOKE ALL ON FUNCTION guard.migrate_ddl_end() FROM PUBLIC;
 DROP EVENT TRIGGER IF EXISTS guard_migrate_ddl;
 CREATE EVENT TRIGGER guard_migrate_ddl ON ddl_command_start EXECUTE FUNCTION guard.migrate_ddl_gate();
 DROP EVENT TRIGGER IF EXISTS guard_new_table;
--- CREATE INDEX も後の形を確かめる（第 14 回。索引の名前と数も、足した物の上限に入る）。
+-- CREATE INDEX も後の形を確かめる（第 14 回。インデックスの名前と数も、足した物の上限に入る）。
 CREATE EVENT TRIGGER guard_new_table ON ddl_command_end WHEN TAG IN ('CREATE TABLE', 'ALTER TABLE', 'CREATE INDEX') EXECUTE FUNCTION guard.migrate_ddl_end();
 DROP EVENT TRIGGER IF EXISTS guard_no_rewrite;
 CREATE EVENT TRIGGER guard_no_rewrite ON table_rewrite EXECUTE FUNCTION guard.migrate_no_rewrite();

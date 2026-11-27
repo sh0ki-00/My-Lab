@@ -14,6 +14,7 @@ description: 作業の最後に検証を全部回し、結果を読み、FAIL �
 - `.company/rules/evidence-and-safety.md`（証拠の決まり）。他のプロジェクトでは `tmp/.company/rules/evidence-and-safety.md`。
 - `references/checks.md`（11 種類の検証の読み方と、FAIL の直し方）。
 - `references/report-format.md`（完了報告の型。受け入れ条件と確認コマンドと結果の対）。
+- `references/root-cause.md`（FAIL を直す前に、原因を 4 段で絞る手順）。
 
 ## 判断の観点
 
@@ -29,7 +30,7 @@ description: 作業の最後に検証を全部回し、結果を読み、FAIL �
 
 1. 回す。My-Lab では `bash tools/verify-all.sh --fast`、commit の前は `--full`。他のプロジェクトでは `bash tmp/tools/project-verify.sh --fast <このセッションで書いた文書>`、commit の前は `--fast` を `--full` に替える。Bash のコマンドで書いた文書も、自分で引数に入れる。引数が無ければ、文書は 1 本も検査されない。文書も命令も無い回は、PASS にならず `RESULT: WARN project-verify`（終了コード 3）で終わる。終わりの印: `RESULT: PASS|FAIL verify-all` か `RESULT: … project-verify` の行が出る。
 2. 読む。FAIL の行を上から順に `references/checks.md` の表に当て、原因の種類（文体・形式・図・スクリプト・配置・依存）を決める。終わりの印: FAIL ごとに直す場所が 1 つ決まる。
-3. 直す。原因の場所を直し、その 1 ファイルを `tools/check-file.sh <ファイル>` で確かめ、手順 1 に戻る。終わりの印: 全体が PASS。3 回直しても通らないなら、検査の誤りか要件の矛盾を疑い、記録を付けて依頼者に伺う。
+3. 直す。直す前に、`references/root-cause.md` の 4 段（再現・比べる・仮説を 1 つずつ試す・直して確かめる）で原因を 1 つに絞る。原因の場所を直し、その 1 ファイルを `tools/check-file.sh <ファイル>` で確かめ、手順 1 に戻る。終わりの印: 全体が PASS。3 回直しても通らないなら、検査の誤りか要件の矛盾を疑い、記録を付けて依頼者に伺う。
 4. 対にする。受け入れ条件の表を作り、1 件ごとに確認コマンドと結果の抜粋を書く。確かめられない条件は「未確認（理由）」と書く。終わりの印: 表の全行に結果か理由がある。
 5. 攻撃の要否を決める。`bash skills/verify/scripts/report-check.sh --deploy-code <基点>` で差分を数え、「配るコードの変更」の欄の値にする。基点は作業を始めた commit で、例えば git merge-base HEAD main の値。「あり」なら、セキュリティのスキルの `skills/security/scripts/attack-run.sh` で攻撃を回し、出力の節を手で直さずに報告の最初の節に貼る。回せないときは「攻撃は未実施」と理由を書く。終わりの印: 欄の値が差分の結果と同じで、「あり」なら節に `RESULT: PASS attack-run` の行がある。
 6. 書く。`templates/completion-report.md` の型で `tmp/flow/<件名>/completion-report.md` に完了報告を書き、`scripts/report-check.sh <報告> --base <基点>` を通す。終わりの印: `RESULT: PASS report-check`。

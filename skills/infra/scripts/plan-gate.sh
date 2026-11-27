@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# skills/infra/scripts/plan-gate.sh <計画の JSON> [--attested <ダイジェストの一覧>] — 計画の差分の関所。CI が terraform show -json <計画> の出力を渡す。
+# skills/infra/scripts/plan-gate.sh <計画の JSON> [--attested <ダイジェストの一覧>] — 計画の差分の承認。CI が terraform show -json <計画> の出力を渡す。
 #   決め方は「許す物の一覧」。承認 1 人の適用（ROUTE: apply、終了コード 0）で通すのは、一覧にある型の、一覧にある属性の変更だけ。
 #     例: サービスの数、ロードバランサーの待ち先の設定、API の作業の定義のイメージのダイジェスト（来歴を確かめた物だけ）。
 #     データベース（aws_db_instance）は一覧に無い。大きさの変更も守りの経路（rds:ModifyDBInstance は守りの適用だけが持つ）。

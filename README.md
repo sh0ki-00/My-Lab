@@ -34,7 +34,7 @@ flowchart LR
 |---|---|
 | `.company/` | 全社ルール、納品の決まり、組織図、全社の決まり（文書・図・証拠と安全）、秘書のペルソナ（役割の判断の観点と成果物を書いた人物像） |
 | `skills/` | スキル 9 本。下地 5 本（`verify`、`ja-professor`、`ja-fluent`、`git-issue`、`git-pr`）と役割 4 本（`secretary`、`ceo`、`designer`、`frontend`）。1 本ずつが 6 点構成 |
-| `hooks/` | 判定本体 `guard-core.sh`、Claude Code と Cursor の接続口、自己試験 `selftest.sh` |
+| `hooks/` | 判定本体 `guard-core.sh`、Claude Code と Cursor の hooks、自己試験 `selftest.sh` |
 | `tools/` | `verify-all.sh` と 11 種類の検査、直したファイル 1 つ分の `check-file.sh`、配置の試験 |
 | `router/` | 常時ルールの本文（Cursor の User Rules に貼るもの、Claude Code への接続） |
 | `.claude/`、`.cursor/` | 両ツールの接続。承認の規則、hooks の登録、サブエージェント（別の文脈で動く補助の AI）、常時ルール |

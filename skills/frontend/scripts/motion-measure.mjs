@@ -818,8 +818,8 @@ async function openPage(browser, url, cfg, { cpu = 1, reduced = false, assets = 
 const byRole = (page, spec) => (spec.selector ? page.locator(spec.selector) : page.getByRole(spec.role, { name: spec.name, exact: true })).first();
 
 // 押す: 人と同じく、先にポインターを要素の上へ動かし、2 フレーム待ってから押して離す。locator.click は押す直前に
-// Playwright の台本をページで回すので、CPU を 4 倍遅くした条件では、その仕事の遅れが押した直後のフレームに乗る
-// （2026-11-26 のトレースで、11〜12ms の台本が押す 25〜30ms 前に走り、押した直後のフレームが 53〜73ms になった。
+// Playwright のスクリプトをページで回すので、CPU を 4 倍遅くした条件では、その仕事の遅れが押した直後のフレームに乗る
+// （2026-11-26 のトレースで、11〜12ms のスクリプトが押す 25〜30ms 前に走り、押した直後のフレームが 53〜73ms になった。
 // 先に動かして 2 フレーム待つと、同じ見本で 12 回中 0 回。判定の線は変えていない）
 async function press(page, spec) {
   const loc = byRole(page, spec);

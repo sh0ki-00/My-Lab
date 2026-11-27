@@ -4,6 +4,7 @@
 #   2) cases/<名前>.md と cases/<名前>.expect（「<検査名> PASS|FAIL」）を対にし、判定が期待と合うか。
 #   3) 振り分け: routing-cases.tsv の全件を route で判定し、正答率が 95% 以上（56 件なら 54 件以上）。期待の「当たり無し」は、route が当たり無しと返すこと。
 #   4) 言い直し: restatement-run.sh（restatements/ の出力 20 件の機械の検査と、判定 3 体の票の多数決で一致 18 件以上）。
+#   5) 返答の文: answers/ の見本 20 組を answer-check に通す。before は 20 件とも FAIL か WARN、after は 20 件とも FAIL 0・WARN 0（C-08）。
 # 出力: ケースごとの行と、最後に RESULT: PASS|FAIL evals secretary (<合格>/<全部>)。
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd -P)" || exit 1
@@ -61,6 +62,25 @@ judge "振り分け $n 件の正答率 95% 以上（$correct/$n = $rate%）" PAS
 # 4) 言い直し（仕様書 R-20261113-01 の C-01・C-02）
 if bash "$HERE/restatement-run.sh" >/dev/null 2>&1; then got=PASS; else got=FAIL; fi
 judge "restatements（言い直し 20 件の形と、判定 3 体の一致 18 件以上）" PASS "$got"
+
+# 5) 返答の文（仕様書 R-20261113-01 の C-08）
+nb=0; hit=0; na=0; clean=0
+for f in "$HERE"/answers/before/*.txt; do
+  [ -f "$f" ] || continue
+  nb=$((nb + 1))
+  out="$(bash "$S/answer-check.sh" "$f" 2>&1)"
+  if printf '%s\n' "$out" | grep -qE '^(FAIL|WARN) '; then hit=$((hit + 1)); else printf 'FAIL evals secretary answers/before/%s が FAIL も WARN も出ない\n' "$(basename "$f")"; fi
+done
+for f in "$HERE"/answers/after/*.txt; do
+  [ -f "$f" ] || continue
+  na=$((na + 1))
+  out="$(bash "$S/answer-check.sh" "$f" 2>&1)"
+  if printf '%s\n' "$out" | grep -qE '^(FAIL|WARN) '; then printf '%s\n' "$out" | grep -E '^(FAIL|WARN) ' | sed 's/^/  /'; else clean=$((clean + 1)); fi
+done
+if [ "$nb" -eq 20 ] && [ "$hit" -eq "$nb" ]; then got=FAIL_OR_WARN; else got="$hit/$nb"; fi
+judge "answers/before（直す前の見本 20 件が FAIL か WARN）" FAIL_OR_WARN "$got"
+if [ "$na" -eq 20 ] && [ "$clean" -eq "$na" ]; then got=PASS; else got="$clean/$na"; fi
+judge "answers/after（直した後の見本 20 件が FAIL 0・WARN 0）" PASS "$got"
 
 if [ "$pass" -eq "$total" ] && [ "$total" -gt 0 ]; then echo "RESULT: PASS evals secretary ($pass/${total}、振り分け $correct/$n)"; exit 0; fi
 echo "RESULT: FAIL evals secretary ($pass/${total}、振り分け $correct/$n)"; exit 1

@@ -88,7 +88,7 @@ resource "aws_organizations_policy" "data_guard" {
       {
         # 複製の共有と写しに加えて、S3 への書き出し、別の地域への自動の複製、バケットの複製、ログの書き出しと転送、
         # 関数の公開の URL、作業の中への入り込みを、誰にも許さない。ログの転送は 3 つの型をまとめて拒む:
-        # ロググループごとの購読、口座単位の方針（購読・変換・索引の型を含む PutAccountPolicy）、配送（Delivery の 4 操作）。
+        # ロググループごとの購読、口座単位の方針（購読・変換・インデックスの型を含む PutAccountPolicy）、配送（Delivery の 4 操作）。
         Sid    = "NoSharingNoCopyOut"
         Effect = "Deny"
         Action = [
