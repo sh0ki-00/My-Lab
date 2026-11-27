@@ -1,0 +1,11 @@
+/* 負例: 全部の部品が同じ向き・同じ長さ・同じ曲線で一斉に出て、ホバーは透明度を下げるだけ。
+   ai-look-check が「同じ動き」と「透明度だけのホバー」で数える。 */
+.hero { animation: enter 300ms ease both; }
+.title { animation: enter 300ms ease both; }
+.lead { animation: enter 300ms ease both; }
+.card { animation: enter 300ms ease both; }
+.price { animation: enter 300ms ease both; }
+.footer { animation: enter 300ms ease both; }
+.button:hover { opacity: 0.8; }
+.link:hover { opacity: 0.8; }
+.card:hover { opacity: 0.9; }

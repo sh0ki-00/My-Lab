@@ -12,6 +12,7 @@
 | 状態 | 承認待ち |
 | 画面の型 | 今の型。受付票から写した |
 | 数値 | 件数、秒、KB、日付は架空。見本アプリの実測値は自己点検票にある |
+| 数列 | 数列の前の版（2026-11-27 より前）。値は見本アプリと実測につながるので、次の PR で数列に直す |
 | 自己点検票 | `skills/frontend/examples/self-check-order-list.md` |
 | 入力 | デザイン計画書、トークン、画面仕様。どれも `skills/designer/examples/` にある |
 | 入力のファイル | 計画書は `design-plan-order-list.md` で、動きの表を含む。トークンは `tokens-order-list.css`。画面仕様は `screen-spec-order-list.md` |

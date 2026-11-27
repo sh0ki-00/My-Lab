@@ -1,5 +1,6 @@
 /* tokens.css の雛形。計画書の色の表にある 16 進だけを書き、残りは名前からの参照か color-mix の式にする。
-   #RRGGBB を計画書の値に置き換える。時間は --duration-*、曲線は --ease-* だけを使う。 */
+   #RRGGBB を計画書の値に置き換える。時間は --duration-* と --stagger、曲線は --ease-* だけを使う。
+   px と ms の値は、全部フィボナッチの数列（0、1、2、3、5、8、13、21、34、55、89、144、233、377、610、987）の段にする。 */
 :root {
   /* 名前つきの色（4〜6 色） */
   --surface: #RRGGBB;      /* 画面の地 */
@@ -16,30 +17,35 @@
   /* 書体。1 家族 2〜3 役 */
   --font-text: "<本文の書体>", sans-serif;
   --font-num: "<数字の書体>", monospace;
-  --size-sub: 12px;
-  --size-body: 14px;
-  --size-h2: 16px;
-  --size-h1: 20px;
+  /* 字。本文と補助は 13px で、色と太さで分ける。大きさと行高はフィボナッチの数列の段だけ */
+  --size-body: 13px;
+  --size-sub: 13px;
+  --size-h2: 21px;
+  --size-h1: 34px;
   --weight-regular: 400;
   --weight-bold: 700;
-  --leading: 1.5;
-  /* 余白は 4px の倍数 */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  /* 角丸は 2 段、影は 1 光源で層にする */
-  --radius-control: 4px;
+  --leading: 1.6;
+  /* 余白はフィボナッチの数列（3、5、8、13、21、34。55 と 89 は要るときに足す） */
+  --space-3: 3px;
+  --space-5: 5px;
+  --space-8: 8px;
+  --space-13: 13px;
+  --space-21: 21px;
+  --space-34: 34px;
+  /* 角丸は比 1.6 の 2 段、影は 1 光源で層にし、px も数列にする */
+  --radius-control: 5px;
   --radius-panel: 8px;
-  --shadow-panel: 0 2px 4px rgb(0 0 0 / 0.12), 0 8px 16px rgb(0 0 0 / 0.06);
-  /* 動き。今の型と既存に合わせる型は 300ms 未満。没入の型は、演出計画書のトークンの表（移動と見せ場の時間、曲線 4 つ、ずらし）を同じ名前と値で足す */
-  --duration-1: 80ms;
-  --duration-2: 120ms;
-  --duration-3: 180ms;
+  --shadow-panel: 0 2px 3px rgb(0 0 0 / 0.12), 0 8px 13px rgb(0 0 0 / 0.06);
+  /* 動き。今の型と既存に合わせる型は 300ms 未満で、長さとずらしは数列の段だけ。没入の型は、演出計画書のトークンの表（移動と見せ場の時間、曲線 4 つ、ずらし）を同じ名前と値で足す */
+  --duration-89: 89ms;
+  --duration-144: 144ms;
+  --duration-233: 233ms;
+  --stagger: 55ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  /* 大きさ */
-  --row-height: 36px;
+  /* 大きさ。押せる領域は、標準の下限（24px と 44px）を数列の次の段へ切り上げる */
+  --row-height: 34px;
+  --target-pc: 34px;
+  --target-touch: 55px;
   --focus-width: 2px;
 }
 @media (prefers-color-scheme: dark) {
@@ -53,8 +59,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --duration-1: 0ms;
-    --duration-2: 0ms;
-    --duration-3: 0ms;
+    --duration-89: 0ms;
+    --duration-144: 0ms;
+    --duration-233: 0ms;
+    --stagger: 0ms;
   }
 }

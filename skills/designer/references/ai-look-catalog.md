@@ -26,13 +26,17 @@
 | グラデーション | bg-gradient-to-、from-purple、既定色の linear-gradient | 着地ページの型の中心 | 「依頼が紫のグラデーションを名指しした。置き場は見出しの帯 1 か所」 |
 | ぼかし | backdrop-filter: blur が 3 か所以上 | ガラス風の多用。読みにくく重い | 「通知 1 か所だけ。背景の表を透かして見せるため」 |
 | 絵文字 | マークアップの中の絵文字 | アイコンの代わり。読み上げと等幅が崩れる | 「社内の非公式の掲示板で、絵文字が文化」 |
-| 動き | transition: all、animate-pulse、animate-bounce、cubic-bezier の第 4 引数 1.3 以上 | 装飾だけの動き、跳ね返り、明滅 | 「読み込みの明滅は 1 か所。150ms 待ってから 300ms 保つ」 |
+| 動き | transition: all、animate-pulse、animate-bounce、cubic-bezier の第 4 引数 1.3 以上 | 装飾だけの動き、跳ね返り、明滅 | 「読み込みの明滅は 1 か所。233ms 待ってから 377ms 保つ」 |
 | 番号 | 見出しの 01、02、03 | 順番の無い内容に番号を振る | 「手順の画面で、順番そのものが内容」 |
 | 角丸 | border-radius が 6 か所以上すべて同じ値 | 均一な角丸は部品の役割を消す | 「2 段を使い分けている」 |
 | 影 | shadow-md 以上の utility が 4 か所以上すべて同じ | 1 光源の比率になっていない | 「層の数に応じて 2 段」 |
 | 書体 | font-family が Inter、Roboto、Arial、system-ui だけ | 既定の書体を理由なく使う | 「製品全体が Inter。他の画面と揃える」 |
 | レイアウト | grid-cols-3 | 3 枚のカードの型 | 「候補が 3 つで、比べる用事」 |
 | 文言 | Get Started、Learn More、詳しく見る が 3 回以上 | 汎用の CTA の文言 | 「依頼の言葉の表に合わせた」 |
+| 同じ動き | 同じ animation（CSS の動きの指定）の値が 6 か所以上 | 全部が同じ向き・長さ・曲線で一斉に出るのは AI の既定。どの部品も 300ms の ease（ブラウザの既定の曲線）で出る形になる | 「一覧の行だけ。同じ種類の行なので同じ動きにそろえる」 |
+| 透明度だけのホバー | `:hover` の規則の中身が opacity（透明度）だけ、が 3 か所以上 | 押せる物が薄くなるだけで、手応えが無い。直し方は、押せる物は動かさず、中の子要素を 2px ほど動かす | 「薄くするのは無効の印で、押せる物ではない」 |
+
+同じ調べ（出典 5 と 6）では、すべての区画がスクロールで同じに現れる動きも、AI の既定に挙がっていた。読む順と関係なく、どこも同じに浮く形である。これには機械の印を作らず、監修でフレームを見て数える（`references/review-method.md` の 1 節）。
 
 ## 3. 帯と判定
 
@@ -54,7 +58,7 @@
 | 依頼が既定を名指しした | 従う。計画書の「既定との差」に「依頼による既定」と書き、置き場を 1 か所に限り、代案を 1 つ添える |
 | 製品の既存のブランド色が既定色と同じ | 理由を書いて件数から外す。他の軸で差を作る |
 | 見本やテストの fixture | 検査の対象から外す。`node_modules` は常に対象外 |
-| 動きの明滅が読み込み表示 | 150ms 待ってから出し、300ms 保つなら理由を書いて外す |
+| 動きの明滅が読み込み表示 | 233ms 待ってから出し、377ms 保つなら理由を書いて外す（systems.md の 4.1 節。標準の下限 150ms と 300ms を数列の次の段へ切り上げた値） |
 
 ## 5. 没入の型の既定
 
@@ -73,7 +77,7 @@
 
 ## 付録: 出典
 
-出典は、調査ブリーフの検証役が 2026-11-05 に本文を開いて確かめたものである。帯の区分は道具の文書から借り、二次情報は二次情報と書く。外の出典が無いのは 5 節の没入の既定 4 つで、2026-11-26 の改善提案（社内）から足した。
+出典は、調査ブリーフの検証役が 2026-11-05 に本文を開いて確かめたものである。帯の区分は道具の文書から借り、二次情報は二次情報と書く。外の出典が無いのは 5 節の没入の既定 4 つで、2026-11-26 の改善提案（社内）から足した。2 節の同じ動きと透明度だけのホバーは、2026-11-27 の改善提案（`tmp/flow/fibonacci-motion/proposal.md` の出典 9・10）から足した。出典 5 と 6 は、同じ日に本文を読んだ。
 
 | # | 出典 | 使った節 |
 |---|---|---|
@@ -81,3 +85,5 @@
 | 2 | Alan West「Why every AI-built website looks the same」（dev.to、二次情報） https://dev.to/alanwest/why-every-ai-built-website-looks-the-same-blame-tailwinds-indigo-500-3h2p | 1 |
 | 3 | prg.sh「Why Your AI Keeps Building the Same Purple Gradient Website」（二次情報） https://prg.sh/ramblings/Why-Your-AI-Keeps-Building-the-Same-Purple-Gradient-Website | 1 |
 | 4 | 仕様書 7.3（`docs/SPEC_20261106_company-skills.md`）の既定の 5 つ | 1 |
+| 5 | kenimo49「UI motion patterns that stop looking AI-generated」（DEV、個人の記事。参照日 2026-11-27） https://dev.to/kenimo49/framer-motion-view-transitions-api-4-ui-motion-patterns-that-stop-looking-ai-generated-25gg | 2 |
+| 6 | Impeccable「animate.md」（動きの手引き。参照日 2026-11-27） https://raw.githubusercontent.com/pbakaus/impeccable/main/skill/reference/animate.md | 2 |

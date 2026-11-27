@@ -11,6 +11,7 @@
 | 状態 | 完成例。サンプルを作り、motion-measure と immersive-test で測ったあとの版 |
 | 画面の型 | 没入の型。受付票から写した（デザイン計画書と同じ） |
 | 数値 | 予算と合格の線は案。サンプルの実測値は自己点検票 `self-check-dive-log.md` にある |
+| 数列 | 数列の前の版（2026-11-27 より前）。値は見本アプリと実測につながるので、次の PR で数列に直す |
 | 入力 | デザイン計画書 `design-plan-dive-log.md`、演出計画書 `motion-plan-dive-log.md`。どちらも `skills/designer/examples/` にある |
 | 置き場 | 本番の案件では tmp/flow/dive-log/frontend-plan.md。計測の設定 motion-measure.json も同じ置き場に置く |
 
